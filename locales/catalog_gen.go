@@ -195,6 +195,56 @@ func (msgs Messages) ShellStyleIsland() string {
 	return Catalog.Format(msgs.locale, "shellStyleIsland", nil)
 }
 
+// PanelAppearanceRow says "展开外观"
+// in the language the app shows.
+func PanelAppearanceRow() string { return In(i18n.Locale()).PanelAppearanceRow() }
+
+// PanelAppearanceRow says "展开外观"
+// in the language of msgs.
+func (msgs Messages) PanelAppearanceRow() string {
+	return Catalog.Format(msgs.locale, "panelAppearanceRow", nil)
+}
+
+// PanelAppearanceCaption says "灵动岛样式始终纯黑；减少透明度时毛玻璃也画成纯黑"
+// in the language the app shows.
+func PanelAppearanceCaption() string { return In(i18n.Locale()).PanelAppearanceCaption() }
+
+// PanelAppearanceCaption says "灵动岛样式始终纯黑；减少透明度时毛玻璃也画成纯黑"
+// in the language of msgs.
+func (msgs Messages) PanelAppearanceCaption() string {
+	return Catalog.Format(msgs.locale, "panelAppearanceCaption", nil)
+}
+
+// PanelAppearanceFollow says "跟随系统"
+// in the language the app shows.
+func PanelAppearanceFollow() string { return In(i18n.Locale()).PanelAppearanceFollow() }
+
+// PanelAppearanceFollow says "跟随系统"
+// in the language of msgs.
+func (msgs Messages) PanelAppearanceFollow() string {
+	return Catalog.Format(msgs.locale, "panelAppearanceFollow", nil)
+}
+
+// PanelAppearanceBlack says "纯黑"
+// in the language the app shows.
+func PanelAppearanceBlack() string { return In(i18n.Locale()).PanelAppearanceBlack() }
+
+// PanelAppearanceBlack says "纯黑"
+// in the language of msgs.
+func (msgs Messages) PanelAppearanceBlack() string {
+	return Catalog.Format(msgs.locale, "panelAppearanceBlack", nil)
+}
+
+// PanelAppearanceGlass says "毛玻璃"
+// in the language the app shows.
+func PanelAppearanceGlass() string { return In(i18n.Locale()).PanelAppearanceGlass() }
+
+// PanelAppearanceGlass says "毛玻璃"
+// in the language of msgs.
+func (msgs Messages) PanelAppearanceGlass() string {
+	return Catalog.Format(msgs.locale, "panelAppearanceGlass", nil)
+}
+
 // SettingsBrokenTitle says "settings.json 无法读取"
 // in the language the app shows.
 func SettingsBrokenTitle() string { return In(i18n.Locale()).SettingsBrokenTitle() }
@@ -3773,14 +3823,14 @@ func (msgs Messages) HomeEdit() string {
 	return Catalog.Format(msgs.locale, "homeEdit", nil)
 }
 
-// HomeAllPlaced says "全部已在主页"
+// ToolsAllPlaced says "全部已放好"
 // in the language the app shows.
-func HomeAllPlaced() string { return In(i18n.Locale()).HomeAllPlaced() }
+func ToolsAllPlaced() string { return In(i18n.Locale()).ToolsAllPlaced() }
 
-// HomeAllPlaced says "全部已在主页"
+// ToolsAllPlaced says "全部已放好"
 // in the language of msgs.
-func (msgs Messages) HomeAllPlaced() string {
-	return Catalog.Format(msgs.locale, "homeAllPlaced", nil)
+func (msgs Messages) ToolsAllPlaced() string {
+	return Catalog.Format(msgs.locale, "toolsAllPlaced", nil)
 }
 
 // HomeNoSpace says "主页没有空位，先移除一个小组件"
@@ -6077,11 +6127,11 @@ func (msgs Messages) SettingsShapeGroup() string {
 	return Catalog.Format(msgs.locale, "settingsShapeGroup", nil)
 }
 
-// SettingsNotchFoot says "展开后的外观跟随系统：深色时纯黑，浅色时深色毛玻璃。"
+// SettingsNotchFoot says "展开后的外观可选：跟随系统时深色纯黑、浅色毛玻璃。灵动岛样式始终纯黑。"
 // in the language the app shows.
 func SettingsNotchFoot() string { return In(i18n.Locale()).SettingsNotchFoot() }
 
-// SettingsNotchFoot says "展开后的外观跟随系统：深色时纯黑，浅色时深色毛玻璃。"
+// SettingsNotchFoot says "展开后的外观可选：跟随系统时深色纯黑、浅色毛玻璃。灵动岛样式始终纯黑。"
 // in the language of msgs.
 func (msgs Messages) SettingsNotchFoot() string {
 	return Catalog.Format(msgs.locale, "settingsNotchFoot", nil)

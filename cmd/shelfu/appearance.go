@@ -20,6 +20,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/mac"
+	"shelf/internal/settings"
 )
 
 const appearancePoll = 250 * time.Millisecond
@@ -51,12 +52,21 @@ func (a *shelf) refreshAppearance(now time.Time) {
 // instead of pure black. Only the open panel: the hover shapes, the drop
 // hint, the completion capsule and the live activities hang off the notch
 // and stay pure black, and a fold turns black on its first frame so the
-// shrinking shell never shows the desktop through the peek form.
+// shrinking shell never shows the desktop through the peek form. The
+// setting picks follow-the-system (black in Dark Mode, glass in Light
+// Mode), always black, or always glass; the island style and Reduce
+// Transparency are black whatever it says.
 func (a *shelf) glassNow() bool {
-	if a.win == nil || a.island || a.systemDark || a.reduceTrans {
+	if a.win == nil || a.island || a.reduceTrans || !a.visible {
 		return false
 	}
-	return a.visible
+	switch a.settings.PanelAppearance.Normalized() {
+	case settings.PanelAppearanceBlack:
+		return false
+	case settings.PanelAppearanceGlass:
+		return true
+	}
+	return !a.systemDark
 }
 
 // panelFill is the shell's own paint: solid black, or the light
@@ -79,6 +89,50 @@ func (a *shelf) panelFill(p *ui.Painter, path *ui.Path, shellH float32) {
 			{Color: glass, At: 1},
 		},
 	})
+}
+
+// panelAppearanceIndex maps a saved appearance to the segmented control's
+// segment: 0 follows the system, 1 is black, 2 is glass.
+func panelAppearanceIndex(p settings.PanelAppearance) int {
+	switch p.Normalized() {
+	case settings.PanelAppearanceBlack:
+		return 1
+	case settings.PanelAppearanceGlass:
+		return 2
+	}
+	return 0
+}
+
+// panelAppearanceAt maps the segmented control's segment to a saved
+// appearance.
+func panelAppearanceAt(idx int) settings.PanelAppearance {
+	switch idx {
+	case 1:
+		return settings.PanelAppearanceBlack
+	case 2:
+		return settings.PanelAppearanceGlass
+	}
+	return settings.PanelAppearanceFollow
+}
+
+// setPanelAppearance saves the expanded panel's look and repaints an open
+// panel at once: the fill reads the setting on the next build, and the
+// material view is placed, hidden or shown here rather than on the next
+// size change.
+func (a *shelf) setPanelAppearance(p settings.PanelAppearance) {
+	p = p.Normalized()
+	if p == a.settings.PanelAppearance.Normalized() {
+		return
+	}
+	next := a.settings
+	next.PanelAppearance = p
+	if !a.applySettings(next) {
+		return
+	}
+	a.syncMaterial()
+	if a.win != nil {
+		a.win.Invalidate()
+	}
 }
 
 // macSystemDark and macReduceTransparency are seams so headless tests never

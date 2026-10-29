@@ -117,6 +117,14 @@ func (a *shelf) settingsNotchPage(c *ui.Context) {
 					a.setShellStyle(next)
 				}
 			})
+			settingsSep(c, "panelappearance")
+			settingsRow(c, "panelappearance", l.PanelAppearanceRow(), l.PanelAppearanceCaption(), func() {
+				appearance := panelAppearanceIndex(a.settings.PanelAppearance)
+				if sg := settingsSegmented(c, "panelappearance", l.PanelAppearanceRow(), &appearance,
+					l.PanelAppearanceFollow(), l.PanelAppearanceBlack(), l.PanelAppearanceGlass()); sg.Changed() {
+					a.setPanelAppearance(panelAppearanceAt(appearance))
+				}
+			})
 			if a.island {
 				settingsSep(c, "islandpos")
 				settingsRow(c, "islandpos", l.SettingsIslandPosRow(), l.SettingsIslandPosCaption(), func() {

@@ -142,9 +142,18 @@ func TestToolsPagePicker(t *testing.T) {
 		t.Fatal("picker is missing catalog entries")
 	}
 	// Placed cards are not listed: the catalogue only offers what is left.
-	for _, placed := range []string{"音乐", "保持唤醒", "最近文件", "剪贴板最新", "框选文字"} {
+	// A fresh install's grid is 音乐, 保持唤醒, 压缩到 1 MB (AI 用量 is off
+	// here), 框选文字 and 打成 zip.
+	for _, placed := range []string{"音乐", "保持唤醒", "压缩到 1 MB", "框选文字", "打成 zip"} {
 		if view.HasText(placed) {
 			t.Fatalf("the catalogue still lists the placed card %q", placed)
+		}
+	}
+	// Everything else is catalogue-only now, including the widgets the old
+	// default carried.
+	for _, added := range []string{"最近文件", "剪贴板最新", "隔空投送"} {
+		if !view.HasText(added) {
+			t.Fatalf("the catalogue lost the unplaced card %q", added)
 		}
 	}
 }
@@ -160,7 +169,7 @@ func TestToolsLayoutPersistence(t *testing.T) {
 	defer s.Close()
 	a := &shelf{store: s, dataDir: dir}
 	a.mutateTools(func(l *layout.Layout) {
-		l.RemoveCard("resize")
+		l.RemoveCard("awake")
 		l.MoveCard("zip", 0)
 	})
 	got := a.toolsLayout()
@@ -177,7 +186,7 @@ func TestToolsLayoutPersistence(t *testing.T) {
 		t.Fatal("layout.json did not persist the order")
 	}
 	for _, card := range got.Cards {
-		if card.ID == "resize" {
+		if card.ID == "awake" {
 			t.Fatal("removed card came back")
 		}
 	}
@@ -603,6 +612,13 @@ func TestToolsGridDrawsNoEdgeBlur(t *testing.T) {
 	a.np = &nowPlayingModule{host: a, have: true, last: mac.NowPlayingState{
 		Title: "夜曲", Artist: "周杰伦", Duration: 200, Elapsed: 20, Rate: 1, Received: time.Now(),
 	}}
+	// A fresh install fits the viewport; this test needs a grid that
+	// scrolls, so it adds the catalogue's cards to the default five.
+	a.mutateTools(func(l *layout.Layout) {
+		for _, def := range toolCatalog() {
+			l.AddCardSize(def.id, def.span, max(1, def.rows))
+		}
+	})
 	view := ui.NewTester(a.view, sheetW, sheetH)
 	view.Frame()
 	view.Frame()

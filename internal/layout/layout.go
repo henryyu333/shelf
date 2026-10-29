@@ -133,43 +133,40 @@ func defaultWidget(id string) (Widget, bool) {
 	return Widget{}, false
 }
 
-// defaultCards is the tool page's action cards, in the design's order.
+// defaultCards is the tool page's action cards in a fresh install's
+// layout: the two that fill the right half of the second row, in the
+// design's order. The rest live in the catalogue.
 func defaultCards() []Card {
 	return []Card{
 		{ID: "ocr", Span: 1},
-		{ID: "fit1m", Span: 1},
-		{ID: "topdf", Span: 1},
 		{ID: "zip", Span: 1},
-		{ID: "tojpeg", Span: 1},
-		{ID: "toword", Span: 1},
-		{ID: "extract", Span: 1},
-		{ID: "resize", Span: 1},
 	}
 }
 
-// Default returns the arrangement a missing or broken file starts from:
-// the actions on the tool page and the play widget beside the awake,
-// usage and recent widgets on the home canvas.
+// Default returns the arrangement a missing or broken file starts from.
 func Default() Layout {
 	return DefaultWith(true)
 }
 
-// DefaultWith is Default for a build whose AI usage widget is available
-// or not. The grid holds the widgets first (the music player's 2 × 2
-// rectangle, then 1 × 1 cards) and the action cards after them; a widget
-// whose feature is off takes no space at run time but keeps its entry.
+// DefaultWith is Default for a build whose AI usage widget is available or
+// not. A fresh install's grid is exactly two rows: the music player's
+// 2 × 2 rectangle on the left, 保持唤醒 over the AI usage widget on the
+// right, and 框选文字 / 打成 zip under them. With AI usage off, 压缩到
+// 1 MB takes that cell instead of an entry that would take no space. Every
+// other widget and action card stays in the catalogue for the user to add.
 func DefaultWith(aiUsage bool) Layout {
+	usage := Card{ID: "usage", Span: 1, Rows: 1}
+	if !aiUsage {
+		usage = Card{ID: "fit1m", Span: 1, Rows: 1}
+	}
 	l := Layout{
 		Version: Version,
 		Cards: []Card{
 			{ID: "playing", Span: 2, Rows: 2},
 			{ID: "awake", Span: 1, Rows: 1},
-			{ID: "usage", Span: 1, Rows: 1},
-			{ID: "recent", Span: 2, Rows: 1},
-			{ID: "clip", Span: 2, Rows: 1},
+			usage,
 		},
 	}
-	_ = aiUsage
 	l.Cards = append(l.Cards, defaultCards()...)
 	return l
 }

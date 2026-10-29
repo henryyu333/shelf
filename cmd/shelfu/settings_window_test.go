@@ -185,7 +185,7 @@ func TestSettingsViewShowsSections(t *testing.T) {
 		texts []string
 	}{
 		{"通用", []string{"开机时自动启动", "自动检查更新", "检查更新", "现在检查"}},
-		{"外形与提示", []string{"刘海样式", "刘海显示正在播放", "充电提示", "耳机连接提示", "下载进度", "拖窗口到刘海分屏"}},
+		{"外形与提示", []string{"刘海样式", "展开外观", "刘海显示正在播放", "充电提示", "耳机连接提示", "下载进度", "拖窗口到刘海分屏"}},
 		{"托盘", []string{"自动清理旧内容", "拖出后从托盘移除"}},
 		{"剪贴板", []string{"保留条数", "排除的应用"}},
 		{"AI 用量", []string{"在刘海里显示 AI 用量", "额度显示", "数据来源", "套餐额度", "本机用量"}},
@@ -241,6 +241,36 @@ func TestSettingsViewAutoCheckToggle(t *testing.T) {
 	clickVisible(t, view, "自动检查更新")
 	if !a.settings.AutoCheckUpdates || a.updateNext.IsZero() {
 		t.Fatal("re-enabling did not schedule a check")
+	}
+}
+
+// The expanded panel's appearance: three segments, saved and applied at
+// once, follow-the-system on a fresh install.
+func TestSettingsViewPanelAppearance(t *testing.T) {
+	stubSettingsSeams(t, false, nil, nil)
+	a, view := newSettingsShelf(t)
+	if a.settings.PanelAppearance != settings.PanelAppearanceFollow {
+		t.Fatalf("default appearance = %q, want follow", a.settings.PanelAppearance)
+	}
+	openSettingsPage(t, view, "外形与提示")
+	clickVisible(t, view, "毛玻璃")
+	if a.settings.PanelAppearance != settings.PanelAppearanceGlass {
+		t.Fatalf("glass not applied: %q", a.settings.PanelAppearance)
+	}
+	saved, err := settings.Load(a.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.PanelAppearance != settings.PanelAppearanceGlass {
+		t.Fatalf("glass not saved: %+v", saved)
+	}
+	clickVisible(t, view, "纯黑")
+	if a.settings.PanelAppearance != settings.PanelAppearanceBlack {
+		t.Fatalf("black not applied: %q", a.settings.PanelAppearance)
+	}
+	clickVisible(t, view, "跟随系统")
+	if a.settings.PanelAppearance != settings.PanelAppearanceFollow {
+		t.Fatalf("follow not applied: %q", a.settings.PanelAppearance)
 	}
 }
 

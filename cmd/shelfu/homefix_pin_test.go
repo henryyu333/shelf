@@ -53,7 +53,12 @@ func dropPin(t *testing.T, id string, size ...int) (*shelf, *pinItem) {
 	a.frame = mygo.Rectangle{X: a.x, Y: a.y, Width: sheetW, Height: sheetH}
 	a.setTab(pageTools)
 	if len(size) == 2 {
-		a.mutateTools(func(l *layout.Layout) { l.SetCardSize(id, size[0], size[1]) })
+		// The card may be catalogue-only in a fresh layout (the default
+		// grid keeps five cards): add it at the size under test.
+		a.mutateTools(func(l *layout.Layout) {
+			l.AddCardSize(id, size[0], size[1])
+			l.SetCardSize(id, size[0], size[1])
+		})
 	}
 	p := a.toolsPage()
 	p.editing = true

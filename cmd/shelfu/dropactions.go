@@ -322,6 +322,9 @@ func (a *shelf) dropZoneSnap(over bool) []string {
 	d := &a.drop
 	d.on = false
 	if a.ownDrag {
+		// ShelfU's own drag-out writes the pasteboard too. It is not an
+		// incoming drag, and a set an earlier drop left must not linger.
+		*d = dropZoneState{serial: d.serial}
 		return nil
 	}
 	if raw := os.Getenv("SHELF_DEBUG_DROP_FILES"); raw != "" {
@@ -368,6 +371,10 @@ func (a *shelf) dropZoneSnap(over bool) []string {
 			inside = insideRect(p, a.panelDropRect())
 		}
 		if !inside {
+			// The drag left the panel: no cells are under it, so the held
+			// set must not keep painting the tools page. Re-entering reads
+			// the board again below.
+			d.files, d.class, d.loaded = nil, 0, false
 			return nil
 		}
 		// Once the zone has files its picture is the snapshot the user aims
@@ -394,7 +401,14 @@ func (a *shelf) dropZoneSnap(over bool) []string {
 	// release already answered but not yet rendered still finds its cell.
 	// The serial check is dropped: a new drag starting inside grace must
 	// not discard a drop the old session already accepted.
-	if d.done || len(d.files) == 0 {
+	if d.done {
+		// The drop was consumed: nothing is left to deliver, so the set
+		// does not outlive its own drop (a held set would keep the tools
+		// page looking like a drag the user already finished).
+		*d = dropZoneState{serial: d.serial}
+		return nil
+	}
+	if len(d.files) == 0 {
 		return nil
 	}
 	if d.until.IsZero() {

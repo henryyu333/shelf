@@ -54,10 +54,9 @@ func TestDefault(t *testing.T) {
 	if l.Version != 2 || Version != 2 {
 		t.Fatalf("version = %d, want 2", l.Version)
 	}
-	// The widgets come first (the music player is 2 × 2), the action cards
-	// after them.
-	wantCards := []string{"playing", "awake", "usage", "recent", "clip",
-		"ocr", "fit1m", "topdf", "zip", "tojpeg", "toword", "extract", "resize"}
+	// Exactly two rows: the 2 × 2 player, 保持唤醒 and AI 用量 beside it,
+	// 框选文字 and 打成 zip under them. Everything else is catalogue-only.
+	wantCards := []string{"playing", "awake", "usage", "ocr", "zip"}
 	if !slices.Equal(cardIDs(l), wantCards) {
 		t.Fatalf("cards = %v, want %v", cardIDs(l), wantCards)
 	}
@@ -66,10 +65,6 @@ func TestDefault(t *testing.T) {
 		case "playing":
 			if c.Cols() != 2 || c.Height() != 2 {
 				t.Fatalf("playing = %dx%d, want 2x2", c.Cols(), c.Height())
-			}
-		case "recent", "clip":
-			if c.Cols() != 2 || c.Height() != 1 {
-				t.Fatalf("%s = %dx%d, want 2x1", c.ID, c.Cols(), c.Height())
 			}
 		default:
 			if c.Cols() != 1 || c.Height() != 1 {
@@ -90,14 +85,15 @@ func TestDefaultWith(t *testing.T) {
 	if !slices.Equal(cardIDs(withAI), cardIDs(Default())) {
 		t.Fatalf("DefaultWith(true) differs from Default: %v", cardIDs(withAI))
 	}
+	// With AI 用量 off its cell would take no space, so 压缩到 1 MB takes
+	// that cell in the fresh layout instead of leaving a hole.
 	noAI := DefaultWith(false)
 	if noAI.Version != Version {
 		t.Fatalf("version = %d", noAI.Version)
 	}
-	// The usage widget keeps its entry whatever the setting: it takes no
-	// cell while the feature is off, and returns with it.
-	if !slices.Equal(cardIDs(noAI), cardIDs(Default())) {
-		t.Fatalf("cards = %v", cardIDs(noAI))
+	want := []string{"playing", "awake", "fit1m", "ocr", "zip"}
+	if !slices.Equal(cardIDs(noAI), want) {
+		t.Fatalf("cards = %v, want %v", cardIDs(noAI), want)
 	}
 }
 
@@ -412,8 +408,8 @@ func TestCardLookups(t *testing.T) {
 	if i := l.index("playing"); i != 0 {
 		t.Fatalf("index(playing) = %d, want 0", i)
 	}
-	if i := l.index("clip"); i != 4 {
-		t.Fatalf("index(clip) = %d, want 4", i)
+	if i := l.index("zip"); i != 4 {
+		t.Fatalf("index(zip) = %d, want 4", i)
 	}
 	if l.index("missing") != -1 {
 		t.Fatal("index found a card that is not there")

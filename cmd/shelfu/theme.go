@@ -139,7 +139,10 @@ func fadeOr(c *ui.Context, a ui.Animation) ui.Animation {
 
 // Symbols the overview and the pages share.
 var (
-	overviewNavSymbol = symbol(`<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/>`)
+	// overviewNavSymbol is the overview's house — the glyph v1.11.0's first
+	// page used. It must read differently from the tools page's four-square
+	// grid at a glance: two adjacent page icons may not be the same shape.
+	overviewNavSymbol = symbol(`<path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/>`)
 	checkSymbol       = symbol(`<path d="M5 12.5l4.5 4.5L19 7.5"/>`)
 	warnSymbol        = symbol(`<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.5v.1"/>`)
 	downloadSymbol    = symbol(`<path d="M12 4v10m-4-4 4 4 4-4M5 19h14"/>`)

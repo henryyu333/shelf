@@ -198,16 +198,19 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 		// still shows where the card would be.
 		return card.Background(fill1)
 	}
-	// Dragged files hover: cards that take this class are drop targets
-	// with the accent treatment; the rest dim to 38% (design §1) and
-	// stay out of the drop's way, so a release falls through to the
-	// panel's plain 放入托盘 receive.
-	dragging := surf != cardDesktop && len(a.drop.files) > 0
-	class := classMixed
-	if dragging {
-		class = a.drop.class
+	// Dragged files hover: action cards that take this class are drop
+	// targets with the accent treatment; the rest dim to 38% (design §1)
+	// and stay out of the drop's way, so a release falls through to the
+	// panel's plain 放入托盘 receive. Only a live drag dims: the snapshot
+	// outlives the release by dropHoldGrace so the drop still finds its
+	// cells, and a held set must not keep painting the page. Widgets never
+	// dim — they take no files and stay as they are.
+	class, n, live := a.toolCardDrag()
+	hovering := surf != cardDesktop && n > 0
+	if !hovering {
+		class = classMixed
 	}
-	accepts := dragging && def.accepts(class)
+	accepts := hovering && def.accepts(class)
 	var hot bool
 	if surf != cardEdit && accepts {
 		_, hot = ui.DataDragOver(card, dropCellOpts)
@@ -228,14 +231,14 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 	} else if hot {
 		card.Scale(1.03, 1.03).TransformOrigin(0.5, 0.5)
 	}
-	if dragging && !accepts {
+	if live && toolCardDimmed(def, class) {
 		card.Disabled(true).Opacity(0.38)
 	}
 	if surf == cardEdit {
 		a.toolCardEditBody(c, card, def, spec)
 	} else {
 		sub := ""
-		if dragging {
+		if live && def.kind == cardAction {
 			sub = a.toolCardSub(loc(c), def, class)
 		}
 		a.toolCardBody(c, card, def, sub, spec, surf)
@@ -308,8 +311,28 @@ func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, s
 	}
 }
 
+// toolCardDimmed reports whether a card fades to 38% during a live drag:
+// only an action card whose class the dragged files do not fit. Widgets
+// never dim — they take no files and stay as they are (design §1: only
+// the action cards answer a file drag).
+func toolCardDimmed(def *toolCardDef, class dropClass) bool {
+	return def.kind == cardAction && !def.accepts(class)
+}
+
+// toolCardDrag answers the tools page's live drag picture: the class of
+// the files a drag holds over the panel, their count, and whether that
+// drag is in flight right now. live reads a.dragging — the 30 ms monitor's
+// own flag — not the snapshot alone: the snapshot outlives the release by
+// dropHoldGrace so the drop still finds its cells, and a held set must not
+// keep painting the page. A drag of ShelfU's own items never paints it.
+func (a *shelf) toolCardDrag() (dropClass, int, bool) {
+	n := len(a.drop.files)
+	return a.drop.class, n, a.dragging && !a.ownDrag && n > 0
+}
+
 // toolCardSub is the action card's subtitle: the dragged file count
-// while files the card accepts hover, or empty otherwise.
+// while files the card accepts hover, or empty otherwise. The caller asks
+// only during a live drag.
 func (a *shelf) toolCardSub(l locales.Messages, def *toolCardDef, class dropClass) string {
 	if len(a.drop.files) > 0 && def.accepts(class) {
 		return dropCountTextIn(l, len(a.drop.files), class)

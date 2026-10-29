@@ -37,6 +37,9 @@ type Settings struct {
 	// ShellStyle is the closed shelf's outer shape on a screen with a
 	// camera housing. Screens without one always draw the island.
 	ShellStyle ShellStyle `json:"shellStyle"`
+	// PanelAppearance is the expanded panel's paint: follow the system,
+	// pure black, or glass.
+	PanelAppearance PanelAppearance `json:"panelAppearance"`
 	// SnapWindows lets a window dragged by its title bar to the notch pick
 	// one of six arrangements.
 	SnapWindows bool `json:"snapWindows"`
@@ -117,6 +120,28 @@ func (s ShellStyle) Normalized() ShellStyle {
 	return ShellStyleNotch
 }
 
+// PanelAppearance picks how the expanded panel is painted: follow the
+// system (black in Dark Mode, dark glass in Light Mode), always black, or
+// always glass. The island style is black whatever this says, and Reduce
+// Transparency turns glass black too.
+type PanelAppearance string
+
+const (
+	PanelAppearanceFollow PanelAppearance = "follow"
+	PanelAppearanceBlack  PanelAppearance = "black"
+	PanelAppearanceGlass  PanelAppearance = "glass"
+)
+
+// Normalized maps an unknown or empty value (an older settings.json, a
+// hand edit) to the default, follow the system.
+func (p PanelAppearance) Normalized() PanelAppearance {
+	switch p {
+	case PanelAppearanceBlack, PanelAppearanceGlass:
+		return p
+	}
+	return PanelAppearanceFollow
+}
+
 // AIUsageSettings is the aiUsage object in settings.json. Enabled turns
 // the AI 用量 page on; the rest pick which data the page reads: the Codex
 // and Claude Code subscription quotas, and the local token usage of omp,
@@ -146,6 +171,7 @@ func Default() Settings {
 		RemoveAfterDrag:  false,
 		SnapWindows:      true,
 		ShellStyle:       ShellStyleNotch,
+		PanelAppearance:  PanelAppearanceFollow,
 		LiveActivities: LiveActivitySettings{
 			Charging:   true,
 			Headphones: true,
@@ -202,6 +228,7 @@ func Load(dir string) (Settings, error) {
 		s.ClipboardLimit = defaultClipboardLimit
 	}
 	s.ShellStyle = s.ShellStyle.Normalized()
+	s.PanelAppearance = s.PanelAppearance.Normalized()
 	return s, nil
 }
 

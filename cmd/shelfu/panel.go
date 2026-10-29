@@ -576,6 +576,10 @@ func (a *shelf) view(c *ui.Context) {
 		}
 	} else {
 		a.drop.on = false
+		// The panel draws no cells while it is closed, so nothing holds
+		// the drag's picture: a set left here would dim the tools page the
+		// next time it opens.
+		a.drop = dropZoneState{serial: a.drop.serial}
 	}
 	// The two levels: levelK springs between the island (0) and the sheet
 	// (1). A fresh opening at the sheet is a jump — the open spring alone

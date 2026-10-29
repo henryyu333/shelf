@@ -143,7 +143,7 @@ func TestAIUsageLoad(t *testing.T) {
 func TestSaveRoundTrips(t *testing.T) {
 	dir := t.TempDir()
 	want := Settings{RetentionDays: 7, ClipboardLimit: 12, ExcludedApps: []string{"com.example.one", "com.example.two"},
-		ShellStyle: ShellStyleIsland}
+		ShellStyle: ShellStyleIsland, PanelAppearance: PanelAppearanceGlass}
 	if err := Save(dir, want); err != nil {
 		t.Fatal(err)
 	}

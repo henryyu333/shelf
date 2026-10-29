@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/layout"
+	"shelf/internal/settings"
 	"shelf/internal/store"
 	"shelf/locales"
 )
@@ -417,5 +419,127 @@ func TestPinnedMusicCardShowsTheFullPlayer(t *testing.T) {
 	// The pin's rail is 38pt wide: a point is five seconds of the track.
 	if secs := seekTarget(t, s.cmds); secs < 190 || secs > 210 {
 		t.Fatalf("the pinned card's seek rail went to %.2fs, want about 200s", secs)
+	}
+}
+
+// TestToolCardDimOnlyActionCards: a file drag dims the action cards whose
+// class it does not fit, and nothing else. The widget cards keep their
+// brightness and their subtitles whatever the drag holds.
+func TestToolCardDimOnlyActionCards(t *testing.T) {
+	classes := []dropClass{classImages, classPDFs, classArchives, classMixed}
+	catalog := toolCatalog()
+	for i := range catalog {
+		def := &catalog[i]
+		if def.kind != cardWidget {
+			continue
+		}
+		for _, class := range classes {
+			if toolCardDimmed(def, class) {
+				t.Fatalf("widget %s dims on %v", def.id, class)
+			}
+		}
+	}
+	pdf := toolCardDefFor("topdf")
+	if !toolCardDimmed(pdf, classPDFs) {
+		t.Fatal("转成 PDF stays bright for a PDF drag it cannot take")
+	}
+	if toolCardDimmed(pdf, classImages) {
+		t.Fatal("转成 PDF dims for the images it takes")
+	}
+	if toolCardDimmed(toolCardDefFor("zip"), classPDFs) {
+		t.Fatal("打成 zip dims for a PDF it takes")
+	}
+}
+
+// TestToolCardDragOnlyWhileDragging: the tools page's drag picture reads
+// the live drag flag, not the snapshot alone. The snapshot outlives the
+// mouse-up by dropHoldGrace so the drop still finds its cells; that held
+// set must not paint the page.
+func TestToolCardDragOnlyWhileDragging(t *testing.T) {
+	a := &shelf{settings: settings.Default()}
+	a.drop.files = []string{"/tmp/a.pdf"}
+	a.drop.class = classPDFs
+	a.drop.loaded = true
+	a.dragging = true
+	if class, n, live := a.toolCardDrag(); !live || n != 1 || class != classPDFs {
+		t.Fatalf("live drag = %v, %d, %v; want the PDF set", class, n, live)
+	}
+	a.dragging = false
+	if _, _, live := a.toolCardDrag(); live {
+		t.Fatal("a finished drag still paints the tools page")
+	}
+	a.dragging, a.ownDrag = true, true
+	if _, _, live := a.toolCardDrag(); live {
+		t.Fatal("ShelfU's own drag-out paints the tools page as an incoming drag")
+	}
+}
+
+// TestDropSnapshotEndsWithItsDrop: once a drop is consumed the tools page
+// goes back to its normal brightness on the next frame — the v1.11 bug
+// left the released set (and its “N 个 PDF” subtitles) until the next drag
+// or a restart.
+func TestDropSnapshotEndsWithItsDrop(t *testing.T) {
+	a := &shelf{settings: settings.Default()}
+	a.dragSerial = 7
+	a.drop = dropZoneState{
+		serial: 7, count: 3, loaded: true,
+		files: []string{"/tmp/a.pdf", "/tmp/b.pdf"}, class: classPDFs,
+		done: true, // the card or the tray cell answered the release
+	}
+	a.dragging = false
+	if got := a.dropZoneSnap(false); got != nil {
+		t.Fatalf("a consumed drop still draws cells: %v", got)
+	}
+	if len(a.drop.files) != 0 || a.drop.class != 0 || a.drop.loaded || a.drop.on {
+		t.Fatalf("the released set outlived its drop: %+v", a.drop)
+	}
+	if _, n, live := a.toolCardDrag(); live || n != 0 {
+		t.Fatalf("the tools page still reads a drag: %d files, live %v", n, live)
+	}
+}
+
+// TestDropSnapshotClearsWhenPanelCloses: a set left when the panel closes
+// does not survive into the next open.
+func TestDropSnapshotClearsWhenPanelCloses(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	a := &shelf{store: st, dataDir: t.TempDir(), settings: settings.Default()}
+	a.drop.files = []string{"/tmp/a.pdf"}
+	a.drop.class = classPDFs
+	a.drop.loaded = true
+	_ = ui.NewTester(a.view, sheetW, sheetH)
+	if len(a.drop.files) != 0 {
+		t.Fatalf("a closed panel kept %v", a.drop.files)
+	}
+}
+
+// TestPageIconsDiffer: the overview and the tools page sit next to each
+// other in the top bar, so their glyphs must read differently — the same
+// four-square grid for both (v1.12.0) was the bug the user reported.
+func TestPageIconsDiffer(t *testing.T) {
+	render := func(icon *ui.SVG) []byte {
+		return ui.NewTester(func(c *ui.Context) {
+			ui.Column(c.Key("icon-col")).FillWidth().FillHeight().Center().Children(func() {
+				ui.Icon(c, icon).Size(20, 20).TextColor(ink)
+			})
+		}, 20, 20).Image().Pix
+	}
+	overview, tools := render(overviewNavSymbol), render(toolsNavSymbol)
+	inked := func(pix []byte) bool {
+		for i := 3; i < len(pix); i += 4 {
+			if pix[i] != 0 {
+				return true
+			}
+		}
+		return false
+	}
+	if !inked(overview) || !inked(tools) {
+		t.Fatal("an icon drew nothing: the comparison would be empty")
+	}
+	if bytes.Equal(overview, tools) {
+		t.Fatal("the overview and tools icons draw the same glyph")
 	}
 }

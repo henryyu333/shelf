@@ -105,3 +105,45 @@ func TestToolInsertIndexSpans(t *testing.T) {
 		t.Fatalf("span insert = %d", got)
 	}
 }
+
+// TestDefaultLayoutFitsTwoRows: a fresh install's grid is exactly the
+// page's two rows (4 × 2 = 174pt) with no scrolling, for either AI usage
+// setting, and the right half holds 保持唤醒 over 框选文字 / 打成 zip.
+func TestDefaultLayoutFitsTwoRows(t *testing.T) {
+	viewport := float32(2*toolCellH + toolCellGap)
+	for _, aiUsage := range []bool{true, false} {
+		cells := packToolCards(layout.DefaultWith(aiUsage).Cards, nil, false)
+		if len(cells) != 5 {
+			t.Fatalf("aiUsage %v: cells = %d, want 5", aiUsage, len(cells))
+		}
+		var bottom float32
+		for _, cell := range cells {
+			bottom = max(bottom, cell.y+cell.h)
+		}
+		if bottom != viewport {
+			t.Fatalf("aiUsage %v: grid bottom = %v, want the %v viewport", aiUsage, bottom, viewport)
+		}
+		fifth := map[string]toolCell{}
+		for _, cell := range cells {
+			fifth[cell.id] = cell
+		}
+		corner, hasUsage, hasFit := fifth["usage"], fifth["usage"].id == "usage", fifth["fit1m"].id == "fit1m"
+		if aiUsage && !hasUsage {
+			t.Fatalf("aiUsage on: usage missing from the fresh grid: %+v", cells)
+		}
+		if !aiUsage {
+			if hasUsage || !hasFit {
+				t.Fatalf("aiUsage off: want fit1m in usage's cell, got %+v", cells)
+			}
+			corner = fifth["fit1m"]
+		}
+		if corner.y != 0 || corner.x < 2*(toolColW(1)+toolCellGap) {
+			t.Fatalf("aiUsage %v: corner card at %+v, want the right half of row 0", aiUsage, corner)
+		}
+		for _, id := range []string{"ocr", "zip"} {
+			if c := fifth[id]; c.y != toolCellH+toolCellGap || c.x < 2*(toolColW(1)+toolCellGap) {
+				t.Fatalf("aiUsage %v: %s at %+v, want the right half of row 1", aiUsage, id, c)
+			}
+		}
+	}
+}

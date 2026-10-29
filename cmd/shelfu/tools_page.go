@@ -240,6 +240,12 @@ func (a *shelf) toolDoneButton(c *ui.Context, live bool, key string) ui.Element 
 func (p *toolsPage) pickerGroups() (groups [][]toolCardDef) {
 	var actions, widgets []toolCardDef
 	for _, def := range toolCatalog() {
+		// The catalogue shows the rectangle a pick adds, so a def that
+		// leaves rows at zero (the action cards' one cell) reads 1 × 1
+		// rather than “N × 0”.
+		if def.rows < 1 {
+			def.rows = 1
+		}
 		if !def.available(p.host) || p.placed(def.id) {
 			continue
 		}
@@ -755,7 +761,7 @@ func (p *toolsPage) pickerBody(c *ui.Context, live bool) ui.Element {
 			card.Children(func() {
 				panelLabel(c, nil, loc(c).ToolsCardCatalog(), typeSub, 600).TextColor(ink3)
 				if len(groups) == 0 {
-					panelLabel(c, nil, loc(c).HomeAllPlaced(), typeCallout, 0).TextColor(ink3)
+					panelLabel(c, nil, loc(c).ToolsAllPlaced(), typeCallout, 0).TextColor(ink3)
 					return
 				}
 				for i, group := range groups {
