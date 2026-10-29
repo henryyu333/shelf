@@ -65,7 +65,7 @@ func (m *nowPlayingModule) showsPlayer() bool {
 // the left wing, the equalizer in the right, both centered in the band the
 // hardware notch occupies. The middle stays empty — the camera housing
 // hides it. There are no controls: a press anywhere on the shell opens the
-// shelf, and the sheet's left-ear chip keeps the transport. The
+// overview, and the sheet's left-ear chip keeps the transport. The
 // caller clips the layout to the growing shell and passes the peek
 // progress as k, so nothing squeezes while the notch opens. It reports
 // whether it drew anything.
@@ -87,7 +87,9 @@ func (m *nowPlayingModule) peekWings(c *ui.Context, w, h, k float32) bool {
 		m.eqBars(c, st.Playing)
 	})
 	if wings.Clicked() {
-		m.host.openPlaying()
+		// Expanding the notch is always the overview, music or not: the
+		// player is one tap further in, on the overview's track row.
+		m.host.openOverview()
 	}
 	return true
 }

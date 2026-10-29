@@ -4,11 +4,18 @@ package main
 
 import (
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/layout"
 	"shelf/internal/store"
+	"shelf/locales"
 )
 
 // TestToolCatalogShapes checks the catalog invariants the picker and the
@@ -214,5 +221,201 @@ func TestOCRCardDropCopiesText(t *testing.T) {
 	}
 	if a.tab != pageTools {
 		t.Fatalf("an OCR copy must not jump to the tray page: %v", a.tab)
+	}
+}
+
+// musicCardShelf is the tools page with a real track and the volume seam:
+// the 2 × 2 music card's rows are laid out for real.
+func musicCardShelf(t *testing.T) (*shelf, *ui.Tester, *fakeVolume, *stubNowPlaying) {
+	t.Helper()
+	s := newStubNowPlaying(t, true)
+	s.feed(t, `{"ok":true,"isPlaying":true,"appState":1,"title":"夜曲","artist":"周杰伦","duration":200,"elapsed":20}`)
+	a := &shelf{
+		store: mustStore(t), dataDir: t.TempDir(), tab: pageTools, visible: true, level: 2,
+		thumbnails: map[string]*ui.Bitmap{}, thumbPending: map[string]bool{}, appNames: map[string]string{},
+	}
+	vol := &fakeVolume{v: 0.4, ok: true}
+	a.vol = vol
+	s.mod.host = a
+	a.np = s.mod
+	view := ui.NewTester(a.view, sheetW, sheetH)
+	view.Frame()
+	view.Frame()
+	return a, view, vol, s
+}
+
+// dragRail presses a rail at from, drags to to and releases there.
+func dragRail(t *testing.T, view *ui.Tester, label string, from, to float32) {
+	t.Helper()
+	r, ok := view.Find(label)
+	if !ok {
+		t.Fatalf("no %q rail on screen; texts %v", label, view.Texts())
+	}
+	cy := r.Y + r.H/2
+	view.Press(r.X+r.W*from, cy)
+	view.Move(r.X+r.W*(from+to)/2, cy)
+	view.Move(r.X+r.W*to, cy)
+	view.Release(r.X+r.W*to, cy)
+}
+
+// seekTarget parses the "seek <seconds>" the stub helper received.
+func seekTarget(t *testing.T, cmds <-chan string) float64 {
+	t.Helper()
+	select {
+	case cmd := <-cmds:
+		num, ok := strings.CutPrefix(cmd, "seek ")
+		if !ok {
+			t.Fatalf("the rail sent %q, want a seek", cmd)
+		}
+		secs, err := strconv.ParseFloat(num, 64)
+		if err != nil {
+			t.Fatalf("seek %q: %v", num, err)
+		}
+		return secs
+	case <-time.After(2 * time.Second):
+		t.Fatal("the rail sent nothing: its release did not seek")
+	}
+	return 0
+}
+
+// TestToolsMusicCardIsTheFullPlayer: the 2 × 2 music card is the player the
+// design's 音乐 2 × 2 小组件 is — the two clocks and the seekable rail, the
+// transport and the volume rail — and those rails take the pointer, so a
+// drag on them neither reorders the card nor pins it.
+func TestToolsMusicCardIsTheFullPlayer(t *testing.T) {
+	a, view, vol, s := musicCardShelf(t)
+	for _, label := range []string{"播放进度", "音量", "上一首", "暂停", "下一首"} {
+		if _, ok := view.Find(label); !ok {
+			t.Fatalf("the 2×2 card lacks %q; texts %v", label, view.Texts())
+		}
+	}
+	card, ok := view.Find("playing") // the card's own accessibility label
+	if !ok {
+		t.Fatal("the music card is not on screen")
+	}
+	if want := toolColW(2); card.W != want {
+		t.Fatalf("the music card is %.1fpt wide, want the 2 × 2 grid's %.1f", card.W, want)
+	}
+	if want := toolRowH(2); card.H != want {
+		t.Fatalf("the music card is %.1fpt tall, want the 2 × 2 grid's %.1f", card.H, want)
+	}
+	// Every row the player draws stays inside the card.
+	for _, label := range []string{"播放进度", "音量", "上一首", "下一首"} {
+		r, _ := view.Find(label)
+		if r.X < card.X-0.5 || r.X+r.W > card.X+card.W+0.5 || r.Y < card.Y-0.5 || r.Y+r.H > card.Y+card.H+0.5 {
+			t.Fatalf("%q at %+v leaves the card %+v", label, r, card)
+		}
+	}
+
+	// A seek drag: the release sends one seek, the drag never becomes a
+	// card press (no reorder, no drag out).
+	dragRail(t, view, "播放进度", 0.25, 0.5)
+	if secs := seekTarget(t, s.cmds); secs < 98 || secs > 102 {
+		t.Fatalf("the rail seeked to %.2fs, want about 100s (half of 200)", secs)
+	}
+	if p := a.toolsPage(); p.press != nil {
+		t.Fatalf("a drag on the seek rail started a card press: %+v", p.press)
+	}
+	if len(a.pins) != 0 {
+		t.Fatalf("a drag on the seek rail pinned the card: %d pins", len(a.pins))
+	}
+	// A volume drag writes the system volume once, on release.
+	view.Frame()
+	dragRail(t, view, "音量", 0.25, 0.75)
+	if len(vol.sets) != 1 {
+		t.Fatalf("the volume rail wrote %v, want exactly one write", vol.sets)
+	}
+	if got := vol.sets[0]; got < 0.7 || got > 0.8 {
+		t.Fatalf("the volume rail wrote %.2f, want about 0.75", got)
+	}
+	if p := a.toolsPage(); p.press != nil {
+		t.Fatalf("a drag on the volume rail started a card press: %+v", p.press)
+	}
+	// The transport still works from the card.
+	view.Frame()
+	if err := view.Click("暂停"); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case cmd := <-s.cmds:
+		if cmd != "toggle" {
+			t.Fatalf("the card's toggle sent %q, want toggle", cmd)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the card's toggle sent nothing")
+	}
+}
+
+// TestToolsMusicCardEditingKeepsThePlayer: the editing form of the 2 × 2
+// music card is the same player, not a name-only tile: the rows stay and
+// they still take their own presses.
+func TestToolsMusicCardEditingKeepsThePlayer(t *testing.T) {
+	a, view, vol, _ := musicCardShelf(t)
+	p := a.toolsPage()
+	p.editing, p.editAt = true, time.Now()
+	view.Frame()
+	view.Frame()
+	for _, label := range []string{"播放进度", "音量", "上一首", "下一首"} {
+		if _, ok := view.Find(label); !ok {
+			t.Fatalf("the editing card lacks %q; texts %v", label, view.Texts())
+		}
+	}
+	// The ⊖ badge and the size handle are still on the card.
+	if _, ok := view.Find(locales.In("zh-Hans").Remove()); !ok {
+		t.Fatalf("the editing card lost its ⊖ badge; texts %v", view.Texts())
+	}
+	view.Frame()
+	dragRail(t, view, "音量", 0.2, 0.6)
+	if len(vol.sets) != 1 || vol.sets[0] < 0.55 || vol.sets[0] > 0.65 {
+		t.Fatalf("the editing card's volume rail wrote %v, want one write about 0.6", vol.sets)
+	}
+	if p.press != nil {
+		t.Fatalf("a drag on the editing card's rail started a reorder: %+v", p.press)
+	}
+}
+
+// TestPinnedMusicCardShowsTheFullPlayer: the 2 × 2 music card pinned to the
+// desktop keeps the full player in the pin's wide, short window, and its
+// rails work there too.
+func TestPinnedMusicCardShowsTheFullPlayer(t *testing.T) {
+	s := newStubNowPlaying(t, true)
+	s.feed(t, `{"ok":true,"isPlaying":true,"appState":1,"title":"夜曲","artist":"周杰伦","duration":200,"elapsed":20}`)
+	vol := &fakeVolume{v: 0.3, ok: true}
+	a := &shelf{dataDir: t.TempDir()}
+	a.vol = vol
+	s.mod.host = a
+	a.np = s.mod
+	it := a.pinRegister(&pinItem{
+		cardID: "playing", span: 2, rows: 2, cardW: pinCardW2, display: 1,
+		edge: pinFree, expanded: true,
+		frame: mygo.Rectangle{Width: pinCardW2, Height: pinCardH},
+	})
+	view := ui.NewTester(func(c *ui.Context) { it.view(c) }, pinCardW2, pinCardH)
+	view.Frame()
+	view.Frame()
+	for _, label := range []string{"播放进度", "音量", "上一首", "暂停", "下一首"} {
+		if _, ok := view.Find(label); !ok {
+			t.Fatalf("the pinned card lacks %q; texts %v", label, view.Texts())
+		}
+	}
+	dragRail(t, view, "音量", 0.1, 0.5)
+	if len(vol.sets) != 1 || vol.sets[0] < 0.45 || vol.sets[0] > 0.55 {
+		t.Fatalf("the pinned card's volume rail wrote %v, want one write about 0.5", vol.sets)
+	}
+	if it.pressed || it.moving {
+		t.Fatal("a drag on the pinned card's rail moved the card's window")
+	}
+	// The volume drag reached the device, not the player.
+	select {
+	case cmd := <-s.cmds:
+		t.Fatalf("a volume drag sent the player %q", cmd)
+	case <-time.After(50 * time.Millisecond):
+	}
+	// And the seek rail still seeks on its release.
+	view.Frame()
+	dragRail(t, view, "播放进度", 0.5, 1)
+	// The pin's rail is 38pt wide: a point is five seconds of the track.
+	if secs := seekTarget(t, s.cmds); secs < 190 || secs > 210 {
+		t.Fatalf("the pinned card's seek rail went to %.2fs, want about 200s", secs)
 	}
 }

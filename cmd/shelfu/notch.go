@@ -878,6 +878,18 @@ func (a *shelf) show(edge bool) {
 	}
 }
 
+// openOverview expands the panel on the overview. Every expand gesture
+// lands here: the notch band, the hover pill, the island, the shortcut
+// and the now-playing wings. A page is reached from the overview (its
+// track row opens the player) or from its tab.
+func (a *shelf) openOverview() {
+	if !a.visible {
+		a.show(false)
+		return
+	}
+	a.setLevel(1)
+}
+
 // Global hotkey seams: holdKeys/releaseKeys register and unregister the
 // panel's Esc and Space, which needs the app running; tests stub them to
 // check who owns the keys.
@@ -1111,10 +1123,8 @@ func (a *shelf) finishClose() {
 	// 收起即放弃权限说明卡：面板再开时它要么还在等授权（重新触发再出），
 	// 要么授权已完成（预检通过直接框选），都不该回到一张旧卡。
 	a.ocrSheet = false
-	a.resetToolsEdit() // 工具页的编辑与目录不跨收起保留
-	if p := a.playingPageOf(); p != nil {
-		p.volLoaded = false // the output device may have changed while closed
-	}
+	a.resetToolsEdit()         // 工具页的编辑与目录不跨收起保留
+	a.music.out.loaded = false // the output device may have changed while closed
 	a.selection.clear()
 }
 

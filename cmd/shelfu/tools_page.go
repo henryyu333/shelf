@@ -314,9 +314,6 @@ func (p *toolsPage) body(c *ui.Context, _ bool, live bool) ui.Element {
 	for _, cell := range cells {
 		contentH = max(contentH, cell.y+cell.h)
 	}
-	top, bottom, viewH := scrollEdges(&p.scroll, contentH)
-	band := edgeBandFor(toolCellH)
-	blur := a.win == nil || a.tabPhase(c.Now()) >= 1
 	return ui.Column(c.Key("tools-stage")).Grow(1).MinHeight(0).Children(func() {
 		scroll := ui.Scroll(c.Key("cards")).Grow(1).MinHeight(0).TrackScroll(&p.scroll)
 		p.viewport = scroll.Bounds()
@@ -333,17 +330,10 @@ func (p *toolsPage) body(c *ui.Context, _ bool, live bool) ui.Element {
 			// second row could neither scroll nor be reached.
 			ui.Box(c.Key("cards-stack")).Width(toolStageW).Height(contentH).Children(func() {
 				for _, cell := range cells {
-					w := float32(0)
-					// Only a card the edge actually cuts melts. A card that
-					// fits whole (a 2 × 2 widget, or the last visible row)
-					// stays readable: its content is not going anywhere,
-					// and blurring a whole card reads as a broken draw.
-					rowTop := cell.y - p.scroll.Y
-					cut := rowTop < -0.5 || rowTop+cell.h > viewH+0.5
-					if blur && cut {
-						w = rowFade(rowTop, cell.h, viewH, top, bottom, band)
-					}
-					p.toolCell(c, cell, editing, live, band*edgeBlurPerPT*w)
+					// The grid never blurs: the cards are the content, and
+					// a row cut by the viewport stays as sharp as the rest
+					// (the tray and clipboard pages keep the edge melt).
+					p.toolCell(c, cell, editing, live)
 				}
 				if d != nil && d.dragging && p.preview.window() == nil {
 					p.toolLiftedCard(c, *d)
@@ -355,7 +345,7 @@ func (p *toolsPage) body(c *ui.Context, _ bool, live bool) ui.Element {
 
 // toolCell draws one packed cell: the + tile, a parked card (in-flow,
 // possibly mid-reorder), or the card itself.
-func (p *toolsPage) toolCell(c *ui.Context, cell toolCell, editing, live bool, blur float32) {
+func (p *toolsPage) toolCell(c *ui.Context, cell toolCell, editing, live bool) {
 	a := p.host
 	if cell.plus {
 		plus := ui.Column(c.Key("tc-plus")).Absolute().Left(cell.x).Top(cell.y).
@@ -408,9 +398,6 @@ func (p *toolsPage) toolCell(c *ui.Context, cell toolCell, editing, live bool, b
 		p.toolEditChrome(c, card, cell, spec, live)
 	default:
 		card.Absolute().Left(cell.x).Top(cell.y).Width(cell.w).Height(cell.h)
-		if blur > 0 {
-			card.Blur(blur)
-		}
 	}
 	if live {
 		p.toolCardInput(c, card, cell, editing, live)
@@ -530,15 +517,19 @@ func (p *toolsPage) toolCardInput(c *ui.Context, card ui.Element, cell toolCell,
 // tray's selection (design §3: 对托盘页当前选中的项目执行), a widget card
 // does what its whole-card tap has always meant (keep-awake toggles, the
 // clipboard card copies its newest capture, AI 用量 opens its page) —
-// except the music card, whose transport buttons own every press; a tap
-// beside them must not toggle playback. A card with nothing to act on
-// jiggles with the hint.
+// the music card opens the now-playing page: its transport buttons and
+// rails own their presses, and a tap beside them is never a play toggle.
+// A card with nothing to act on jiggles with the hint.
 func (p *toolsPage) toolCardTapped(id string) {
 	a := p.host
 	if p.editing {
 		return
 	}
 	if def := toolCardDefFor(id); def != nil && def.kind == cardWidget && def.id == "playing" {
+		// The transport and the rails own their own presses; a tap on the
+		// card itself opens the full player, the page's second entrance
+		// beside the overview's track row.
+		a.openPlaying()
 		return
 	}
 	if a.runToolCard(id) {

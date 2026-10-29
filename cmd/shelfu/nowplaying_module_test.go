@@ -301,6 +301,62 @@ func TestPeekWingsShowCoverAndBarsOnly(t *testing.T) {
 		if !a.visible {
 			t.Fatalf("a press on the %s must expand the panel too", p.name)
 		}
+		if a.tab != pageOverview || a.currentLevel() != 1 {
+			t.Fatalf("a press on the %s landed on %s (level %d): every expand opens the overview",
+				p.name, a.tab, a.currentLevel())
+		}
+	}
+}
+
+// TestExpandingWithMusicNeverOpensThePlayer: with a track loaded, every
+// expand gesture — the hover wings, the shortcut's toggle and a plain open
+// — lands on the overview. The player page is one tap further in, on the
+// overview's track row.
+func TestExpandingWithMusicNeverOpensThePlayer(t *testing.T) {
+	s := newStubNowPlaying(t, true)
+	s.feed(t, `{"ok":true,"isPlaying":true,"appState":1,"title":"夜曲","artist":"周杰伦","duration":100,"elapsed":5}`)
+	a := &shelf{
+		settings:     settings.Settings{IslandNowPlaying: true},
+		notchX:       500,
+		notchW:       180,
+		notchH:       32,
+		peeking:      true,
+		peekProgress: 1,
+	}
+	s.mod.host = a
+	a.np = s.mod
+	a.modules = []module{s.mod}
+	view := ui.NewTester(a.view, sheetW, sheetH)
+	if err := view.Click("正在播放：夜曲 · 展开 ShelfU"); err != nil {
+		t.Fatalf("the wings: %v", err)
+	}
+	if !a.visible || a.currentLevel() != 1 || a.tab != pageOverview {
+		t.Fatalf("the wings opened %s (level %d, visible %v), want the overview",
+			a.tab, a.currentLevel(), a.visible)
+	}
+	view.Frame()
+	for _, txt := range []string{"播放进度", "音量"} {
+		if _, ok := view.Find(txt); ok {
+			t.Fatalf("the wings drew the player's %q: the overview must not carry the page", txt)
+		}
+	}
+	// The shortcut closes and opens again: the second open is the overview
+	// too, never the page the panel was last on.
+	a.toggle()
+	if a.visible {
+		t.Fatal("the shortcut did not close the panel")
+	}
+	a.toggle()
+	if !a.visible || a.tab != pageOverview || a.currentLevel() != 1 {
+		t.Fatalf("the shortcut opened %s (level %d), want the overview", a.tab, a.currentLevel())
+	}
+	// From the overview the track row still opens the player.
+	view.Frame()
+	if err := view.Click("正在播放：夜曲"); err != nil {
+		t.Fatalf("the overview's track row: %v", err)
+	}
+	if a.tab != pagePlaying || a.currentLevel() != 2 {
+		t.Fatalf("the track row opened %s (level %d), want the player page", a.tab, a.currentLevel())
 	}
 }
 

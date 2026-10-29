@@ -128,8 +128,9 @@ type shelf struct {
 	peeking                                                     bool
 	peekProgress, peekFrom                                      float32
 	peekAnimStart                                               time.Time
-	fb                                                          feedback    // the notch's completion capsule (feedback.go)
-	fx                                                          shellMotion // the shell drawn last, for the window frame
+	fb                                                          feedback      // the notch's completion capsule (feedback.go)
+	music                                                       musicControls // the player's seek / volume rails (music_controls.go)
+	fx                                                          shellMotion   // the shell drawn last, for the window frame
 	ignoringMouse                                               bool
 	watchingPointer                                             bool               // registered with the process-wide pointer gate
 	material                                                    *mac.ShellMaterial // light appearance's backdrop material

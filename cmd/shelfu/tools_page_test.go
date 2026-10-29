@@ -3,6 +3,7 @@
 package main
 
 import (
+	"image"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/layout"
+	"shelf/internal/mac"
 	"shelf/internal/store"
 )
 
@@ -587,5 +589,56 @@ func TestToolsEditBadgeIsVisibleAndClickableAtGridEdges(t *testing.T) {
 				t.Fatal("the remove badge also started a card press")
 			}
 		})
+	}
+}
+
+// TestToolsGridDrawsNoEdgeBlur: the tools grid scrolls, and no card melts at
+// the viewport's edges. The strip a card draws at the top edge is the same
+// pixels it draws in the open, so the two strips must have the same
+// contrast: the old per-row blur (sigma 2.9 at the edge) left the cut strip
+// a fraction as sharp.
+func TestToolsGridDrawsNoEdgeBlur(t *testing.T) {
+	a := &shelf{tab: pageTools, visible: true, level: 2, store: mustStore(t), dataDir: t.TempDir(),
+		thumbnails: map[string]*ui.Bitmap{}, thumbPending: map[string]bool{}, appNames: map[string]string{}}
+	a.np = &nowPlayingModule{host: a, have: true, last: mac.NowPlayingState{
+		Title: "夜曲", Artist: "周杰伦", Duration: 200, Elapsed: 20, Rate: 1, Received: time.Now(),
+	}}
+	view := ui.NewTester(a.view, sheetW, sheetH)
+	view.Frame()
+	view.Frame()
+	p := a.toolsPage()
+	if p.scroll.MaxY <= 0 {
+		t.Fatalf("the default grid does not scroll: MaxY=%.0f", p.scroll.MaxY)
+	}
+	card, ok := view.Find("playing")
+	if !ok {
+		t.Fatal("the music card is not on screen")
+	}
+	// One strip of the card, 30pt below its top: the title and the progress
+	// row's clocks. The same strip, in the open and at the top edge.
+	const cut float32 = 30
+	strip := func(img *image.RGBA, x, top float32) int {
+		return bandSharpness(img, int(x+6), int(x+toolColW(2)-6), int(top+2), int(top+14))
+	}
+	open := strip(view.Image(), card.X, card.Y+cut)
+	p.scroll.Y = cut // the offset the wheel leaves
+	view.Frame()
+	view.Frame()
+	if got := p.scroll.Y; got != cut {
+		t.Fatalf("the grid did not scroll to %.0f: Y=%.0f", cut, got)
+	}
+	edgeCard, ok := view.Find("playing")
+	if !ok {
+		t.Fatal("the music card left the grid")
+	}
+	// The viewport clips it: the visible box starts at the top edge and is
+	// the shorter by the scroll.
+	if got := card.H - edgeCard.H; got != cut {
+		t.Fatalf("the card's visible box is %.0fpt shorter, want %.0f: %+v -> %+v", got, cut, card, edgeCard)
+	}
+	edge := strip(view.Image(), edgeCard.X, edgeCard.Y)
+	t.Logf("contrast in the open %d, at the top edge %d", open, edge)
+	if edge*2 < open {
+		t.Fatalf("the tools grid melts at its top edge: %d there, %d in the open", edge, open)
 	}
 }

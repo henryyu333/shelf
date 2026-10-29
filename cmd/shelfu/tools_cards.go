@@ -232,13 +232,13 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 		card.Disabled(true).Opacity(0.38)
 	}
 	if surf == cardEdit {
-		a.toolCardEditBody(c, card, def)
+		a.toolCardEditBody(c, card, def, spec)
 	} else {
 		sub := ""
 		if dragging {
 			sub = a.toolCardSub(loc(c), def, class)
 		}
-		a.toolCardBody(c, card, def, sub, spec.Span, spec.Height())
+		a.toolCardBody(c, card, def, sub, spec, surf)
 	}
 	if accepts && surf != cardEdit {
 		if drop, ok := ui.DropData(card, dropCellOpts); ok {
@@ -250,9 +250,16 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 
 // toolCardEditBody is the card's editing form (design §2): glyph and
 // name, no live controls — the widget cards collapse to their name so a
-// pause button can't fire while the card wobbles. Two-span widgets carry
-// the 小组件 subtitle the mock shows.
-func (a *shelf) toolCardEditBody(c *ui.Context, card ui.Element, def *toolCardDef) {
+// pause button can't fire while the card wobbles. The music card's 2 × 2
+// rectangle is the exception: its player is the card's whole content, so
+// it keeps the live rows (inset past the ⊖ badge and the size handle),
+// and only a press outside those rows starts a reorder. Two-span widgets
+// carry the 小组件 subtitle the mock shows.
+func (a *shelf) toolCardEditBody(c *ui.Context, card ui.Element, def *toolCardDef, spec layout.Card) {
+	if def.id == "playing" && spec.Height() > 1 {
+		a.toolPlayingTall(c, card, cardEdit)
+		return
+	}
 	card.Center().Gap(5).Children(func() {
 		ui.Icon(c, def.icon).Size(20, 20).TextColor(ink)
 		fitText(c, def.name(loc(c)), 12, 600, toolColW(def.span)-8).TextColor(ink)
@@ -266,7 +273,8 @@ func (a *shelf) toolCardEditBody(c *ui.Context, card ui.Element, def *toolCardDe
 // subtitle, widgets lay out per card. While files hover the panel the
 // action's subtitle becomes the dragged count (design §1: 副标题换成拖
 // 入的数量).
-func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, sub string, span, rows int) {
+func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, sub string, spec layout.Card, surf toolCardSurface) {
+	span, rows := spec.Cols(), spec.Height()
 	if def.kind == cardAction {
 		card.Center().Gap(5).Children(func() {
 			ui.Icon(c, def.icon).Size(20, 20).TextColor(ink)
@@ -280,7 +288,7 @@ func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, s
 	switch def.id {
 	case "playing":
 		if rows > 1 {
-			a.toolPlayingTall(c, card)
+			a.toolPlayingTall(c, card, surf)
 			return
 		}
 		a.toolPlayingBody(c, card)
@@ -769,10 +777,15 @@ func (a *shelf) toolUsageRing(c *ui.Context, five, week *aiusage.Window) {
 	})
 }
 
-// toolPlayingTall is the music card in its 2 × 2 form: the cover and the
-// two lines on top, the transport centred below — the room the taller card
-// has, without the page's seek and volume rows.
-func (a *shelf) toolPlayingTall(c *ui.Context, card ui.Element) {
+// toolPlayingTall is the music card in its 2 × 2 form: the full player —
+// cover and two lines, the seekable progress row, the transport and the
+// volume row (design 主页画布 · 音乐 2 × 2). The grid's rectangle is 205 ×
+// 174, so the rows stack down the card; the pinned window is 278 × 84,
+// so they sit in a column beside the cover. Both rows take the pointer
+// themselves, so a drag on a rail never becomes a reorder or a drag out.
+// The editing form draws the same player, inset past its ⊖ badge and
+// size handle.
+func (a *shelf) toolPlayingTall(c *ui.Context, card ui.Element, surf toolCardSurface) {
 	m := a.np
 	st, ok := mac.NowPlayingState{}, false
 	if m != nil {
@@ -785,22 +798,100 @@ func (a *shelf) toolPlayingTall(c *ui.Context, card ui.Element) {
 		})
 		return
 	}
-	card.Padding(12, 14, 12, 14).Justify(ui.SpaceBetween).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(10).FillWidth().Children(func() {
-			m.coverArt(c, "tc-np-art", 52, 10)
+	if surf == cardDesktop {
+		a.toolPlayingWide(c, card, st)
+		return
+	}
+	// The editing chrome sits in the card's corners: the ⊖ badge at 2,2
+	// and the size handle at the bottom right. The player keeps clear of
+	// both, or the badge would sit on the cover and the handle on the
+	// speaker.
+	const padTop, padRight, padBottom, padLeft = 10, 12, 10, 12
+	if surf == cardEdit {
+		card.Padding(22, 20, 14, 20)
+	} else {
+		card.Padding(padTop, padRight, padBottom, padLeft)
+	}
+	card.Justify(ui.SpaceBetween).Children(func() {
+		ui.Row(c.Key("tc-np-top")).AlignItems(ui.Center).Gap(9).FillWidth().Children(func() {
+			m.coverArt(c, "tc-np-art", 44, 10)
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Justify(ui.Center).Children(func() {
-				ui.Text(c, st.Title).SingleLine().FontSize(13).FontWeight(600).TextColor(ink)
+				ui.Text(c, st.Title).SingleLine().FontSize(12.5).FontWeight(600).TextColor(ink)
 				if meta := m.cardMeta(st); meta != "" {
-					ui.Text(c, meta).SingleLine().FontSize(11).TextColor(ink3)
+					ui.Text(c, meta).SingleLine().FontSize(10.5).TextColor(ink3)
 				}
 			})
 		})
-		ui.Row(c.Key("tc-np-ctl-tall")).Justify(ui.Center).AlignItems(ui.Center).Gap(22).FillWidth().Children(func() {
-			m.controlButton(c, "tc-np-prev", prevFill, loc(c).PreviousTrack(), mac.NPPrevious, 26, 15)
-			m.controlButton(c, "tc-np-toggle", toggleSymbol(st.Playing), playPauseLabel(st.Playing), mac.NPPlayPause, 34, 20)
-			m.controlButton(c, "tc-np-next", nextFill, loc(c).NextTrack(), mac.NPNext, 26, 15)
+		a.toolPlayingTallBars(c, st, 18)
+	})
+}
+
+// toolPlayingWide is the same player in the pinned window: the cover and
+// its two lines on the left, the seek / transport / volume column beside
+// them, in the 84pt the pin gives every card.
+func (a *shelf) toolPlayingWide(c *ui.Context, card ui.Element, st mac.NowPlayingState) {
+	m := a.np
+	card.Padding(8, 10, 8, 10).Justify(ui.Center).Children(func() {
+		ui.Row(c.Key("tc-np-wide")).AlignItems(ui.Center).Gap(8).FillWidth().Children(func() {
+			m.coverArt(c, "tc-np-w-art", 40, 9)
+			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Justify(ui.Center).Children(func() {
+				// The pin's window is the width the 2 × 1 card uses, so its
+				// two lines keep that card's sizes: 12.5 would push 「歌手 ·
+				// 应用」 into an ellipsis.
+				ui.Text(c, st.Title).SingleLine().FontSize(12).FontWeight(600).TextColor(ink)
+				if meta := m.cardMeta(st); meta != "" {
+					ui.Text(c, meta).SingleLine().FontSize(10).TextColor(ink3)
+				}
+			})
+			// 98pt of column keeps the two clocks and the transport, and
+			// leaves the two lines the 104pt 「歌手 · 应用」 needs.
+			ui.Column(c.Key("tc-np-w-bars")).Width(98).Gap(6).Children(func() {
+				a.toolPlayingTallBars(c, st, 8)
+			})
 		})
 	})
+}
+
+// toolPlayingTallBars draws the player's three control rows — the
+// progress row with its two clocks, the transport and the volume row —
+// which the 2 × 2 card stacks and the pinned window's column holds. The
+// row sits at the width its parent gives it; ctrlGap is the transport's
+// spacing, tighter in the pin's column.
+func (a *shelf) toolPlayingTallBars(c *ui.Context, st mac.NowPlayingState, ctrlGap float32) {
+	m := a.np
+	now := c.Now()
+	dur := st.Duration
+	pos := st.Position(now)
+	if dur > 0 {
+		pos = min(max(pos, 0), dur)
+	}
+	frac := float32(0)
+	if dur > 0 {
+		frac = float32(pos / dur)
+	}
+	if a.music.seek.drag && dur > 0 {
+		frac = a.music.seek.frac
+		pos = float64(frac) * dur
+	}
+	ui.Row(c.Key("tc-np-track")).AlignItems(ui.Center).Gap(6).FillWidth().Children(func() {
+		rem := float64(0)
+		if dur > 0 {
+			rem = max(0, dur-pos)
+		}
+		// The labels are as wide as their own text at this font: a fixed
+		// width would cut -10:00 and 1:02:03.
+		nowLabel, remLabel := mac.FormatClock(pos), "-"+mac.FormatClock(rem)
+		nw, rw := clockLabelW(c, nowLabel, 9.5), clockLabelW(c, remLabel, 9.5)
+		panelLabel(c, nil, nowLabel, 9.5, 500).TextColor(ink3).Width(nw)
+		a.seekRail(c, "tc-np-progress", frac, dur, 12, 4).Grow(1).MinWidth(0)
+		panelLabel(c, nil, remLabel, 9.5, 500).TextColor(ink3).Width(rw)
+	})
+	ui.Row(c.Key("tc-np-ctl-tall")).Justify(ui.Center).AlignItems(ui.Center).Gap(ctrlGap).FillWidth().Children(func() {
+		m.controlButton(c, "tc-np-prev", prevFill, loc(c).PreviousTrack(), mac.NPPrevious, 26, 15)
+		m.controlButton(c, "tc-np-toggle", toggleSymbol(st.Playing), playPauseLabel(st.Playing), mac.NPPlayPause, 30, 19)
+		m.controlButton(c, "tc-np-next", nextFill, loc(c).NextTrack(), mac.NPNext, 26, 15)
+	})
+	a.volumeRow(c, "tc-np-vol", 12, 6)
 }
 
 // toolPlayingBody is the 正在播放 widget: 52pt cover, title and

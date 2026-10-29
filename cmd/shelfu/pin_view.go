@@ -69,7 +69,9 @@ func (it *pinItem) view(c *ui.Context) {
 	slide := zone.AnimateTo(pinRevealKey{it}, 1, pinExpandAnim)
 	_, over := ui.DataDragOver(zone, opts)
 	zone.Children(func() {
-		card := a.toolCard(c, layout.Card{ID: it.cardID, Span: it.span}, cardDesktop).Fill()
+		// The card keeps its grid rectangle's rows: the music player draws
+		// its full 2 × 2 form in the pin, not the 2 × 1 strip's.
+		card := a.toolCard(c, layout.Card{ID: it.cardID, Span: it.span, Rows: it.rows}, cardDesktop).Fill()
 		if !it.jiggleAt.IsZero() && !c.Preferences().ReduceMotion {
 			k := float64(c.Now().Sub(it.jiggleAt)) / float64(toolJiggle)
 			if k < 1 {
