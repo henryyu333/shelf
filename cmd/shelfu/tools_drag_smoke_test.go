@@ -291,7 +291,9 @@ func TestToolsNativeDragOutStaysVisible(t *testing.T) {
 		t.Error("the drag preview intercepts input or takes keyboard focus")
 	}
 	// Returning to the grid removes the external copy without committing.
-	back := mygo.Point{X: a.x + sheetW/2, Y: start.Y + 24}
+	// The point sits in the middle of the page's content box, where the
+	// whole lifted card fits again whatever row it came from.
+	back := mygo.Point{X: a.x + sheetW/2, Y: frame.Y + bandH + pageActionH + actionsGap + contentH/2}
 	postMouse(t, float64(back.X), float64(back.Y), 6)
 	time.Sleep(150 * time.Millisecond)
 	for _, w := range ownSmokeWindows(t) {

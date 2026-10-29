@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"shelf/internal/layout"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
@@ -117,6 +119,13 @@ func TestFixFToolsPageShots(t *testing.T) {
 		a.settings.IslandNowPlaying = true
 		fakeTrack(a, true)
 		a.tab = pageTools
+		// A fresh install's grid fits the viewport on purpose; this shot
+		// needs one that scrolls, so it adds the catalogue's cards.
+		a.mutateTools(func(l *layout.Layout) {
+			for _, def := range toolCatalog() {
+				l.AddCardSize(def.id, def.span, max(1, def.rows))
+			}
+		})
 	})
 	expandShelf(t, a)
 	time.Sleep(400 * time.Millisecond)
@@ -169,6 +178,13 @@ func TestFixFToolsMusicCardShots(t *testing.T) {
 		a.settings.IslandNowPlaying = true
 		fakeTrack(a, true)
 		a.tab = pageTools
+		// A fresh install's grid fits the viewport on purpose; this shot
+		// needs one that scrolls, so it adds the catalogue's cards.
+		a.mutateTools(func(l *layout.Layout) {
+			for _, def := range toolCatalog() {
+				l.AddCardSize(def.id, def.span, max(1, def.rows))
+			}
+		})
 	})
 	expandShelf(t, a)
 	time.Sleep(400 * time.Millisecond)
