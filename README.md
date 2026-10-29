@@ -34,7 +34,7 @@
 
 ## What is ShelfU
 
-ShelfU is a notch tool for the Mac: it turns the black notch around the camera into a working part of the screen. It stays out of sight until you need it: hover the notch or click it, and a small black island grows out of the notch itself — the track that is playing on the left, one icon per page on the right: Home widgets, the Tray for files, the Clipboard, Tools, and AI Usage when you turn it on. Drag something onto the notch instead and the tray opens on its own, already waiting for the drop. Click an icon and that page opens from the island, 420 × 250 whatever the page holds, so it fits under your menu bar instead of covering it. Only the black shape on screen takes clicks: the menu bar beside it works as usual. When you are done, it folds back into the notch.
+ShelfU is a notch tool for the Mac: it turns the black notch around the camera into a working part of the screen. It stays out of sight until you need it: hover the notch and it grows a pair of wings, or a small down-arrow pill, and a click opens the Overview. The Overview holds the five items you put in last — drag any of them straight out — and one line about what matters now: a job still running, with Cancel, an error, a finished job, an update ready, the track that is playing, a copy from the last minute, or how many clips the Clipboard holds. The otter sits on the left. There is no second, smaller island to open first. The page icons sit on the left of the top row — Overview, Tray, Clipboard, Tools, and AI Usage when you turn it on — and a page grows the same panel down to 440 × 250, so it fits under your menu bar instead of covering it. Drag something onto the notch instead and the Tray opens on its own, already waiting for the drop. Only the black shape on screen takes clicks: the menu bar beside it works as usual. Esc steps back one level at a time: a page returns to the Overview, and the Overview folds into the notch.
 
 It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and never copies your files — it only remembers where they are.
 
@@ -54,34 +54,35 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 - Pin what matters. Exclude apps you never want recorded. Passwords that password managers mark as private are skipped.
 
 **Now playing**
-- Hover the notch while music plays and it grows two small wings: the cover on the left, a moving equalizer on the right. Nothing drops down over your windows.
-- Click the notch and the island carries the player on its left: cover, title, artist, the equalizer and play-pause. The island keeps its size whether or not a track is playing.
-- Open Home for the music widget. At 2 × 2 it is the full player: previous / play-pause / next, a progress bar you drag to skip, and the volume bar for your default output device; at 2 × 1 it shows the cover, title and artist with play-pause; at 1 × 1 it is cover and title, and a tap toggles playback.
+- Hover the notch while music plays and it grows two small wings: the cover on the left, a moving equalizer on the right. Nothing drops down over your windows. Click anywhere on the wings and the Overview opens.
+- The Overview's line carries the player: cover, title and artist, with play-pause and next. Click that line to open the Now Playing page — previous, play-pause and next, a progress bar you drag to skip, and the volume bar for your default output device. The page keeps its size whether or not a track is playing.
+- The music widget is still a card on the Tools page: at 2 × 2 it is the full player, at 2 × 1 it shows the cover, title, artist and play-pause, and at 1 × 1 a tap toggles playback.
 
 **AI usage** (optional, off by default)
-- Enable it in Settings → AI Usage and the island gains one more page: the left column holds a double-ring card per tool — outer ring weekly, inner ring 5-hour — and the right column holds this Mac's token usage for omp, Claude Code and Codex, over Today / 7D / 30D / All, as four numbers and a stacked chart with its legend. The page fits one screen and never scrolls. Hover a card for its reset times and any per-model weekly limits; hover the token or cost number for its parts.
+- Enable it in Settings → AI Usage and the panel gains one more page icon: the left column holds a double-ring card per tool — outer ring weekly, inner ring 5-hour — and the right column holds this Mac's token usage for omp, Claude Code and Codex, over Today / 7D / 30D / All, as four numbers and a stacked chart with its legend. The page fits one screen and never scrolls. Hover a card for its reset times and any per-model weekly limits; hover the token or cost number for its parts.
 - Quotas show how much is used by default; switch to what is left in Settings → AI Usage → Quota Shown.
 - The Claude Code quota comes from Claude Code itself: ShelfU runs your installed Claude Code's `/usage` command, so the numbers match what Claude Code reports. Claude Code must be installed; ShelfU never downloads it. The Codex quota reads the login Codex already saved on this Mac and sends it only to chatgpt.com.
 - Opening the page or pressing refresh reads the quota (Claude Code at most once every 30 seconds); while the page stays open, Claude Code is read again every 5–15 minutes, and only after you used it. The last reading is kept, so the page shows it right after a restart.
 
 **Stay awake**
 - Right-click the menu-bar icon → Keep Awake and your Mac won't fall asleep for 30 minutes, 1, 2 or 4 hours, or until you turn it off. Tick Keep Screen On to keep the display awake as well.
-- While it is on, every open page shows a moon in its top-left row: hover it for the time left, click it to end the hold.
+- While it is on, every open page shows a moon in its top row, beside the settings icon: hover it for the time left, click it to end the hold.
 
-**Home page**
-- Home is a canvas: four columns and two rows, and every widget sits in a cell of 1 × 1, 2 × 1 or 2 × 2 — whichever of those it offers. Cells you leave empty stay empty.
-- The music widget is the full player at its default 2 × 2: drag the progress bar to skip, and drag the volume bar to set the volume of your output device. At 2 × 1 it shows the cover, title and artist with play-pause; at 1 × 1 the cover and title, and a tap toggles playback.
-- Keep Awake, AI Usage, Recent Files and Latest Clip live here as widgets. The AI usage widget shows the tool with the least left.
-- Long-press a widget (or click the pencil) to edit: drag it to a free cell, ⊖ to remove it, the corner handle to change its size, and the dashed + cell to add a widget back from the widget catalogue (a full canvas puts + beside Done instead). Done or Esc to finish. Drag a widget out of the panel to keep it on the desktop.
+**Overview**
+- A click on the notch lands here. On the left: the Tray and Clipboard counts, the otter below them — it looks curious while a job runs, unhappy after a failure, happy after good news, and sleepy after ten quiet minutes. While a job runs, the two lines read Working / Finished items stay in the Tray.
+- On the right: the five items at the front of the Tray, pinned ones first, as small tiles. Drag any tile straight into an app, right-click it for the usual menu, or click it to open the Tray with that item selected. All › opens the Tray too.
+- Below the tiles: one line about the most relevant thing right now. A running job shows its progress and a Cancel button; an error or a finished job shows its words; a downloaded update shows Update ready · Restart to finish with a Restart button; a track shows cover, title and artist with play-pause and next; a copy from the last two minutes shows Copied: … with All ›. With nothing else to say, it shows how many clips the Clipboard holds, with Open.
+- The first time you open it after installing, a welcome card takes the Overview's place: drag a file onto the notch to try it, which finishes the card, or click Skip. After an update, the first opening explains what is new; About → What's New shows it again.
 
 **Tools page**
-- Tools starts with eight action cards, exactly two rows: Capture Text, Fit 1 MB, Make PDF, Zip, To JPEG, To Word, Extract and Resize Images. More cards — including AirDrop — are in the + catalogue and scroll inside the page once they push it past two rows.
+- Tools is one grid: the action cards and the widgets live together. A new install starts with the music widget at 2 × 2, Keep Awake and AI Usage at 1 × 1 (the AI Usage card appears once its page is on), Recent Files and Latest Clip at 2 × 1, then eight action cards — Capture Text, Fit 1 MB, Make PDF, Zip, To JPEG, To Word, Extract and Resize Images. More cards, AirDrop included, are in the + catalogue. The grid scrolls inside the page when it holds more than two rows.
+- If you used the Home page in an earlier version, the widgets you placed there move into the Tools grid, at the sizes they had.
 - Tap an action card to run it on the pictures or files selected on the shelf, or drop files straight onto it.
-- Long-press a card (or click the pencil) to edit: drag to reorder, ⊖ to remove, + to add from the catalogue; Done or Esc to finish.
+- Long-press a card (or click the pencil) to edit: drag to reorder, ⊖ to remove, the corner handle to cycle the sizes a widget offers (1 × 1, 2 × 1, 2 × 2), and the dashed + cell to add a card from the catalogue. Done or Esc to finish. Drag a card out of the panel to keep it on the desktop.
 
 **Pin to the desktop**
 - While editing, drag a card or a widget out of the shelf and it stays on the desktop as a small floating card that still takes taps and dropped files.
-- Let go near the left or right screen edge and it tucks into a thin strip: hover to open it, move away and it closes after 0.6 s, or bring a file drag close and it opens to take the drop. Right-click → Always Expanded, Return to Notch or Remove from Desktop; drag it up to the notch to put it back — a widget returns to its cell on Home, an action card to Tools.
+- Let go near the left or right screen edge and it tucks into a thin strip: hover to open it, move away and it closes after 0.6 s, or bring a file drag close and it opens to take the drop. Right-click → Always Expanded, Return to Notch or Remove from Desktop; drag it up to the notch to put it back — a widget returns to its cell on the Tools page, an action card to its cell there too.
 
 **Copy text from the screen**
 - Press `⌃⌥O`, use the menu-bar icon → Capture Text, or tap its card, then drag over any part of the screen: the text in it is recognized on this Mac, copied to the clipboard and kept in the Clipboard list, marked Capture Text.
@@ -91,16 +92,16 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 - Plug in the charger and the notch widens for a few seconds: Charging on the left, a green level bar and the percentage on the right. It also tells you once when the battery is full, and once at 20 % and 10 % while on battery.
 - Connect Bluetooth headphones and the notch shows their name — for AirPods, the left, right and case levels when macOS reports them — and again when they disconnect.
 - While a browser downloads into Downloads, the notch shows a progress ring and the percentage (or the size so far); when the download finishes, click the notice to put the file on the Tray. Several downloads that finish together share one notice, and a click puts all of them on the tray. Needs Full Disk Access — see [Optional](#optional).
-- Each one can be turned off in Settings → Live Activities.
+- Each one can be turned off in Settings → Appearance → Live Activities.
 
 **Dynamic Island style**
 - On a display without a notch, ShelfU floats as a Dynamic Island: a small black pill near the top that grows into everything the notch does.
-- On a MacBook you can choose it too: Settings → General → Notch Style → Dynamic Island. The notch style stays the default.
-- Hold the island and drag it anywhere on the screen; it stays where you let go, on each display, and the panel opens from there. Settings → General → Reset Position brings it back to the top.
+- On a MacBook you can choose it too: Settings → Appearance → Notch Style → Dynamic Island. The notch style stays the default.
+- Hold the island and drag it anywhere on the screen; it stays where you let go, on each display, and the panel opens from there. Settings → Appearance → Reset Position brings it back to the top.
 
 **Arrange windows from the notch**
 - Drag any window by its title bar toward the notch: a panel offers left half, full, right half and left, middle or right third. Hover a tile to see where the window will go, let go to arrange it. Move away to cancel.
-- Uses Accessibility permission; turn it off in Settings → General → Snap Windows at the Notch.
+- Uses Accessibility permission; turn it off in Settings → Appearance → Snap Windows at the Notch.
 
 **Language**
 - Settings → General → Language offers Follow System (the default), 简体中文 and English.
@@ -108,9 +109,11 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 - Dates and times follow the Mac's region and its 12- or 24-hour setting, whatever the interface language. The Services menu item, Add to ShelfU, follows the system language.
 
 **Quiet by design**
-- One shortcut, `⌃⌥Space`, opens the island or closes the shelf; clicking anywhere else tucks it away, and Esc steps back — a page closes to the island, the island folds into the notch.
-- A settings window holds every option: start at login, clipboard history size, excluded apps, automatic cleanup, now playing, AI usage, updates.
-- Updates are checked against this repository's GitHub releases. ShelfU tells you when one is out and installs it only when you say so.
+- One shortcut, `⌃⌥Space`, opens the Overview or closes the shelf; clicking anywhere else tucks it away, and Esc steps back one level at a time — a page returns to the Overview, the Overview folds into the notch.
+- The panel follows the system: pure black in Dark Mode, dark frosted glass in Light Mode. Reduce Transparency always means pure black; Reduce Motion keeps the fades and drops the travel and bounce. Secondary text — times, counts, captions — is drawn brighter than before, so it stays readable on black.
+- Settings… is a normal window with a sidebar: General (Open at Login, Language, automatic updates with Check Now), Appearance (notch style, island position, now playing, live activities, snap windows), Tray, Clipboard, AI Usage, Shortcuts, System Permissions and About. The sidebar's footer says whether every permission is on; About holds the version, Check Now, What's New and the data folder. Every control applies at once.
+- The four global shortcuts can be changed in Settings → Shortcuts: click a row, press the new keys, Delete to clear it, Esc to cancel. Show / Hide is `⌃⌥Space`, Clipboard Search `⌃⌥V`, Capture Text `⌃⌥O`, and Open Tray has none until you set one. A combination another app already holds leaves the previous shortcut in place.
+- Updates are checked against this repository's GitHub releases. ShelfU tells you when one is out and installs it only when you say so; once it is downloaded, the Overview says Update ready · Restart to finish with a Restart button.
 
 <a id="install"></a>
 
@@ -147,7 +150,7 @@ From then on ShelfU opens normally. If macOS ever says the app **is damaged**, d
 ### Optional
 
 - **Start at login**: right-click the menu-bar icon → Settings → General → Open at Login.
-- **System permissions**: Settings → System Permissions has one switch, or right-click the menu-bar icon → Turn On System Permissions (3 missing)… — the number is how many are still off. Turning it on walks you through three System Settings pages in turn: Full Disk Access, Accessibility, then Screen Recording. Turn ShelfU on in each (on the Full Disk Access page, press + and choose ShelfU, or drag in the ShelfU that Finder shows), and ShelfU moves to the next one by itself; at the end, click Reopen ShelfU. macOS requires you to switch on each one yourself. Moving from Shelf to ShelfU asks for them once more (see below). Official ShelfU releases keep the grants across later updates; a build you compile yourself is signed afresh each time and may ask again.
+- **System permissions**: Settings → System Permissions lists the three permissions with their state, and its last row is one switch; you can also right-click the menu-bar icon → Turn On System Permissions (3 missing)… — the number is how many are still off. Turning it on walks you through three System Settings pages in turn: Full Disk Access, Accessibility, then Screen Recording. Turn ShelfU on in each (on the Full Disk Access page, press + and choose ShelfU, or drag in the ShelfU that Finder shows), and ShelfU moves to the next one by itself; at the end, click Reopen ShelfU. macOS requires you to switch on each one yourself. Moving from Shelf to ShelfU asks for them once more (see below). Official ShelfU releases keep the grants across later updates; a build you compile yourself is signed afresh each time and may ask again.
 - **Full Disk Access**: files dragged in from Downloads, Desktop, Documents or iCloud Drive no longer bring up a "ShelfU would like to access files…" dialog.
 - **Accessibility** (notch drop protection): while you drag toward the notch, the pointer stays in the drop area instead of hitting the very top edge of the screen.
 - **Screen Recording** (Capture Text): only the area you select is captured, text is recognized on this Mac, and the shot is not kept.
@@ -164,29 +167,31 @@ ShelfU is the new name of Shelf. The first time ShelfU opens, it copies your sav
 
 | To | Do this |
 | --- | --- |
-| Open or close the shelf | Press `⌃⌥Space`, click the menu-bar icon, or hover the notch and click it — the island opens |
-| Open a page | Click a page icon in the island: Home, Tray, Clipboard, Tools, or AI Usage when enabled |
-| Go back | Press Esc — the page closes to the island, and Esc again folds it into the notch; clicking outside the panel (not on the menu bar), Collapse or the shortcut closes the whole shelf |
+| Open or close the shelf | Press `⌃⌥Space`, click the menu-bar icon, or click the notch (hover first to see the wings or the pill) — the Overview opens |
+| Open a page | Click a page icon at the left of the top row: Overview, Tray, Clipboard, Tools, or AI Usage when enabled; the panel grows down to the page |
+| Open the player | Click the track line in the Overview |
+| Go back | Press Esc — a page returns to the Overview, and Esc again folds it into the notch; clicking outside the panel (not on the menu bar) or the shortcut closes the whole shelf |
 | Put something in | Drag it toward the notch: the Tray opens as the drag arrives, and you let go to add it; or shake the pointer while dragging and drop on the basket |
-| Take something out | Drag it from the shelf into any app; ⌘/⇧-click to take several at once |
+| Take something out | Drag it from the shelf into any app; ⌘/⇧-click to take several at once. The Overview's tiles drag out the same way |
 | Copy text back | Click a text item, then paste with `⌘V` |
 | Copy image data | Select one picture and press `⌘C`, or right-click it → Copy Image — the clipboard gets PNG data, not the path |
 | Search what you copied | Press `⌃⌥V` — the Clipboard page opens with the search field ready; type, pick with ↑/↓, press ⏎ |
-| Switch pages | Click a page icon in the page's own top row — the current page is there too, with its capsule sliding to the new one; the panel keeps its size |
-| Control music | Use the player on the island's left, or the music widget on Home to skip and set the volume |
+| Switch pages | Click a page icon at the left of the top row — the current page is there too, with its capsule sliding to the new one; the panel keeps its size |
+| Control music | Click the track line in the Overview to open Now Playing and drag the progress or volume bar, or use the music card on Tools |
 | Pin, remove, Quick Look, AirDrop | Right-click an item (Space also opens Quick Look) |
 | Copy text from the screen | Press `⌃⌥O` and drag over the text |
 | Convert a picture or a PDF | Right-click a picture → Convert to; right-click several pictures → Merge into One PDF; right-click a PDF → Convert to → Word (Extract Text), or PNG (One per Page) / JPEG (One per Page) |
 | Shrink a picture, zip files | Right-click a picture → Resize Images and pick 2560 / 1600 / 800 px; right-click files or folders → Compress to zip |
 | Run a tool card | Open Tools, then tap a card for the selected shelf items or drop files on it |
-| Arrange widgets or cards | Long-press a widget on Home or a card on Tools to edit; drag it out of the shelf to pin it to the desktop |
+| Arrange widgets or cards | Long-press a card or widget on Tools to edit; drag it out of the shelf to pin it to the desktop |
 | Shrink a picture to a file size | Right-click it → Compress to → 500 KB / 1 MB / 2 MB / 5 MB |
 | Unpack an archive | Right-click a zip, tar, 7z or rar file → Extract; the folder lands on the shelf |
 | Rename files | Right-click one or more files → Rename…, check the preview, then rename; undo from the notice that follows |
 | Keep the Mac awake | Right-click the menu-bar icon → Keep Awake and pick how long |
-| Clear the shelf | Click the trash icon in the page's top row — only that page is cleared, pinned items stay, original files are never deleted |
-| Change settings | Right-click the menu-bar icon → Settings |
-| Check for updates | Right-click the menu-bar icon → Check for Updates… |
+| Clear the shelf | Click the trash icon in the page's action row — only that page is cleared, pinned items stay, original files are never deleted |
+| Change settings | Right-click the menu-bar icon → Settings… |
+| Change a shortcut | Settings → Shortcuts: click the row, press the new combination; Delete clears it, Esc cancels |
+| Check for updates | Right-click the menu-bar icon → Check for Updates…, or Settings → General → Check Now |
 
 The full manual is in [docs/MANUAL.zh-CN.md](docs/MANUAL.zh-CN.md) (Chinese).
 
@@ -234,7 +239,7 @@ The code is MIT — see [LICENSE](LICENSE). The ShelfU name, app icon and menu-b
 
 ## ShelfU 是什么
 
-ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘海变成屏幕上能用的一部分。平时它不露面；鼠标移到刘海上点一下，一个小黑岛就从刘海本身长出来——左边是正在播放的歌，右边每个页面一个图标：主页的小组件、放文件的「托盘」、「剪贴板」、「工具」，打开 AI 用量后还有「AI 用量」。如果是拖着东西过来，打开的是「托盘」页，直接等着接收。点图标，那一页就从岛上展开：任何一页都是 420 × 250，所以它停在你的菜单栏下面，不会盖住菜单栏和窗口。屏幕上只有画出来的黑块接鼠标，旁边的菜单栏照常可点。用完它就缩回刘海。
+ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘海变成屏幕上能用的一部分。平时它不露面；鼠标移到刘海上，它会向两侧长出两翼或一个小箭头提示，点一下就打开「总览」。总览里是最近放入的五项——每一项都能直接拖出去——和一行「当前最相关的事」：还在进行的任务（带取消）、出错、刚做完、新版本已就绪、正在播放的歌、刚复制的内容，或剪贴板的条数。左边是海獭；不再有一级小岛。页面图标在顶栏左侧：总览、托盘、剪贴板、工具，打开 AI 用量后还有 AI 用量；点一个图标，同一个面板向下长高到 440 × 250，停在菜单栏下面，不会盖住菜单栏和窗口。如果是拖着东西过来，打开的是「托盘」页，直接等着接收。屏幕上只有画出来的黑块接鼠标，旁边的菜单栏照常可点。Esc 一级一级往回退：页面回到总览，再按一次收回刘海。
 
 它只在菜单栏里，不占 Dock；所有内容都留在你的 Mac 上；放进来的文件不会被复制，ShelfU 只记住它们在哪儿。
 
@@ -254,34 +259,35 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 - 重要的内容可以置顶；不想被记录的应用可以排除；密码管理器标记为隐私的密码不会被记录。
 
 **正在播放**
-- 放音乐时把鼠标移到刘海上，刘海只向左右各长出一小截：左边是封面，右边是跳动的音频条，不会向下盖住窗口。
-- 点一下刘海，小岛的左边就是播放器：封面、歌名、歌手、音频条和播放暂停。有歌没歌，小岛都是同样大小。
-- 打开「主页」有音乐小组件：2×2 时是完整播放器（上一首 / 播放暂停 / 下一首、可拖动跳转的进度条、系统默认输出设备的音量），2×1 显示封面、歌名、歌手和播放暂停，1×1 只有封面和歌名、点一下切换播放。
+- 放音乐时把鼠标移到刘海上，刘海只向左右各长出一小截：左边是封面，右边是跳动的音频条，不会向下盖住窗口。点这一小截，打开的是总览。
+- 总览里的那一行就是播放器：封面、歌名、歌手，还有播放暂停和下一首。点这一行打开「正在播放」页：上一首 / 播放暂停 / 下一首、可拖动跳转的进度条，以及系统默认输出设备的音量条。有歌没歌，这一页都是同样大小。
+- 音乐小组件仍留在工具页：2×2 是完整播放器，2×1 显示封面、歌名、歌手和播放暂停，1×1 点一下切换播放。
 
 **AI 用量**（可选，默认关闭）
-- 在设置 → AI 用量里打开「在刘海里显示 AI 用量」，岛上会多出一个页面图标：左栏是 Codex、Claude Code 的套餐额度卡（每张卡内外双圈：外圈每周、内圈 5 小时），右栏是这台电脑上 omp、Claude Code、Codex 的 token 用量——今天 / 7 天 / 30 天 / 全部、四个数字、按来源叠加的柱图和图例。整页一屏看全，不用滚动。悬停额度卡看重置时间和按模型的每周额度；悬停 Token 或费用数字看它的组成部分。
+- 在设置 → AI 用量里打开「在刘海里显示 AI 用量」，顶栏会多出一个页面图标：左栏是 Codex、Claude Code 的套餐额度卡（每张卡内外双圈：外圈每周、内圈 5 小时），右栏是这台电脑上 omp、Claude Code、Codex 的 token 用量——今天 / 7 天 / 30 天 / 全部、四个数字、按来源叠加的柱图和图例。整页一屏看全，不用滚动。悬停额度卡看重置时间和按模型的每周额度；悬停 Token 或费用数字看它的组成部分。
 - 额度默认显示「已用」；可以在 设置… → AI 用量 →「额度显示」改成「剩余」。
 - Claude Code 的额度由 Claude Code 自己给出：ShelfU 运行你装好的 Claude Code 的 `/usage` 命令，所以数字和 Claude Code 显示的一致。需要先装好 Claude Code，ShelfU 不会替你下载。Codex 的额度读取 Codex 保存在本机的登录信息，只发给 chatgpt.com。
 - 打开这一页或点刷新时会查询额度（Claude Code 最多 30 秒查一次）；页面一直开着时，只有你用过 Claude Code 才会每 5–15 分钟再查一次。上次的结果会保存，重启后打开就能看到。
 
 **保持唤醒**
 - 右键菜单栏图标 →「保持唤醒」，选 30 分钟、1 小时、2 小时、4 小时或「一直（直到关闭）」，这段时间里 Mac 不会自动睡眠；勾选「屏幕也保持亮着」，屏幕也不会熄灭。
-- 开启后，打开任何一页都能在左上角那一行看到一个月亮图标：鼠标停在上面看剩余时间，点一下结束。
+- 开启后，打开任何一页都能在顶栏看到一个月亮图标，就在设置图标旁边：鼠标停在上面看剩余时间，点一下结束。
 
-**主页**
-- 「主页」是一块画布：四列两行，小组件各占 1×1、2×1 或 2×2 格（每种小组件支持其中几档）；没放东西的格子就空着。
-- 音乐小组件默认 2×2，是完整的播放器：进度条可以拖动跳转，音量条调的是系统默认输出设备的音量。缩小到 2×1 显示封面、歌名、歌手和播放暂停，1×1 只有封面和歌名、点一下切换播放。
-- 保持唤醒、AI 用量、最近文件、剪贴板最新都以小组件的形式放在这里。AI 用量小组件显示剩余最少的那个工具。
-- 长按小组件（或点铅笔图标）进入编辑：拖到空格、点 ⊖ 移除、拖右下角改尺寸、点虚线「+」格从小组件目录加回一个（格子放满时「+」改到「完成」左边）。点「完成」或按 Esc 结束。把小组件拖出面板，它就固定到桌面。
+**总览**
+- 点刘海就到这里。左边是「托盘 N 项」「剪贴板 N 条」两行字，下面是海獭——有任务在跑时好奇、出错时装作难过、有好消息时开心、安静十分钟后打瞌睡；任务进行中时两行字变成「正在处理 / 做完的会留在托盘」。
+- 右边是托盘最前面的五项（置顶的排在最前），以小格子显示。抓住格子就能直接拖进任何应用；右键是常用的菜单；点一下打开「托盘」页并选中这一项。「全部 ›」同样打开「托盘」页。
+- 格子下面是一行「当前最相关的事」，一次只显示一件：进行中的任务带进度条和取消按钮；出错或刚做完显示那句话；下载好的新版本显示「新版本已就绪 · 重新启动」和「重新启动」按钮；有歌时显示封面、歌名、歌手和播放暂停、下一首；两分钟内复制过东西时显示「刚复制：…」和「全部 ›」。都没有时显示剪贴板的条数和「打开」。
+- 装好第一次打开时，这里换成欢迎卡：把一个文件拖到刘海试试，拖进来就算完成；也可以点「跳过」。更新后第一次展开会介绍新功能，关于页的「新功能介绍」可以再看一次。
 
 **工具页**
-- 「工具」页只放动作卡，默认八张正好两行：框选文字、压缩到 1 MB、转成 PDF、打成 zip、转 JPEG、转 Word、解压、缩小图片。隔空投送等其余动作卡在「+」打开的目录里；加多了超过两行就在页内滚动。
+- 工具页是一张统一的网格：动作卡和小组件放在一起。全新安装时默认是音乐 2×2、保持唤醒和 AI 用量各 1×1（AI 用量卡片要打开它的页面才出现）、最近文件和剪贴板最新各 2×1，后面是八张动作卡：框选文字、压缩到 1 MB、转成 PDF、打成 zip、转 JPEG、转 Word、解压、缩小图片。隔空投送等其余卡片在「+」打开的目录里。超过两行时在页内滚动。
+- 如果你用过旧版本的「主页」，那里的小组件会按原来的尺寸搬进工具页的网格。
 - 点按动作卡，对托盘里选中的图片或文件执行；也可以把文件直接拖到卡片上。
-- 长按卡片（或点铅笔图标）进入编辑：拖动排序、点 ⊖ 删除、点 + 从目录添加；点「完成」或按 Esc 结束。
+- 长按卡片（或点铅笔图标）进入编辑：拖动排序、点 ⊖ 删除、拖右下角的把手在小组件支持的 1×1、2×1、2×2 之间切换、点虚线「+」格从目录添加。点「完成」或按 Esc 结束。把卡片拖出面板，它就固定到桌面。
 
 **固定到桌面**
 - 编辑时把小组件或卡片拖出面板，它会留在桌面上成为一张小浮窗，照样可以点按、接收拖入的文件。
-- 松在屏幕左右边缘附近，它会收成一条窄条：鼠标移上去展开，移开 0.6 秒后收回；拖着文件靠近也会展开接收。右键可选「始终展开」「放回刘海」「从桌面移除」；把它拖回刘海也能放回——小组件回到「主页」原来的格子，动作卡回到「工具」页。
+- 松在屏幕左右边缘附近，它会收成一条窄条：鼠标移上去展开，移开 0.6 秒后收回；拖着文件靠近也会展开接收。右键可选「始终展开」「放回刘海」「从桌面移除」；把它拖回刘海也能放回——小组件和动作卡都回到工具页原来的格子。
 
 **框选屏幕文字**
 - 按 `⌃⌥O`、右键菜单栏图标 →「框选文字」，或点它的卡片，然后在屏幕上框一块区域：里面的文字在本机识别后直接复制到剪贴板，并记进剪贴板页，来源显示「框选文字」。
@@ -291,12 +297,12 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 - 插上电源时，刘海向两边变宽几秒：左边是「正在充电」，右边是绿色电量条和电量数字。充满时提醒一次；不插电时，电量降到 20% 和 10% 各提醒一次。
 - 蓝牙耳机连上时，刘海显示耳机名字；AirPods 在系统给出电量时还会显示左耳、右耳和充电盒的电量。断开时也会提示一次。
 - 浏览器往「下载」文件夹下载文件时，刘海显示进度环和百分比（不知道总大小时显示已下载多少）；下载完成后点一下提示，文件就放进「托盘」。同时下载完的几个文件合成一条提示，点一下全部放进托盘。需要「完整磁盘访问」，见下面的[可选](#可选)。
-- 每一项都可以在 设置… →「实时活动」里关掉。
+- 每一项都可以在 设置… →「外形与提示」→「实时活动」里关掉。
 
 **灵动岛样式**
 - 在没有刘海的屏幕上，ShelfU 变成一颗悬浮的灵动岛：屏幕顶部一颗小黑胶囊，刘海能做的事它都能做。
-- MacBook 上也可以选：设置… → 通用 →「刘海样式」→「灵动岛」。默认仍是刘海样式。
-- 按住小岛可以拖到屏幕任意位置，松手就留在那里，每块屏幕分别记住，面板从那里展开。设置… → 通用 →「恢复默认位置」让它回到屏幕顶部。
+- MacBook 上也可以选：设置… →「外形与提示」→「刘海样式」→「灵动岛」。默认仍是刘海样式。
+- 按住小岛可以拖到屏幕任意位置，松手就留在那里，每块屏幕分别记住，面板从那里展开。设置… →「外形与提示」→「恢复默认位置」让它回到屏幕顶部。
 
 **语言**
 - 设置… → 通用 →「语言」有三档：「跟随系统」（默认）、「简体中文」和「English」。
@@ -305,12 +311,14 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 
 **拖窗口到刘海分屏**
 - 拖着任意窗口的标题栏往刘海走，会出现排列面板：左半、全屏、右半、左 1/3、中 1/3、右 1/3。指针停在哪一格就预览窗口会落在哪儿，松手就排好；拖离刘海就取消。
-- 需要「辅助功能」权限；可以在 设置… → 通用 →「拖窗口到刘海分屏」关掉。
+- 需要「辅助功能」权限；可以在 设置… →「外形与提示」→「拖窗口到刘海分屏」关掉。
 
 **安静、不打扰**
-- 一个快捷键 `⌃⌥Space` 打开小岛或收起；点别处就自动缩回刘海。Esc 一级一级往回退：先关掉当前页回到小岛，再按一次把小岛收回刘海。
-- 所有选项都在设置窗口里：开机自启、剪贴板保留条数、排除的应用、自动清理、正在播放、AI 用量、更新。
-- 新版本从本仓库的 GitHub Releases 检查；有更新时会提示你，你点了才会安装。
+- 一个快捷键 `⌃⌥Space` 打开总览或收起；点别处就自动缩回刘海。Esc 一级一级往回退：先回到总览，再按一次收回刘海。
+- 展开的面板跟随系统：深色时纯黑，浅色时深色毛玻璃；打开「减少透明度」时一律纯黑；「减少动态效果」时只保留淡入淡出。时间、计数、说明这类次要文字比过去更亮，在纯黑上更容易看清。
+- 设置… 是一个带侧栏的普通窗口：通用（开机时自动启动、语言、自动更新和「现在检查」）、外形与提示（刘海样式、灵动岛位置、正在播放、实时活动、拖窗口分屏）、托盘、剪贴板、AI 用量、快捷键、系统权限和关于。侧栏底部显示权限状态；关于页有版本号、「现在检查」「新功能介绍」和数据文件夹。改完立即生效。
+- 四个全局快捷键可以在 设置… → 快捷键 里改：点一下那一行，按新的组合键；Delete 清空，Esc 取消。显示 / 收起是 `⌃⌥Space`、剪贴板搜索 `⌃⌥V`、框选文字 `⌃⌥O`，「打开托盘」默认不设。组合被其他应用占用时，保留原来的组合并提示。
+- 新版本从本仓库的 GitHub Releases 检查；有更新时会提示你，你点了才会安装。下载好后，总览里显示「新版本已就绪 · 重新启动」。
 
 <a id="安装"></a>
 
@@ -347,7 +355,7 @@ ShelfU 是免费软件，没有经过 Apple 公证，所以 macOS 会让你确�
 ### 可选
 
 - **开机自动启动**：右键菜单栏图标 → 设置… → 通用 →「开机时自动启动」。
-- **系统权限**：设置… → 系统权限 里只有一个开关；也可以右键菜单栏图标 →「开启系统权限」。打开开关后，ShelfU 依次打开系统设置里的三页：「完整磁盘访问」「辅助功能」「屏幕录制」。在每页打开 ShelfU 的开关（「完整磁盘访问」这一页要点 + 选 ShelfU，或把访达里选中的 ShelfU 拖进列表），ShelfU 会自动走到下一项；最后点「重新打开 ShelfU」。macOS 要求每一项都由你自己打开。从 Shelf 换到 ShelfU 时要再开一次（见下）；ShelfU 的正式发布版在之后更新时保留授权，自己编译的构建每次签名都会变，可能要重新开启。
+- **系统权限**：设置… → 系统权限 里列出三项权限的状态，最后一行是一个开关；也可以右键菜单栏图标 →「开启系统权限」。打开开关后，ShelfU 依次打开系统设置里的三页：「完整磁盘访问」「辅助功能」「屏幕录制」。在每页打开 ShelfU 的开关（「完整磁盘访问」这一页要点 + 选 ShelfU，或把访达里选中的 ShelfU 拖进列表），ShelfU 会自动走到下一项；最后点「重新打开 ShelfU」。macOS 要求每一项都由你自己打开。从 Shelf 换到 ShelfU 时要再开一次（见下）；ShelfU 的正式发布版在之后更新时保留授权，自己编译的构建每次签名都会变，可能要重新开启。
 - **完整磁盘访问**：从「下载」「桌面」「文稿」或 iCloud 云盘拖文件进来时，不再弹出「ShelfU 想要取用……中的文件」。
 - **辅助功能**（刘海拖放保护）：拖着东西靠近刘海时，指针会停在托盘的接收区里，不会顶到屏幕最上沿。
 - **屏幕录制**（框选文字）：只截取你框选的那一块，文字在本机识别，不保存截图。
@@ -364,29 +372,31 @@ ShelfU 是 Shelf 的新名字。ShelfU 第一次打开时，会把 `~/Library/Ap
 
 | 想做什么 | 怎么做 |
 | --- | --- |
-| 打开或收起 | 按 `⌃⌥Space`、单击菜单栏图标，或把鼠标移到刘海上再点一下——打开的是小岛 |
-| 打开某一页 | 点小岛上的页面图标：主页、托盘、剪贴板、工具，开了 AI 用量时还有 AI 用量 |
-| 退回上一层 | 按 Esc：先关掉当前页回到小岛，再按一次把小岛收回刘海。点面板外（菜单栏高度内不算）、点「收起」或再按快捷键都直接收起 |
+| 打开或收起 | 按 `⌃⌥Space`、单击菜单栏图标，或点刘海（可以先悬停看两翼或小箭头）——打开的是总览 |
+| 打开某一页 | 点顶栏左侧的页面图标：总览、托盘、剪贴板、工具，开了 AI 用量时还有 AI 用量；面板向下长高 |
+| 打开播放器 | 点总览里正在播放的那一行 |
+| 退回上一层 | 按 Esc：先回到总览，再按一次收回刘海。点面板外（菜单栏高度内不算）或再按快捷键都直接收起 |
 | 放东西进来 | 拖着它靠近刘海，还没松手「托盘」页就打开了，松手放进去；或拖拽时左右晃动指针，放进暂存篮 |
-| 拿东西出去 | 从托盘拖到任意应用；按住 `⌘` 或 `⇧` 可以一次拖多个 |
+| 拿东西出去 | 从托盘拖到任意应用；按住 `⌘` 或 `⇧` 可以一次拖多个。总览里的格子也能直接拖出去 |
 | 把文字复制回来 | 单击文字项，再在任意地方 `⌘V` 粘贴 |
 | 复制图片数据 | 选中一张图片后按 `⌘C`，或右键图片 →「复制图片」，再在目标应用 `⌘V` 粘贴（复制的是图片，不是路径） |
 | 搜索复制过的内容 | 按 `⌃⌥V`，「剪贴板」页直接打开、搜索框已就位；输入关键词，`↑`/`↓` 选择，回车 |
-| 切换页面 | 点返回行里的页面图标（当前页的图标也在，底下的胶囊会滑过去）；面板尺寸不变 |
-| 控制音乐 | 用小岛左边的播放器；打开「主页」的音乐小组件可以拖动进度和调整音量 |
+| 切换页面 | 点顶栏左侧的页面图标（当前页的图标也在，底下的胶囊会滑过去）；面板尺寸不变 |
+| 控制音乐 | 点总览里的歌名那一行打开「正在播放」，拖动进度和音量；也可以用工具页的音乐卡片 |
 | 置顶、移除、快速查看、隔空投送 | 右键项目（快速查看也可以直接按空格） |
 | 框选屏幕文字 | 按 `⌃⌥O`，框住要复制的文字 |
 | 用工具卡 | 打开「工具」页，点按卡片处理托盘里选中的项目，或把文件拖到卡片上 |
-| 排列小组件或卡片 | 长按「主页」的小组件或「工具」页的卡片进入编辑；把它们拖出面板就固定到桌面 |
+| 排列小组件或卡片 | 长按「工具」页的卡片或小组件进入编辑；把它们拖出面板就固定到桌面 |
 | 转换图片格式、转 PDF 或 Word | 右键图片 →「转换为」；多张图片右键 →「合并为一个 PDF」；右键 PDF →「转换为」Word 或每页一张图片 |
 | 缩小图片、压缩成 zip | 右键图片 →「缩小图片」选大小；右键文件或文件夹 →「压缩为 zip」 |
 | 压缩图片到指定大小 | 右键图片 →「压缩到」→ 500 KB / 1 MB / 2 MB / 5 MB 以内 |
 | 解压压缩包 | 右键 zip、tar、7z、rar 文件 →「解压」，解出的文件夹放进托盘 |
 | 批量重新命名 | 右键一个或多个文件 →「重新命名…」，看过预览再点「改名」；改完可以在提示上撤销 |
 | 不让 Mac 睡眠 | 右键菜单栏图标 →「保持唤醒」，选时长 |
-| 清空当前列表 | 点页面顶部那一行右边的垃圾桶图标——只清这一页，置顶的保留，原文件不会被删除 |
+| 清空当前列表 | 点页面动作行右边的垃圾桶图标——只清这一页，置顶的保留，原文件不会被删除 |
 | 修改设置 | 右键菜单栏图标 → 设置… |
-| 检查更新 | 右键菜单栏图标 →「检查更新…」 |
+| 修改快捷键 | 设置… → 快捷键：点一下那一行，按新的组合键；Delete 清空，Esc 取消 |
+| 检查更新 | 右键菜单栏图标 →「检查更新…」，或 设置… → 通用 →「现在检查」 |
 
 完整说明见 [使用手册](docs/MANUAL.zh-CN.md)。
 
