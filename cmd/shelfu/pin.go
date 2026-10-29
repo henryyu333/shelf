@@ -360,10 +360,7 @@ func (a *shelf) pinWakeDrag(p mygo.Point) {
 // catalog id; frame is the release rect (a strip frame when docked,
 // card-sized elsewhere). The tools page's drag-out calls this.
 func (a *shelf) addPin(cardID string, span int, display int64, edge pinEdge, always bool, frame mygo.Rectangle) *pinItem {
-	w := pinCardW
-	if span == 2 {
-		w = pinCardW2
-	}
+	w := pinCardWidth(cardID, span)
 	it := &pinItem{
 		owner: a, cardID: cardID, span: span, cardW: w,
 		display: display, edge: edge, always: always,
@@ -776,10 +773,7 @@ func (a *shelf) pinRestore() {
 	for _, p := range a.toolsLayout().Pins {
 		disp := pinParseDisplay(p.Display)
 		edge := pinEdgeOf(p.Edge)
-		w := pinCardW
-		if p.Span == 2 {
-			w = pinCardW2
-		}
+		w := pinCardWidth(p.ID, p.Span)
 		area := pinArea(disp)
 		var frame mygo.Rectangle
 		if edge == pinFree {

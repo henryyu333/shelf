@@ -38,9 +38,9 @@ func (a *shelf) refreshAppearance(now time.Time) {
 	dark, reduce := macSystemDark(), macReduceTransparency()
 	if dark != a.systemDark || reduce != a.reduceTrans {
 		a.systemDark, a.reduceTrans = dark, reduce
-		if a.win != nil && (!a.visible || a.progress <= 0.01) {
-			a.syncMaterial()
-		}
+		// The change reaches the open panel at once: the material is
+		// created, hidden or re-placed here, not on the next size change.
+		a.syncMaterial()
 		if a.win != nil {
 			a.win.Invalidate()
 		}

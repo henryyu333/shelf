@@ -217,6 +217,7 @@ func load(dir string, def func() Layout) (Layout, error) {
 	// Version 2 files written before the tools page took the widgets
 	// carry them under "home"; the canvas is gone, so they move into the
 	// grid in memory. The file itself is written only on the next gesture.
+	l.migratePins()
 	l.mergeHome()
 	return l, nil
 }
@@ -382,6 +383,25 @@ func (l *Layout) SetCardSize(id string, span, rows int) {
 		return
 	}
 	l.Cards[i].Span, l.Cards[i].Rows = span, rows
+}
+
+// migratePins keeps the return size a pre-unification pin recorded. Those
+// files stored the window's span in "span" (widened to two columns for the
+// music, recent-file and clipboard widgets) and the canvas rectangle in
+// homeX/homeY/homeW/homeH: the rectangle is the card's size in the grid,
+// so it becomes span/rows. A pin with no recorded rect keeps what it has.
+// The file itself is not rewritten here.
+func (l *Layout) migratePins() {
+	for i := range l.Pins {
+		p := &l.Pins[i]
+		if p.HomeW >= 1 && p.HomeH >= 1 {
+			p.Span = clampSpan(p.HomeW)
+			p.Rows = clampRows(p.HomeH)
+		}
+		// The old fields have done their work; dropping them keeps a later
+		// write of this layout from re-applying a stale rectangle.
+		p.HomeX, p.HomeY, p.HomeW, p.HomeH = 0, 0, 0, 0
+	}
 }
 
 // mergeHome folds a pre-unification file's home-canvas widgets into the

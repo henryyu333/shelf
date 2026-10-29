@@ -30,21 +30,27 @@ type uiState struct {
 	WhatsNew string `json:"whatsNew,omitempty"`
 }
 
-// loadUIState reads the card marks; a missing or broken file is an empty
-// state (and is never rewritten unless a card is dismissed).
-func loadUIState(dir string) uiState {
+// loadUIState reads the card marks. A missing file is an empty state; a
+// file that cannot be read or parsed is an empty state *and* a broken one:
+// the cards still work for this session, but nothing is written back, so
+// the user's file stays as it is to repair — the same rule settings.json
+// and layout.json follow.
+func loadUIState(dir string) (uiState, bool) {
 	var st uiState
 	if dir == "" {
-		return st
+		return st, false
 	}
 	data, err := os.ReadFile(filepath.Join(dir, uiStateFile))
 	if err != nil {
-		return st
+		if os.IsNotExist(err) {
+			return st, false
+		}
+		return st, true
 	}
-	if json.Unmarshal(data, &st) != nil {
-		return uiState{}
+	if err := json.Unmarshal(data, &st); err != nil {
+		return uiState{}, true
 	}
-	return st
+	return st, false
 }
 
 // saveUIState writes the marks atomically.
@@ -66,7 +72,9 @@ func saveUIState(dir string, st uiState) error {
 // planOverviewCards decides, once at startup, which card the overview shows
 // and remembers the state it will write when the card is dismissed.
 func (a *shelf) planOverviewCards() {
-	a.uiState = loadUIState(a.dataDir)
+	var broken bool
+	a.uiState, broken = loadUIState(a.dataDir)
+	a.uiStateBroken = broken
 	version := appVersion()
 	switch {
 	case a.freshInstall && !a.uiState.Welcome:
@@ -76,10 +84,15 @@ func (a *shelf) planOverviewCards() {
 	}
 }
 
-// dismissWelcome marks the welcome card done and it never shows again.
+// dismissWelcome marks the welcome card done and it never shows again. A
+// fresh install also records the version whose new-version card it just
+// stood in for: the next launch of the same build must not show both.
 func (a *shelf) dismissWelcome() {
 	a.welcomePending, a.welcomeUp = false, false
 	a.uiState.Welcome = true
+	if v := appVersion(); v != "" && v != "dev" {
+		a.uiState.WhatsNew = v
+	}
 	a.saveCards()
 	a.otterHappy(time.Now())
 }
@@ -91,8 +104,13 @@ func (a *shelf) dismissWhatsNew() {
 	a.saveCards()
 }
 
-// saveCards persists the marks; a failure is reported like any other write.
+// saveCards persists the marks; a failure is reported like any other
+// write. A file that did not parse is never overwritten: the user gets to
+// repair it, and this session's marks live in memory only.
 func (a *shelf) saveCards() {
+	if a.uiStateBroken {
+		return
+	}
 	if err := saveUIState(a.dataDir, a.uiState); err != nil {
 		a.report(err)
 	}

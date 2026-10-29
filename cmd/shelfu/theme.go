@@ -123,7 +123,6 @@ var (
 	retractSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
 	shakeSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
 	fadeAnimation   = ui.Animation{Duration: durFade, Ease: ui.EaseOut}
-	plainSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: durFade, Bounce: 0}}
 )
 
 // reduceMotion reports whether motion should collapse to fades only.

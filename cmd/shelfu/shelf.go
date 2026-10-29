@@ -63,6 +63,7 @@ type shelf struct {
 	happyUntil                                                  time.Time         // the otter is happy until then
 	freshInstall                                                bool              // no state.json when this launch started: the welcome card's turn
 	uiState                                                     uiState           // welcome / new-version card marks (ui.json)
+	uiStateBroken                                               bool              // ui.json unreadable: never overwrite it
 	welcomePending, welcomeUp                                   bool
 	whatsNewPending, whatsNewUp                                 bool
 	openedAt                                                    time.Time             // when this opening began, for the cards' delay
@@ -130,6 +131,7 @@ type shelf struct {
 	watchingPointer                                             bool               // registered with the process-wide pointer gate
 	material                                                    *mac.ShellMaterial // light appearance's backdrop material
 	materialWin                                                 uintptr            // the window that material belongs to
+	materialAt                                                  materialKey        // the material's last applied box
 	systemDark, reduceTrans                                     bool               // cached system appearance (refreshed on a slow tick)
 	appearanceAt                                                time.Time
 	thumbnails                                                  map[string]*ui.Bitmap
@@ -355,6 +357,9 @@ func (a *shelf) dismissReadFeedback(now time.Time) bool {
 
 func (a *shelf) receive(data transfer.Data) error {
 	l := a.appLoc()
+	// A file dropped on the panel's drop zone comes back to the overview
+	// when it lands: the zone was a passing gesture, not a page change.
+	dropped := a.drop.on
 	if a.store == nil {
 		return errors.New(l.StatusNoStore())
 	}
@@ -382,6 +387,9 @@ func (a *shelf) receive(data transfer.Data) error {
 			a.toastStatus(l.StatusAdded(), time.Now().Add(3*time.Second), statusOK)
 		}
 		a.otterHappy(time.Now())
+		if dropped && a.visible && a.currentLevel() == 2 {
+			a.openPage(pageOverview)
+		}
 	}
 	a.changed(err)
 	return err

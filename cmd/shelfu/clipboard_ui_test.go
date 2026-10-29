@@ -351,9 +351,15 @@ func TestEscapeClearsSearchBeforeHiding(t *testing.T) {
 	if !view.Focused(searchLabel) {
 		t.Fatal("clearing the search lost the field's focus")
 	}
+	// The second Esc leaves the search's keyboard mode and backs out to the
+	// overview, like every other page; the third one closes.
+	view.Key(0, ui.KeyEscape)
+	if !a.visible || a.currentLevel() != 1 || a.focusMode {
+		t.Fatalf("second Esc: visible=%v level=%d focus=%v, want the overview", a.visible, a.currentLevel(), a.focusMode)
+	}
 	view.Key(0, ui.KeyEscape)
 	if a.visible {
-		t.Fatal("a second Esc did not collapse the shelf")
+		t.Fatal("a third Esc did not collapse the shelf")
 	}
 	// 收起会重置回托盘标签；捕获本身仍在存储里。
 	if a.store == nil || len(a.store.Items) != 1 || a.store.Items[0].Text != "find me" {

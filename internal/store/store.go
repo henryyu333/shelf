@@ -124,6 +124,22 @@ type Store struct {
 // opened.
 func (s *Store) Fresh() bool { return s.fresh }
 
+// hasUserData reports whether the data directory holds anything of the
+// user's besides the named entry: a first run creates nothing before the
+// store opens, so any other entry means an earlier use.
+func hasUserData(root, except string) bool {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return true // cannot tell: treat it as an existing user
+	}
+	for _, e := range entries {
+		if e.Name() != except {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Store) MigrationError() error {
 	if s == nil {
 		return nil
@@ -192,6 +208,10 @@ func Open(root string) (*Store, error) {
 	if resolved, rerr := filepath.EvalSymlinks(root); rerr == nil {
 		root = resolved
 	}
+	// Freshness is decided before this call creates anything: a first run
+	// leaves nothing of the user's behind, so an empty folder (or no
+	// folder at all) is a new user and any existing entry is an old one.
+	firstRun := !hasUserData(root, "")
 	if err := os.MkdirAll(filepath.Join(root, imagesDirName), 0o700); err != nil {
 		return nil, fmt.Errorf("store: creating data directories: %w", err)
 	}
@@ -225,7 +245,11 @@ func Open(root string) (*Store, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			ok = true
-			s.fresh = true // no history yet: the welcome card's turn
+			// Fresh only when the folder held nothing at all before this
+			// open: settings.json, layout.json, ui.json, images/ or a quota
+			// cache all belong to someone who used ShelfU before, even if
+			// the history itself is empty or was lost.
+			s.fresh = firstRun
 			s.cleanOrphanedConverted()
 			return s, nil
 		}

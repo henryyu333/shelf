@@ -45,13 +45,16 @@ func pinFixture(t *testing.T, a *shelf) {
 
 // dropPin drags one card out of the panel and returns the shelf and the pin
 // it created. The release point is on the desktop, outside the panel box.
-func dropPin(t *testing.T, id string) (*shelf, *pinItem) {
+func dropPin(t *testing.T, id string, size ...int) (*shelf, *pinItem) {
 	t.Helper()
 	a, _ := musicShelf(t)
 	pinFixture(t, a)
 	a.x, a.y = 400, 0
 	a.frame = mygo.Rectangle{X: a.x, Y: a.y, Width: sheetW, Height: sheetH}
 	a.setTab(pageTools)
+	if len(size) == 2 {
+		a.mutateTools(func(l *layout.Layout) { l.SetCardSize(id, size[0], size[1]) })
+	}
 	p := a.toolsPage()
 	p.editing = true
 	d := &toolPress{id: id, dragging: true, grabDX: 10, grabDY: 10, px: 60, py: 1200}
@@ -195,8 +198,14 @@ func TestPinnedWidgetContentIsWhole(t *testing.T) {
 		for _, size := range cardSizes(id) {
 			name := fmt.Sprintf("%s %dx%d", id, size[0], size[1])
 			t.Run(name, func(t *testing.T) {
-				a, it := dropPin(t, id)
+				// The card is really set to this size in the grid: its
+				// desktop window follows the widget's rule, not the grid
+				// column count.
+				a, it := dropPin(t, id, size[0], size[1])
 				span := it.span
+				if want := pinCardWidth(id, size[0]); it.cardW != want {
+					t.Fatalf("%s at %dx%d pins %dpt wide, want %d", id, size[0], size[1], it.cardW, want)
+				}
 				if bad := pinClipped(t, a, id, span, float32(it.cardW)); len(bad) > 0 {
 					t.Fatalf("the %dpt pinned card cuts its content: %s", it.cardW, strings.Join(bad, "; "))
 				}

@@ -22,6 +22,28 @@ const (
 	pinCardW2 = 278
 )
 
+// pinWide reports the cards whose desktop form needs two columns even when
+// the card sits in one grid column: their bodies (the player's cover and
+// transport, three file thumbnails, an icon plus two text lines) draw wider
+// than a 136pt card's inner width. The grid keeps whatever size the user
+// gave the card; only the pinned window is wider.
+func pinWide(id string) bool {
+	switch id {
+	case "playing", "recent", "clip":
+		return true
+	}
+	return false
+}
+
+// pinCardWidth is the pinned window's width: 278 for a two-column card and
+// for the widgets whose content needs it, 136 otherwise.
+func pinCardWidth(id string, span int) int {
+	if span >= 2 || pinWide(id) {
+		return pinCardW2
+	}
+	return pinCardW
+}
+
 var (
 	pinEdgeColor  = ui.RGBA(255, 255, 255, 0.14)
 	pinStripMark  = ui.RGBA(255, 255, 255, 0.40)

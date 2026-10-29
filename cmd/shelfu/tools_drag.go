@@ -83,6 +83,16 @@ func (a *shelf) syncDragPreview(pv *dragPreview, id string, span, cardW int, gra
 
 func (p *toolsPage) closeDragPreview() { p.preview.close() }
 
+// previewLeaves reports whether a w × h copy at (left, top), in the page's
+// content box, no longer fits it: the copy must leave the panel at the size
+// the card really has — a 2 × 2 widget is 174pt tall, not one row.
+func previewLeaves(v ui.Rect, left, top, w, h float32) bool {
+	if v.W <= 0 {
+		return false
+	}
+	return left < 0 || top < 0 || left+w*1.06 > v.W || top+h*1.06 > v.H
+}
+
 // Events carry the pointer's actual location. A cursor poll can lag the
 // event during fast direction changes, especially while a window is moving.
 func (p *toolsPage) toolPointer(ev ui.InputEvent) mygo.Point {
@@ -111,15 +121,15 @@ func (p *toolsPage) syncDragPreview(cursor mygo.Point) {
 		return
 	}
 	spec := p.dragSpec(d.id)
-	w, h := toolColW(spec.Span), float32(toolCellH)
+	// The preview follows the card's real rectangle: a 2 × 2 widget is
+	// 174pt tall, so the copy leaves the page (and the preview opens) where
+	// the drawn card does, not 90pt late.
+	w, h := toolColW(spec.Cols()), toolRowH(spec.Height())
 	left := float32(cursor.X) - d.grabDX - w*0.03
 	top := float32(cursor.Y) - d.grabDY - h*0.03
 	v := p.viewport
 	vx, vy := float32(a.frame.X)+v.X, float32(a.frame.Y)+v.Y
-	inside := v.W > 0 && left >= vx && top >= vy && left+w*1.06 <= vx+v.W && top+h*1.06 <= vy+v.H
-	cardW := pinCardW
-	if spec.Span == 2 {
-		cardW = pinCardW2
-	}
-	a.syncDragPreview(&p.preview, d.id, spec.Span, cardW, d.grabDX, d.grabDY, w, h, cursor, inside)
+	inside := !previewLeaves(p.viewport, left-vx, top-vy, w, h)
+	cardW := pinCardWidth(d.id, spec.Cols())
+	a.syncDragPreview(&p.preview, d.id, spec.Cols(), cardW, d.grabDX, d.grabDY, w, h, cursor, inside)
 }

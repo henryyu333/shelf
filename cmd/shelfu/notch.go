@@ -179,10 +179,39 @@ func (a *shelf) desiredFrame() mygo.Rectangle {
 
 // Use a single native setFrame plus a top-left pin so AppKit cannot leave
 // the overlay a menu-bar-height below the hardware notch.
+// materialCorner is the shell's bottom radius for the backdrop material:
+// the same one the shell path draws — the overview's 22 through a page's
+// 24 by the level progress, capped at half the height when the shell is the
+// peek capsule.
+func materialCorner(shellH, levelK float32) float64 {
+	corner := float64(overviewRadius) + (float64(sheetRadius)-float64(overviewRadius))*float64(levelK)
+	return math.Min(float64(shellH)/2, corner)
+}
+
+// materialKey is the box and visibility last applied to the backdrop
+// material: an unchanged key skips the native calls while nothing moves.
+type materialKey struct {
+	win           uintptr
+	x, y, w, h, r float64
+	on            bool
+}
+
 // syncMaterial places the light appearance's backdrop material on the
 // shell the window now holds: the frame was just applied, so the view
 // lands exactly under the drawn shell in the same frame.
+// onSyncMaterial runs at the top of every syncMaterial call; tests count
+// the calls without a window server. onMaterialFrame reports each applied
+// box with the shell and window it was computed for: evidence for the
+// frames where the shell moves and the window does not.
+var (
+	onSyncMaterial  func()
+	onMaterialFrame func(k materialKey, shellW, shellH float32, winW, winH int)
+)
+
 func (a *shelf) syncMaterial() {
+	if onSyncMaterial != nil {
+		onSyncMaterial()
+	}
 	if a.winH == 0 {
 		return
 	}
@@ -195,6 +224,7 @@ func (a *shelf) syncMaterial() {
 		if a.material != nil {
 			a.material.SetVisible(false)
 		}
+		a.materialAt = materialKey{}
 		return
 	}
 	if a.material == nil {
@@ -222,13 +252,17 @@ func (a *shelf) syncMaterial() {
 		return
 	}
 	top := float64(a.sheetTop())
-	radius := float64(a.fx.h)
-	radius = math.Min(radius/2, float64(sheetRadius))
-	if a.currentLevel() == 1 {
-		radius = math.Min(radius/2, float64(overviewRadius))
+	radius := materialCorner(a.fx.h, a.fx.levelK)
+	key := materialKey{win: a.winH, x: (fw - sw) / 2, y: fh - top - sh, w: sw, h: sh, r: radius, on: true}
+	if key == a.materialAt {
+		return
 	}
-	a.material.SetFrame((fw-sw)/2, fh-top-sh, sw, sh, radius)
+	a.materialAt = key
+	a.material.SetFrame(key.x, key.y, key.w, key.h, key.r)
 	a.material.SetVisible(true)
+	if onMaterialFrame != nil {
+		onMaterialFrame(key, a.fx.w, a.fx.h, r.Width, r.Height)
+	}
 }
 
 func (a *shelf) syncWindowFrame() {
@@ -978,14 +1012,33 @@ func (a *shelf) escape() {
 			return
 		}
 	}
-	// A sheet backs out to the island first; the island's Esc collapses.
-	// The keyboard search flow (⌃⌥V) has no island state to return to, so
-	// it closes outright.
-	if a.currentLevel() == 2 && !a.focusMode {
+	// Any page backs out to the overview first, the clipboard search's
+	// keyboard mode included: leaving it hands the search back to the
+	// normal panel and the overview to the screen; the next Esc closes.
+	if a.currentLevel() == 2 {
+		if a.focusMode {
+			a.leaveFocusMode()
+		}
 		a.setLevel(1)
 		return
 	}
 	a.hide(hideExplicit)
+}
+
+// leaveFocusMode gives up the keyboard the clipboard search took: the
+// window drops back to the menu-bar level, the field stops being focused
+// and the panel holds Esc/Space again like any other open page.
+func (a *shelf) leaveFocusMode() {
+	if !a.focusMode {
+		return
+	}
+	a.focusMode = false
+	a.syncWindowFrame()
+	if a.win != nil {
+		// Headless surfaces (tests) have no app to register keys with.
+		a.holdKeys()
+		a.win.Invalidate()
+	}
 }
 
 // hide collapses the shelf. exit decides whether the remembered app gets

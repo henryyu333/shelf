@@ -171,11 +171,19 @@ func TestOverviewOtterIsStaticArt(t *testing.T) {
 		t.Fatalf("state during a job = %q", got)
 	}
 	a.conv = nil
+	a.status = "没转成功"
 	a.statusKind, a.statusUntil = statusErr, time.Now().Add(time.Second)
 	if got := a.otterState(time.Now()); got != "embarrassed" {
 		t.Fatalf("state on an error = %q", got)
 	}
-	a.statusKind, a.statusUntil = statusOK, time.Time{}
+	// report() posts errors with no deadline of their own: they hold until
+	// the toast clock clears the text, and the otter is embarrassed for
+	// all of it.
+	a.statusUntil = time.Time{}
+	if got := a.otterState(time.Now()); got != "embarrassed" {
+		t.Fatalf("state on a deadline-free error = %q", got)
+	}
+	a.status, a.statusKind, a.statusUntil = "", statusOK, time.Time{}
 	a.lastAct = time.Now().Add(-otterSleepyAfter - time.Minute)
 	if got := a.otterState(time.Now()); got != "sleepy" {
 		t.Fatalf("state after a long quiet spell = %q", got)
@@ -232,7 +240,7 @@ func TestWelcomeShowsOnceAndOnlyForAFreshInstall(t *testing.T) {
 	if view.HasText("你好，我是 ShelfU") {
 		t.Fatal("the welcome card stayed after 跳过")
 	}
-	if st := loadUIState(dir); !st.Welcome {
+	if st, _ := loadUIState(dir); !st.Welcome {
 		t.Fatal("the welcome mark was not written")
 	}
 	// The next launch never shows it, fresh install or not.
@@ -275,7 +283,7 @@ func TestWhatsNewOnVersionChange(t *testing.T) {
 	if err := view.Click("好的"); err != nil {
 		t.Fatalf("the 好的 button is missing: %v", err)
 	}
-	if st := loadUIState(dir); st.WhatsNew != appVersion() {
+	if st, _ := loadUIState(dir); st.WhatsNew != appVersion() {
 		t.Fatalf("the read version was not recorded: %q", st.WhatsNew)
 	}
 	// Dismissed: the card does not come back.

@@ -450,9 +450,12 @@ func (a *shelf) view(c *ui.Context) {
 			peekAnim.Spring.Velocity = -0.5 // 收起反向同样不带外冲速度
 		}
 		if reduceMotion(c) {
-			openAnim = plainSpring
+			// Reduce Motion: the shell takes its size at once and only the
+			// content fades — no spring, no overshoot, no travel.
+			openK = zone.Jump("open", openTarget)
+		} else {
+			openK = zone.AnimateTo("open", openTarget, openAnim)
 		}
-		openK = zone.AnimateTo("open", openTarget, openAnim)
 		if a.visible {
 			// While the panel is opening, openK drives the shell alone:
 			// freeze peek at its last drawn value so a second spring
@@ -520,6 +523,7 @@ func (a *shelf) view(c *ui.Context) {
 		a.fx.peek, a.fx.openMoving, a.fx.sizeMoving, a.fb.drawn = false, false, false, false
 		a.fx.openK, a.fx.peekK = 0, 0
 		a.snap.drawn = false // the fold out of the snap box is over
+		a.syncMaterial()     // nothing is drawn: the material hides with it
 		a.fb.clearExpired(now, true)
 		if a.island {
 			zone.Label(loc(c).PanelExpand())
@@ -582,11 +586,11 @@ func (a *shelf) view(c *ui.Context) {
 			levelK = zone.Jump("level", levelTarget)
 			a.jumpLevel = false
 		} else {
-			levelAnim := levelSpring
 			if reduceMotion(c) {
-				levelAnim = plainSpring
+				levelK = zone.Jump("level", levelTarget)
+			} else {
+				levelK = zone.AnimateTo("level", levelTarget, levelSpring)
 			}
-			levelK = zone.AnimateTo("level", levelTarget, levelAnim)
 		}
 	}
 	levelK = min(max(levelK, 0), 1)
@@ -758,6 +762,11 @@ func (a *shelf) view(c *ui.Context) {
 			layer(2, reveal*levelK)
 		})
 	})
+	// The light appearance's backdrop material follows the shell's box on
+	// every drawn frame: during a spring the window may not change size at
+	// all while the shell does, and an appearance switch must reach it
+	// while the panel is open.
+	a.syncMaterial()
 	// What this frame drew decides the next one's retraction spring and
 	// whether the capsule's pill takes clicks. Once the folded-back shell
 	// has fully retracted, the expired text is dropped for good.

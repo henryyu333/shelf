@@ -62,6 +62,7 @@ func (a *shelf) overviewBody(c *ui.Context, _ bool) {
 		a.whatsNewCard(c)
 		return
 	}
+	a.overviewDeadlines(c)
 	ui.Row(c.Key("overview-row")).Width(contentW).Height(overviewBodyH).Gap(overviewColGap).Children(func() {
 		a.overviewMeta(c)
 		ui.Column(c.Key("overview-right")).Grow(1).MinWidth(0).Gap(4).Children(func() {
@@ -69,6 +70,37 @@ func (a *shelf) overviewBody(c *ui.Context, _ bool) {
 			a.overviewContext(c)
 		})
 	})
+}
+
+// overviewDeadlines asks for the frame that changes what the overview says:
+// a copy ages out after two minutes, the otter's happiness ends, the quiet
+// spell makes it sleepy, and a status holds only for its span. A resting
+// panel draws no frames of its own, so each of these has to be scheduled.
+func (a *shelf) overviewDeadlines(c *ui.Context) {
+	now := c.Now()
+	var at time.Time
+	soon := func(t time.Time) {
+		if t.IsZero() || !t.After(now) {
+			return
+		}
+		if at.IsZero() || t.Before(at) {
+			at = t
+		}
+	}
+	if item, ok := a.latestClipboard(); ok {
+		soon(item.CreatedAt.Add(2 * time.Minute))
+	}
+	soon(a.happyUntil)
+	if !a.lastAct.IsZero() {
+		soon(a.lastAct.Add(otterSleepyAfter))
+	}
+	if a.status != "" && !a.statusUntil.IsZero() {
+		soon(a.statusUntil.Add(toastLife))
+	}
+	if at.IsZero() {
+		return
+	}
+	c.After(at.Sub(now) + 20*time.Millisecond)
 }
 
 // overviewMeta is the left column: the two status lines on top and the
@@ -412,7 +444,10 @@ func (a *shelf) otterState(now time.Time) string {
 	switch {
 	case a.dragging && !a.ownDrag:
 		return "surprised"
-	case a.statusKind == statusErr && !a.statusUntil.IsZero() && now.Before(a.statusUntil):
+	case a.statusKind == statusErr && a.status != "":
+		// A failure has no deadline of its own; the toast clock clears the
+		// text, and until then the otter looks embarrassed — a plain
+		// report() must not leave it smiling.
 		return "embarrassed"
 	case a.overviewTaskRunning():
 		return "curious"

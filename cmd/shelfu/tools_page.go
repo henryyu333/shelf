@@ -526,15 +526,19 @@ func (p *toolsPage) toolCardInput(c *ui.Context, card ui.Element, cell toolCell,
 	}
 }
 
-// toolCardTapped runs an action card on the tray's selection (design §3:
-// 对托盘页当前选中的项目执行), jiggling with the hint when nothing
-// applies. Widget cards act only through their own controls.
+// toolCardTapped runs the card's own action: an action card works on the
+// tray's selection (design §3: 对托盘页当前选中的项目执行), a widget card
+// does what its whole-card tap has always meant (keep-awake toggles, the
+// clipboard card copies its newest capture, AI 用量 opens its page) —
+// except the music card, whose transport buttons own every press; a tap
+// beside them must not toggle playback. A card with nothing to act on
+// jiggles with the hint.
 func (p *toolsPage) toolCardTapped(id string) {
 	a := p.host
 	if p.editing {
 		return
 	}
-	if def := toolCardDefFor(id); def != nil && def.kind == cardWidget {
+	if def := toolCardDefFor(id); def != nil && def.kind == cardWidget && def.id == "playing" {
 		return
 	}
 	if a.runToolCard(id) {
@@ -563,14 +567,16 @@ func hypot(dx, dy float32) float64 {
 func (p *toolsPage) toolCardDrop(d *toolPress, cursor mygo.Point) {
 	defer p.closeDragPreview()
 	a := p.host
-	// The drop lands inside the stage when the release is within the
-	// viewport the scroll shows.
-	contentH := float32(0)
-	for _, cell := range packToolCards(a.toolsLayout().Cards, a.inactiveWidget, false) {
-		contentH = max(contentH, cell.y+cell.h)
+	// The drop lands inside the stage only when the release is inside the
+	// viewport the scroll shows right now: a card dragged below the visible
+	// rows is on its way to the desktop, not to a slot further down the
+	// grid it cannot see.
+	viewH := p.viewport.H
+	if viewH <= 0 {
+		viewH = contentH
 	}
 	inside := d.px >= 0 && d.px <= toolStageW &&
-		d.py >= p.scroll.Y && d.py <= p.scroll.Y+contentH
+		d.py >= p.scroll.Y-0.5 && d.py <= p.scroll.Y+viewH+0.5
 	target := toolCell{id: d.id, x: d.cardX, y: d.cardY}
 	if inside {
 		if ins := d.index; ins >= 0 {
@@ -589,14 +595,11 @@ func (p *toolsPage) toolCardDrop(d *toolPress, cursor mygo.Point) {
 		panel := a.panelDropRect()
 		if !insideRect(cursor, panel) {
 			spec := p.dragSpec(d.id)
-			span, w := spec.Cols(), pinCardW
-			if span == 2 {
-				w = pinCardW2
-			}
+			span, w := spec.Cols(), pinCardWidth(d.id, spec.Cols())
 			disp := displayIDAt(cursor, 0)
 			area := pinArea(disp)
 			edge := pinReleaseEdge(cursor, area)
-			frame := pinFrameUnder(cursor, d.grabDX, d.grabDY, toolColW(span), toolRowH(spec.Height()), w)
+			frame := pinFrameUnder(cursor, d.grabDX, d.grabDY, toolColW(spec.Cols()), toolRowH(spec.Height()), w)
 			if edge != pinFree {
 				frame = pinStripFrame(edge, area, cursor.Y) // the 24 pt edge rule, same as pin drags
 			}
@@ -751,25 +754,31 @@ func (p *toolsPage) pickerBody(c *ui.Context, live bool) ui.Element {
 	groups := p.pickerGroups()
 	body := ui.Column(c.Key("picker")).FillWidth().FillHeight()
 	body.Children(func() {
-		card := ui.Column(c.Key("picker-card")).FillWidth().Background(surfaceRaise).
-			Radius(rCard).Padding(10, 12, 12, 12).Gap(4)
-		card.Children(func() {
-			panelLabel(c, nil, loc(c).ToolsCardCatalog(), typeSub, 600).TextColor(ink3)
-			if len(groups) == 0 {
-				panelLabel(c, nil, loc(c).HomeAllPlaced(), typeCallout, 0).TextColor(ink3)
-				return
-			}
-			for i, group := range groups {
-				if i > 0 {
-					ui.Box(c).Height(4)
+		// The list scrolls inside the card: with every card removed the
+		// catalogue is taller than the 174pt box, and a clipped row could
+		// never be picked.
+		scroll := ui.Scroll(c.Key("picker-scroll")).FillWidth().Grow(1).MinHeight(0)
+		scroll.Children(func() {
+			card := ui.Column(c.Key("picker-card")).FillWidth().Background(surfaceRaise).
+				Radius(rCard).Padding(10, 12, 12, 12).Gap(4)
+			card.Children(func() {
+				panelLabel(c, nil, loc(c).ToolsCardCatalog(), typeSub, 600).TextColor(ink3)
+				if len(groups) == 0 {
+					panelLabel(c, nil, loc(c).HomeAllPlaced(), typeCallout, 0).TextColor(ink3)
+					return
 				}
-				ui.Grid(c.Key(fmt.Sprintf("pick-group-%d", i))).
-					ColumnTracks(ui.Fr(1), ui.Fr(1)).Gap(4).FillWidth().Children(func() {
-					for _, def := range group {
-						p.pickRow(c, def, live)
+				for i, group := range groups {
+					if i > 0 {
+						ui.Box(c).Height(4)
 					}
-				})
-			}
+					ui.Grid(c.Key(fmt.Sprintf("pick-group-%d", i))).
+						ColumnTracks(ui.Fr(1), ui.Fr(1)).Gap(4).FillWidth().Children(func() {
+						for _, def := range group {
+							p.pickRow(c, def, live)
+						}
+					})
+				}
+			})
 		})
 	})
 	return body
