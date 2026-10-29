@@ -34,7 +34,7 @@
 
 ## What is ShelfU
 
-ShelfU is a notch tool for the Mac: it turns the black notch around the camera into a working part of the screen. It stays out of sight until you need it: hover the notch and it grows a pair of wings, or a small down-arrow pill, and a click opens the Overview. The Overview holds the five items you put in last — drag any of them straight out — and one line about what matters now: a job still running, with Cancel, an error, a finished job, an update ready, the track that is playing, a copy from the last minute, or how many clips the Clipboard holds. The otter sits on the left. There is no second, smaller island to open first. The page icons sit on the left of the top row — Overview, Tray, Clipboard, Tools, and AI Usage when you turn it on — and a page grows the same panel down to 440 × 250, so it fits under your menu bar instead of covering it. Drag something onto the notch instead and the Tray opens on its own, already waiting for the drop. Only the black shape on screen takes clicks: the menu bar beside it works as usual. Esc steps back one level at a time: a page returns to the Overview, and the Overview folds into the notch.
+ShelfU is a notch tool for the Mac: it turns the black notch around the camera into a working part of the screen. It stays out of sight until you need it: hover the notch and it grows a pair of wings, or a small down-arrow pill, and a click opens the Overview. The Overview holds the five items you put in last — drag any of them straight out — and one line about what matters now: a job still running, with Cancel, an error, a finished job, an update ready, the track that is playing, a copy from the last minute, or how many clips the Clipboard holds. The otter sits on the left. There is no second, smaller island to open first. The page icons sit on the left of the top row — Overview, Tray, Clipboard, Tools, and AI Usage when you turn it on — and a page grows the same panel down to 440 × 250, so it fits under your menu bar instead of covering it. The Overview's icon is a house, so it reads apart from the Tools grid at a glance. Drag something onto the notch instead and the Tray opens on its own, already waiting for the drop. Only the black shape on screen takes clicks: the menu bar beside it works as usual. Esc steps back one level at a time: a page returns to the Overview, and the Overview folds into the notch.
 
 It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and never copies your files — it only remembers where they are.
 
@@ -55,12 +55,12 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 
 **Now playing**
 - Hover the notch while music plays and it grows two small wings: the cover on the left, a moving equalizer on the right. Nothing drops down over your windows. Click anywhere on the wings and the Overview opens.
-- The Overview's line carries the player: cover, title and artist, with play-pause and next. Click that line to open the Now Playing page — previous, play-pause and next, a progress bar you drag to skip, and the volume bar for your default output device. The page keeps its size whether or not a track is playing.
+- The Overview's line carries the player: cover, title and artist, with previous, play-pause and next. Click that line to open the Now Playing page — previous, play-pause and next, a progress bar you drag to skip, and the volume bar for your default output device. The page keeps its size whether or not a track is playing.
 - The music widget is still a card on the Tools page: at 2 × 2 it is the full player, at 2 × 1 it shows the cover, title, artist and play-pause, and at 1 × 1 a tap toggles playback.
 
 **AI usage** (optional, off by default)
 - Enable it in Settings → AI Usage and the panel gains one more page icon: the left column holds a double-ring card per tool — outer ring weekly, inner ring 5-hour — and the right column holds this Mac's token usage for omp, Claude Code and Codex, over Today / 7D / 30D / All, as four numbers and a stacked chart with its legend. The page fits one screen and never scrolls. Hover a card for its reset times and any per-model weekly limits; hover the token or cost number for its parts.
-- Quotas show how much is used by default; switch to what is left in Settings → AI Usage → Quota Shown.
+- Quotas show how much is used by default; switch to what is left in Settings → AI Usage → Quota Shown. The AI Usage card on Tools reads the same quotas: at 1 × 1 it draws one double ring — outer weekly, inner 5-hour — around the mark of the tool with the least left; hover it for the numbers. At 2 × 1 it keeps the ring beside its name.
 - The Claude Code quota comes from Claude Code itself: ShelfU runs your installed Claude Code's `/usage` command, so the numbers match what Claude Code reports. Claude Code must be installed; ShelfU never downloads it. The Codex quota reads the login Codex already saved on this Mac and sends it only to chatgpt.com.
 - Opening the page or pressing refresh reads the quota (Claude Code at most once every 30 seconds); while the page stays open, Claude Code is read again every 5–15 minutes, and only after you used it. The last reading is kept, so the page shows it right after a restart.
 
@@ -71,11 +71,12 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 **Overview**
 - A click on the notch lands here. On the left: the Tray and Clipboard counts, the otter below them — it looks curious while a job runs, unhappy after a failure, happy after good news, and sleepy after ten quiet minutes. While a job runs, the two lines read Working / Finished items stay in the Tray.
 - On the right: the five items at the front of the Tray, pinned ones first, as small tiles. Drag any tile straight into an app, right-click it for the usual menu, or click it to open the Tray with that item selected. All › opens the Tray too.
-- Below the tiles: one line about the most relevant thing right now. A running job shows its progress and a Cancel button; an error or a finished job shows its words; a downloaded update shows Update ready · Restart to finish with a Restart button; a track shows cover, title and artist with play-pause and next; a copy from the last two minutes shows Copied: … with All ›. With nothing else to say, it shows how many clips the Clipboard holds, with Open.
+- Below the tiles: one line about the most relevant thing right now. A running job shows its progress and a Cancel button; an error or a finished job shows its words; a downloaded update shows Update ready · Restart to finish with a Restart button; a track shows cover, title and artist with previous, play-pause and next; a copy from the last two minutes shows Copied: … with All ›. With nothing else to say, it shows how many clips the Clipboard holds, with Open.
 - The first time you open it after installing, a welcome card takes the Overview's place: drag a file onto the notch to try it, which finishes the card, or click Skip. After an update, the first opening explains what is new; About → What's New shows it again.
 
 **Tools page**
-- Tools is one grid: the action cards and the widgets live together. A new install starts with the music widget at 2 × 2, Keep Awake and AI Usage at 1 × 1 (the AI Usage card appears once its page is on), Recent Files and Latest Clip at 2 × 1, then eight action cards — Capture Text, Fit 1 MB, Make PDF, Zip, To JPEG, To Word, Extract and Resize Images. More cards, AirDrop included, are in the + catalogue. The grid scrolls inside the page when it holds more than two rows.
+- Tools is one grid: the action cards and the widgets live together. A new install fits exactly two rows with no scrolling: the music widget at 2 × 2, Keep Awake and AI Usage at 1 × 1 (Fit 1 MB takes that cell while AI Usage is off), then Capture Text and Zip. Every other card, AirDrop included, is in the + catalogue. A layout you already have stays as it is. The grid scrolls inside the page when it holds more than two rows.
+- Only a real drag of files over the panel dims the action cards that cannot take them. Widgets and cards pinned to the desktop stay as they are.
 - If you used the Home page in an earlier version, the widgets you placed there move into the Tools grid, at the sizes they had.
 - Tap an action card to run it on the pictures or files selected on the shelf, or drop files straight onto it.
 - Long-press a card (or click the pencil) to edit: drag to reorder, ⊖ to remove, the corner handle to cycle the sizes a widget offers (1 × 1, 2 × 1, 2 × 2), and the dashed + cell to add a card from the catalogue. Done or Esc to finish. Drag a card out of the panel to keep it on the desktop.
@@ -97,7 +98,8 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 **Dynamic Island style**
 - On a display without a notch, ShelfU floats as a Dynamic Island: a small black pill near the top that grows into everything the notch does.
 - On a MacBook you can choose it too: Settings → Appearance → Notch Style → Dynamic Island. The notch style stays the default.
-- Hold the island and drag it anywhere on the screen; it stays where you let go, on each display, and the panel opens from there. Settings → Appearance → Reset Position brings it back to the top.
+- Hold the island and drag it anywhere on the screen; it stays where you let go, on each display. The panel finds its own place: it opens below the island when there is room, moves aside near a screen edge, and opens above the island when the space below is too small. While the panel is open, hold a blank part of its top row and the whole panel moves with the island. Settings → Appearance → Reset Position brings it back to the top.
+- The notch style cannot be dragged.
 
 **Arrange windows from the notch**
 - Drag any window by its title bar toward the notch: a panel offers left half, full, right half and left, middle or right third. Hover a tile to see where the window will go, let go to arrange it. Move away to cancel.
@@ -110,8 +112,9 @@ It lives in the menu bar, has no Dock icon, keeps everything on your Mac, and ne
 
 **Quiet by design**
 - One shortcut, `⌃⌥Space`, opens the Overview or closes the shelf; clicking anywhere else tucks it away, and Esc steps back one level at a time — a page returns to the Overview, the Overview folds into the notch.
-- The panel follows the system: pure black in Dark Mode, dark frosted glass in Light Mode. Reduce Transparency always means pure black; Reduce Motion keeps the fades and drops the travel and bounce. Secondary text — times, counts, captions — is drawn brighter than before, so it stays readable on black.
-- Settings… is a normal window with a sidebar: General (Open at Login, Language, automatic updates with Check Now), Appearance (notch style, island position, now playing, live activities, snap windows), Tray, Clipboard, AI Usage, Shortcuts, System Permissions and About. The sidebar's footer says whether every permission is on; About holds the version, Check Now, What's New and the data folder. Every control applies at once.
+- Settings → Appearance → Panel Appearance offers Follow System (the default), Black and Translucent. Follow System is black in Dark Mode and translucent in Light Mode. Reduce Transparency also draws the translucent panel black, and the island style is always black. Reduce Motion keeps the fades and drops the travel and bounce. Secondary text — times, counts, captions — is drawn brighter than before, so it stays readable on black.
+- Every page switch is one fade: the page you leave fades out while the new page fades in. Over the open panel the pointer stays a plain arrow.
+- Settings… is a normal window with a sidebar: General (Open at Login, Language, automatic updates with Check Now), Appearance (notch style, panel appearance, island position, now playing, live activities, snap windows), Tray, Clipboard, AI Usage, Shortcuts, System Permissions and About. The sidebar's footer says whether every permission is on; About holds the version, Check Now, What's New and the data folder. Every control applies at once.
 - The four global shortcuts can be changed in Settings → Shortcuts: click a row, press the new keys, Delete to clear it, Esc to cancel. Show / Hide is `⌃⌥Space`, Clipboard Search `⌃⌥V`, Capture Text `⌃⌥O`, and Open Tray has none until you set one. A combination another app already holds leaves the previous shortcut in place.
 - Updates are checked against this repository's GitHub releases. ShelfU tells you when one is out and installs it only when you say so; once it is downloaded, the Overview says Update ready · Restart to finish with a Restart button.
 
@@ -243,7 +246,7 @@ Users may install and use official ShelfU releases. Separate extraction, reprodu
 
 ## ShelfU 是什么
 
-ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘海变成屏幕上能用的一部分。平时它不露面；鼠标移到刘海上，它会向两侧长出两翼或一个小箭头提示，点一下就打开「总览」。总览里是最近放入的五项——每一项都能直接拖出去——和一行「当前最相关的事」：还在进行的任务（带取消）、出错、刚做完、新版本已就绪、正在播放的歌、刚复制的内容，或剪贴板的条数。左边是海獭；不再有一级小岛。页面图标在顶栏左侧：总览、托盘、剪贴板、工具，打开 AI 用量后还有 AI 用量；点一个图标，同一个面板向下长高到 440 × 250，停在菜单栏下面，不会盖住菜单栏和窗口。如果是拖着东西过来，打开的是「托盘」页，直接等着接收。屏幕上只有画出来的黑块接鼠标，旁边的菜单栏照常可点。Esc 一级一级往回退：页面回到总览，再按一次收回刘海。
+ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘海变成屏幕上能用的一部分。平时它不露面；鼠标移到刘海上，它会向两侧长出两翼或一个小箭头提示，点一下就打开「总览」。总览里是最近放入的五项——每一项都能直接拖出去——和一行「当前最相关的事」：还在进行的任务（带取消）、出错、刚做完、新版本已就绪、正在播放的歌、刚复制的内容，或剪贴板的条数。左边是海獭；不再有一级小岛。页面图标在顶栏左侧：总览、托盘、剪贴板、工具，打开 AI 用量后还有 AI 用量；点一个图标，同一个面板向下长高到 440 × 250，停在菜单栏下面，不会盖住菜单栏和窗口。总览的图标是房子，和工具页的四宫格图标一眼就能分开。如果是拖着东西过来，打开的是「托盘」页，直接等着接收。屏幕上只有画出来的黑块接鼠标，旁边的菜单栏照常可点。Esc 一级一级往回退：页面回到总览，再按一次收回刘海。
 
 它只在菜单栏里，不占 Dock；所有内容都留在你的 Mac 上；放进来的文件不会被复制，ShelfU 只记住它们在哪儿。
 
@@ -269,7 +272,7 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 
 **AI 用量**（可选，默认关闭）
 - 在设置 → AI 用量里打开「在刘海里显示 AI 用量」，顶栏会多出一个页面图标：左栏是 Codex、Claude Code 的套餐额度卡（每张卡内外双圈：外圈每周、内圈 5 小时），右栏是这台电脑上 omp、Claude Code、Codex 的 token 用量——今天 / 7 天 / 30 天 / 全部、四个数字、按来源叠加的柱图和图例。整页一屏看全，不用滚动。悬停额度卡看重置时间和按模型的每周额度；悬停 Token 或费用数字看它的组成部分。
-- 额度默认显示「已用」；可以在 设置… → AI 用量 →「额度显示」改成「剩余」。
+- 额度默认显示「已用」；可以在 设置… → AI 用量 →「额度显示」改成「剩余」。工具页的 AI 用量卡用同一份额度数据：1×1 只画一个双圈——外圈每周、内圈 5 小时——中间是剩余额度最少的那个工具的标志，鼠标悬停看具体数字；2×1 仍是圈在左、名字在右。
 - Claude Code 的额度由 Claude Code 自己给出：ShelfU 运行你装好的 Claude Code 的 `/usage` 命令，所以数字和 Claude Code 显示的一致。需要先装好 Claude Code，ShelfU 不会替你下载。Codex 的额度读取 Codex 保存在本机的登录信息，只发给 chatgpt.com。
 - 打开这一页或点刷新时会查询额度（Claude Code 最多 30 秒查一次）；页面一直开着时，只有你用过 Claude Code 才会每 5–15 分钟再查一次。上次的结果会保存，重启后打开就能看到。
 
@@ -280,11 +283,12 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 **总览**
 - 点刘海就到这里。左边是「托盘 N 项」「剪贴板 N 条」两行字，下面是海獭——有任务在跑时好奇、出错时装作难过、有好消息时开心、安静十分钟后打瞌睡；任务进行中时两行字变成「正在处理 / 做完的会留在托盘」。
 - 右边是托盘最前面的五项（置顶的排在最前），以小格子显示。抓住格子就能直接拖进任何应用；右键是常用的菜单；点一下打开「托盘」页并选中这一项。「全部 ›」同样打开「托盘」页。
-- 格子下面是一行「当前最相关的事」，一次只显示一件：进行中的任务带进度条和取消按钮；出错或刚做完显示那句话；下载好的新版本显示「新版本已就绪 · 重新启动」和「重新启动」按钮；有歌时显示封面、歌名、歌手和播放暂停、下一首；两分钟内复制过东西时显示「刚复制：…」和「全部 ›」。都没有时显示剪贴板的条数和「打开」。
+- 格子下面是一行「当前最相关的事」，一次只显示一件：进行中的任务带进度条和取消按钮；出错或刚做完显示那句话；下载好的新版本显示「新版本已就绪 · 重新启动」和「重新启动」按钮；有歌时显示封面、歌名、歌手和上一首、播放暂停、下一首；两分钟内复制过东西时显示「刚复制：…」和「全部 ›」。都没有时显示剪贴板的条数和「打开」。
 - 装好第一次打开时，这里换成欢迎卡：把一个文件拖到刘海试试，拖进来就算完成；也可以点「跳过」。更新后第一次展开会介绍新功能，关于页的「新功能介绍」可以再看一次。
 
 **工具页**
-- 工具页是一张统一的网格：动作卡和小组件放在一起。全新安装时默认是音乐 2×2、保持唤醒和 AI 用量各 1×1（AI 用量卡片要打开它的页面才出现）、最近文件和剪贴板最新各 2×1，后面是八张动作卡：框选文字、压缩到 1 MB、转成 PDF、打成 zip、转 JPEG、转 Word、解压、缩小图片。隔空投送等其余卡片在「+」打开的目录里。超过两行时在页内滚动。
+- 工具页是一张统一的网格：动作卡和小组件放在一起。全新安装时正好两行、不用滚动：音乐 2×2，保持唤醒和 AI 用量各 1×1（AI 用量页关着时，这一格是「压缩到 1 MB」），下面是框选文字和打成 zip。其余卡片（包括隔空投送）都在「+」打开的目录里，可以自己加。已有的布局不变。超过两行时在页内滚动。
+- 只有真的把文件拖过面板时，不能处理的动作卡才变暗；小组件和固定到桌面的卡片保持原样。
 - 如果你用过旧版本的「主页」，那里的小组件会按原来的尺寸搬进工具页的网格。
 - 点按动作卡，对托盘里选中的图片或文件执行；也可以把文件直接拖到卡片上。
 - 长按卡片（或点铅笔图标）进入编辑：拖动排序、点 ⊖ 删除、拖右下角的把手在小组件支持的 1×1、2×1、2×2 之间切换、点虚线「+」格从目录添加。点「完成」或按 Esc 结束。把卡片拖出面板，它就固定到桌面。
@@ -306,7 +310,8 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 **灵动岛样式**
 - 在没有刘海的屏幕上，ShelfU 变成一颗悬浮的灵动岛：屏幕顶部一颗小黑胶囊，刘海能做的事它都能做。
 - MacBook 上也可以选：设置… →「外形与提示」→「刘海样式」→「灵动岛」。默认仍是刘海样式。
-- 按住小岛可以拖到屏幕任意位置，松手就留在那里，每块屏幕分别记住，面板从那里展开。设置… →「外形与提示」→「恢复默认位置」让它回到屏幕顶部。
+- 按住小岛可以拖到屏幕任何位置，松手就留在那里，每块屏幕分别记住。展开后的面板自己找位置：下方放得下就向下展开，靠边时和岛错开，下方放不下就向岛上方展开。面板展开时，按住顶栏的空白处也能拖，整块面板跟着岛一起走。设置… →「外形与提示」→「恢复默认位置」让它回到屏幕顶部。
+- 刘海样式不能拖。
 
 **语言**
 - 设置… → 通用 →「语言」有三档：「跟随系统」（默认）、「简体中文」和「English」。
@@ -319,8 +324,9 @@ ShelfU 是住在 Mac 刘海里的工具：它把摄像头周围那块黑色刘�
 
 **安静、不打扰**
 - 一个快捷键 `⌃⌥Space` 打开总览或收起；点别处就自动缩回刘海。Esc 一级一级往回退：先回到总览，再按一次收回刘海。
-- 展开的面板跟随系统：深色时纯黑，浅色时深色毛玻璃；打开「减少透明度」时一律纯黑；「减少动态效果」时只保留淡入淡出。时间、计数、说明这类次要文字比过去更亮，在纯黑上更容易看清。
-- 设置… 是一个带侧栏的普通窗口：通用（开机时自动启动、语言、自动更新和「现在检查」）、外形与提示（刘海样式、灵动岛位置、正在播放、实时活动、拖窗口分屏）、托盘、剪贴板、AI 用量、快捷键、系统权限和关于。侧栏底部显示权限状态；关于页有版本号、「现在检查」「新功能介绍」和数据文件夹。改完立即生效。
+- 设置… →「外形与提示」→「展开外观」有三档：「跟随系统」（默认）、「纯黑」和「半透明」。跟随系统时深色纯黑、浅色半透明；打开「减少透明度」时半透明也是纯黑；灵动岛样式始终纯黑。「减少动态效果」时只保留淡入淡出。时间、计数、说明这类次要文字比过去更亮，在纯黑上更容易看清。
+- 总览和各页面用同一种切换：旧页淡出，新页淡入。指针在展开的面板上始终是普通箭头。
+- 设置… 是一个带侧栏的普通窗口：通用（开机时自动启动、语言、自动更新和「现在检查」）、外形与提示（刘海样式、展开外观、灵动岛位置、正在播放、实时活动、拖窗口分屏）、托盘、剪贴板、AI 用量、快捷键、系统权限和关于。侧栏底部显示权限状态；关于页有版本号、「现在检查」「新功能介绍」和数据文件夹。改完立即生效。
 - 四个全局快捷键可以在 设置… → 快捷键 里改：点一下那一行，按新的组合键；Delete 清空，Esc 取消。显示 / 收起是 `⌃⌥Space`、剪贴板搜索 `⌃⌥V`、框选文字 `⌃⌥O`，「打开托盘」默认不设。组合被其他应用占用时，保留原来的组合并提示。
 - 新版本从本仓库的 GitHub Releases 检查；有更新时会提示你，你点了才会安装。下载好后，总览里显示「新版本已就绪 · 重新启动」。
 
