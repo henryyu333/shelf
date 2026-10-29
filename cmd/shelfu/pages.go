@@ -220,20 +220,17 @@ func (p *trayPage) body(c *ui.Context, _ bool, _ bool) ui.Element {
 		l := loc(c)
 		return a.emptyState(c, shelfSymbol, l.PageTrayEmptyTitle(), l.PageTrayEmptyHint())
 	}
-	rows := (len(list) + gridCols - 1) / gridCols
-	listH := float32(rows*(tileH+gapGrid) - gapGrid)
-	top, bottom, viewH := scrollEdges(&p.scroll, listH)
-	band := edgeBandFor(tileH)
+	// 托盘网格不做滚动边缘模糊：格子是 85pt 高、5 列一块，比模糊边带
+	// 宽得多，任何模糊都会落到整块缩略图和文件名上，而不是把半行融进
+	// 壳里（用户实测：托盘看起来整页糊掉）。模糊只留给 30pt 一行的
+	// 剪贴板列表（见 fadedRow）。
 	return ui.Column(c.Key("tray-stage")).FillWidth().FillHeight().Children(func() {
 		ui.Scroll(c.Key("items")).Grow(1).MinHeight(0).TrackScroll(&p.scroll).Children(func() {
 			ui.Grid(c.Key("grid")).ColumnTracks(ui.Fr(1), ui.Fr(1), ui.Fr(1), ui.Fr(1), ui.Fr(1)).
 				Gap(gapGrid).FillWidth().Children(func() {
 				// 快照：右键菜单或拖入回调可改变原切片。
-				for i, item := range list {
-					rowTop := float32(i/gridCols*(tileH+gapGrid)) - p.scroll.Y
-					a.fadedRow(c, item.ID, rowTop, tileH, viewH, top, bottom, band, func() {
-						a.itemTile(c, item)
-					})
+				for _, item := range list {
+					a.itemTile(c, item)
 				}
 			})
 		})
@@ -366,23 +363,20 @@ func (p *clipboardPage) actions(c *ui.Context) []ui.Element {
 	return out
 }
 
-// Progressive edge blur: a scrolling page does not cut its rows off at a
+// Progressive edge blur: the clipboard list does not cut its rows off at a
 // hard line. The last edgeBand points toward an edge that still has
 // content beyond it blur, most at the edge itself and less the further in
 // a row sits, so rows melt into the shell as they scroll out. There is no
 // overlay and no dimming: a row fully in the open stays exactly as it is.
 const (
-	// edgeBandMax caps the band at 24pt, and no band is deeper than half
-	// a row: the 174pt content box is short, and the old 34pt band could
-	// swallow a whole 30pt clipboard row at once.
-	edgeBandMax = 24
 	// edgeBlurPerPT is the blur sigma at the very edge per point of band:
-	// 2.88 at a 24pt band, 1.8 at the clipboard's 15pt.
+	// 1.8 at the clipboard's 15pt.
 	edgeBlurPerPT = 0.12
 )
 
-// edgeBandFor is how deep the melt reaches for rows rowH tall.
-func edgeBandFor(rowH float32) float32 { return min(edgeBandMax, rowH/2) }
+// edgeBandFor is how deep the melt reaches for rows rowH tall: never
+// deeper than half a row, so a band cannot swallow a whole row at once.
+func edgeBandFor(rowH float32) float32 { return rowH / 2 }
 
 // scrollEdges reports which melts a scroll container shows now — the top
 // while its content has scrolled down, the bottom while more is below —
@@ -427,19 +421,24 @@ func rowFade(rowTop, rowH, viewH float32, top, bottom bool, band float32) float3
 	return t
 }
 
-// fadedRow wraps one scrolling row (a tile's cell, a clipboard row) so the
-// edge blur follows it as it scrolls; the row itself keeps its key and
-// behaviour. A page switch pauses the blur: both pages are moving and
-// re-rasterising blurred rows for 240ms would cost more than the fade
-// shows.
+// onRowBlur reports every row a frame melts, with the blur sigma it hands
+// the painter: a test checks which rows a page's edge blur reaches, which
+// the layout tree cannot show. Production leaves it nil.
+var onRowBlur func(a *shelf, id string, sigma float32)
+
+// fadedRow wraps one scrolling clipboard row so the edge blur follows it as
+// it scrolls; the row itself keeps its key and behaviour. A page switch
+// pauses the blur: both pages are moving and re-rasterising blurred rows
+// for 240ms would cost more than the fade shows.
 func (a *shelf) fadedRow(c *ui.Context, id string, rowTop, rowH, viewH float32, top, bottom bool, band float32, children func()) {
 	row := ui.Column(c.Key(id + "-fade")).Height(rowH)
-	// A row that covers the whole viewport (a 2 × 2 widget card, say) is
-	// never an edge row: it is the page, not content melting into it.
-	edgeRow := rowH < viewH*0.75
 	if a.win == nil || a.tabPhase(c.Now()) >= 1 {
-		if t := rowFade(rowTop, rowH, viewH, top, bottom, band); edgeRow && t > 0 {
-			row.Blur(band * edgeBlurPerPT * t)
+		if t := rowFade(rowTop, rowH, viewH, top, bottom, band); t > 0 {
+			sigma := band * edgeBlurPerPT * t
+			if onRowBlur != nil {
+				onRowBlur(a, id, sigma)
+			}
+			row.Blur(sigma)
 		}
 	}
 	row.Children(children)

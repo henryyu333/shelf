@@ -1121,14 +1121,15 @@ func TestScrollEdgesOnlyWhereThereIsMore(t *testing.T) {
 }
 
 // TestEdgeBandIsAtMostHalfARow: the 174pt box is short, so the melt never
-// reaches deeper than half a row and never past edgeBandMax.
+// reaches deeper than half a row. The clipboard's 30pt row is the only
+// scrolling row that melts now that the tray grid draws sharp: nothing
+// caps a tall row any more, because no tall row melts.
 func TestEdgeBandIsAtMostHalfARow(t *testing.T) {
 	cases := []struct {
 		rowH, want float32
 	}{
-		{clipRowH, clipRowH / 2}, // 30pt rows: a 15pt band
-		{toolCellH, edgeBandMax}, // 84pt cards: capped at 24
-		{tileH, edgeBandMax},     // 85pt tiles: capped at 24
+		{clipRowH, clipRowH / 2},    // 30pt rows: a 15pt band
+		{tileH, float32(tileH) / 2}, // a tile would melt no deeper than half
 		{20, 10},
 	}
 	for _, c := range cases {
