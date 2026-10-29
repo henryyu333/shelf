@@ -185,9 +185,29 @@ func TestPermissionTrayItemStartsTheWalk(t *testing.T) {
 	if a.perm.stage != permissionWaiting {
 		t.Fatalf("the tray item did not start the walk: %v", a.perm.stage)
 	}
+	if a.settingsPage != settingsPagePermissions {
+		t.Fatalf("the tray item left the window on %v", a.settingsPage)
+	}
 	if st.fdaRequests != 1 || st.axRequests != 0 || st.scRequests != 0 {
 		t.Fatalf("the walk did not start with Full Disk Access: fda=%d ax=%d screen=%d",
 			st.fdaRequests, st.axRequests, st.scRequests)
+	}
+}
+
+// 开启系统权限… shows the 系统权限 page even when the window is already open
+// on another one.
+func TestShowPermissionsSwitchesToItsPage(t *testing.T) {
+	_, _ = stubPermissions(t)
+	oldOpen := openSettingsWindow
+	openSettingsWindow = func(*shelf) {}
+	t.Cleanup(func() { openSettingsWindow = oldOpen })
+	a := &shelf{settings: settings.Default(), settingsPage: settingsPageClipboard}
+	a.showPermissions()
+	if a.settingsPage != settingsPagePermissions {
+		t.Fatalf("showPermissions left the window on %v", a.settingsPage)
+	}
+	if a.perm.stage != permissionWaiting {
+		t.Fatalf("showPermissions did not start the walk: %v", a.perm.stage)
 	}
 }
 

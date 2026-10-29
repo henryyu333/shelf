@@ -8,6 +8,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -18,10 +20,65 @@ import (
 	"shelf/locales"
 )
 
-func TestShortcutRecordingSavesAndRegisters(t *testing.T) {
+// fakeKeys is the real registration layer, replaced: a registry that
+// refuses combinations on demand, so a test can hold what the system would
+// hold and press what the system would press.
+type fakeKeys struct {
+	held   map[string]func()
+	fail   map[string]int // acc → remaining refusals
+	regs   []string
+	unregs []string
+}
+
+func installFakeKeys(t *testing.T) *fakeKeys {
+	t.Helper()
+	f := &fakeKeys{held: map[string]func(){}, fail: map[string]int{}}
+	origReg, origUnreg := registerKey, unregisterKey
+	registerKey = func(acc string, fn func()) error {
+		if f.fail[acc] > 0 {
+			f.fail[acc]--
+			return errShortcutBusy
+		}
+		if _, ok := f.held[acc]; ok {
+			return errShortcutBusy
+		}
+		f.held[acc] = fn
+		f.regs = append(f.regs, acc)
+		return nil
+	}
+	unregisterKey = func(acc string) {
+		delete(f.held, acc)
+		f.unregs = append(f.unregs, acc)
+	}
+	t.Cleanup(func() { registerKey, unregisterKey = origReg, origUnreg })
+	return f
+}
+
+func (f *fakeKeys) has(acc string) bool {
+	_, ok := f.held[acc]
+	return ok
+}
+
+// press delivers a registered combination the way the system would.
+func (f *fakeKeys) press(acc string) {
+	if fn := f.held[acc]; fn != nil {
+		fn()
+	}
+}
+
+// shortcutShelf is a fresh install with its three default shortcuts
+// registered through the fake layer.
+func shortcutShelf(t *testing.T) (*shelf, *ui.Tester, *fakeKeys) {
+	t.Helper()
 	stubSettingsSeams(t, false, nil, nil)
-	held, released, _ := stubKeyboard(t)
+	f := installFakeKeys(t)
 	a, view := newSettingsShelf(t)
+	a.registerShortcuts()
+	return a, view, f
+}
+
+func TestShortcutRecordingSavesAndRegisters(t *testing.T) {
+	a, view, f := shortcutShelf(t)
 	openSettingsPage(t, view, "快捷键")
 
 	if err := view.Click("显示 / 收起"); err != nil {
@@ -43,21 +100,54 @@ func TestShortcutRecordingSavesAndRegisters(t *testing.T) {
 	if err != nil || saved.Shortcuts.Toggle != "Ctrl+Alt+K" {
 		t.Fatalf("settings.json toggle = %q, %v", saved.Shortcuts.Toggle, err)
 	}
-	if len(*released) != 1 || (*released)[0] != settings.DefaultShortcutToggle {
-		t.Fatalf("the old shortcut was not released: %v", *released)
+	if !f.has("Ctrl+Alt+K") || f.has(settings.DefaultShortcutToggle) {
+		t.Fatalf("registry after the change: %v", f.regs)
 	}
-	if len(*held) != 1 || (*held)[0] != "Ctrl+Alt+K" {
-		t.Fatalf("the new shortcut was not registered: %v", *held)
+	// The rows that stood down for the recording came back.
+	if !f.has(settings.DefaultShortcutClipboard) || !f.has(settings.DefaultShortcutCapture) {
+		t.Fatalf("the other shortcuts were not restored: %v", f.regs)
+	}
+}
+
+// While a row listens, the app's own combinations must not run their old
+// actions: they are released for the duration and claimed again after.
+func TestShortcutRecordingSuspendsRegisteredKeys(t *testing.T) {
+	a, view, f := shortcutShelf(t)
+	a.visible = false
+	openSettingsPage(t, view, "快捷键")
+	if !f.has("Ctrl+Alt+Space") {
+		t.Fatal("the toggle shortcut must start registered")
+	}
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	if f.has("Ctrl+Alt+Space") {
+		t.Fatal("the registered combination still answers while recording")
+	}
+	// The system would deliver it to the recorder, not to the shelf.
+	f.press("Ctrl+Alt+Space")
+	if a.visible {
+		t.Fatal("the old action ran during the recording")
+	}
+	// Pressing it reaches the recorder, which keeps the saved value and
+	// claims it again for the other rows' sake.
+	view.Key(ui.Ctrl|ui.Alt, ui.KeySpace)
+	view.Frame()
+	if got := a.settings.Shortcuts.Toggle; got != "Ctrl+Alt+Space" {
+		t.Fatalf("saved toggle = %q", got)
+	}
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+V") || !f.has("Ctrl+Alt+O") {
+		t.Fatalf("the shortcuts did not come back: %v", f.regs)
 	}
 }
 
 func TestShortcutRecordingCancelAndClear(t *testing.T) {
-	stubSettingsSeams(t, false, nil, nil)
-	held, released, _ := stubKeyboard(t)
-	a, view := newSettingsShelf(t)
+	a, view, f := shortcutShelf(t)
 	openSettingsPage(t, view, "快捷键")
 
-	// Esc cancels without touching the saved shortcut.
+	// Esc cancels without touching the saved shortcut, and the suspended
+	// combinations come back.
 	if err := view.Click("剪贴板搜索"); err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +160,14 @@ func TestShortcutRecordingCancelAndClear(t *testing.T) {
 	if a.settings.Shortcuts.Clipboard != settings.DefaultShortcutClipboard {
 		t.Fatalf("Esc changed the shortcut: %q", a.settings.Shortcuts.Clipboard)
 	}
-	if len(*held)+len(*released) != 0 {
-		t.Fatalf("Esc touched the registry: held=%v released=%v", *held, *released)
+	for _, acc := range []string{"Ctrl+Alt+Space", "Ctrl+Alt+V", "Ctrl+Alt+O"} {
+		if !f.has(acc) {
+			t.Fatalf("Esc left %q unregistered; registry %v", acc, f.regs)
+		}
 	}
 
-	// Delete clears it: the file holds "" and the keys are released.
+	// Delete clears it: the file holds "", the system holds nothing for
+	// that row, and the rest stay.
 	if err := view.Click("剪贴板搜索"); err != nil {
 		t.Fatal(err)
 	}
@@ -84,20 +177,18 @@ func TestShortcutRecordingCancelAndClear(t *testing.T) {
 	if got := a.settings.Shortcuts.Clipboard; got != "" {
 		t.Fatalf("cleared clipboard shortcut = %q, want empty", got)
 	}
-	if len(*released) != 1 || (*released)[0] != settings.DefaultShortcutClipboard {
-		t.Fatalf("clearing did not release the keys: %v", *released)
+	if f.has(settings.DefaultShortcutClipboard) {
+		t.Fatal("clearing left the keys registered")
 	}
-	if len(*held) != 0 {
-		t.Fatalf("clearing registered something: %v", *held)
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+O") {
+		t.Fatalf("clearing took the other shortcuts down: %v", f.regs)
 	}
 }
 
 // A bare key, or a combination without Control, Option or Command, is
 // ignored: a global bare key would swallow that key everywhere.
 func TestShortcutRecordingIgnoresBareKeys(t *testing.T) {
-	stubSettingsSeams(t, false, nil, nil)
-	held, _, _ := stubKeyboard(t)
-	a, view := newSettingsShelf(t)
+	a, view, f := shortcutShelf(t)
 	openSettingsPage(t, view, "快捷键")
 	if err := view.Click("框选文字"); err != nil {
 		t.Fatal(err)
@@ -112,8 +203,8 @@ func TestShortcutRecordingIgnoresBareKeys(t *testing.T) {
 	if a.settings.Shortcuts.Capture != settings.DefaultShortcutCapture {
 		t.Fatalf("a bare key changed the shortcut: %q", a.settings.Shortcuts.Capture)
 	}
-	if len(*held) != 0 {
-		t.Fatalf("a bare key registered something: %v", *held)
+	if f.has("Ctrl+Alt+J") || f.has("Shift+J") {
+		t.Fatalf("a bare key registered something: %v", f.regs)
 	}
 	// Shift with a modifier is fine.
 	view.Key(ui.Ctrl|ui.Shift, ui.KeyJ)
@@ -121,13 +212,14 @@ func TestShortcutRecordingIgnoresBareKeys(t *testing.T) {
 	if got := a.settings.Shortcuts.Capture; got != "Ctrl+Shift+J" {
 		t.Fatalf("saved capture = %q, want Ctrl+Shift+J", got)
 	}
+	if !f.has("Ctrl+Shift+J") || !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+V") {
+		t.Fatalf("registry after the change: %v", f.regs)
+	}
 }
 
 // A click outside the keycaps ends the recording, like Esc.
 func TestShortcutRecordingClickCancels(t *testing.T) {
-	stubSettingsSeams(t, false, nil, nil)
-	stubKeyboard(t)
-	a, view := newSettingsShelf(t)
+	a, view, f := shortcutShelf(t)
 	openSettingsPage(t, view, "快捷键")
 	if err := view.Click("显示 / 收起"); err != nil {
 		t.Fatal(err)
@@ -141,18 +233,40 @@ func TestShortcutRecordingClickCancels(t *testing.T) {
 	if a.settings.Shortcuts.Toggle != settings.DefaultShortcutToggle {
 		t.Fatalf("the click changed the shortcut: %q", a.settings.Shortcuts.Toggle)
 	}
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+V") || !f.has("Ctrl+Alt+O") {
+		t.Fatalf("the click left shortcuts unregistered: %v", f.regs)
+	}
+}
+
+// Closing the window mid-recording gives the suspended shortcuts back.
+func TestSettingsClosedRestoresSuspendedShortcuts(t *testing.T) {
+	a, view, f := shortcutShelf(t)
+	a.visible = true
+	openSettingsPage(t, view, "快捷键")
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	if f.has("Ctrl+Alt+Space") {
+		t.Fatal("recording left the combination registered")
+	}
+	a.settingsClosed()
+	if a.settingsRecording != shortcutNone {
+		t.Fatal("closing left a row recording")
+	}
+	for _, acc := range []string{"Ctrl+Alt+Space", "Ctrl+Alt+V", "Ctrl+Alt+O"} {
+		if !f.has(acc) {
+			t.Fatalf("closing left %q unregistered", acc)
+		}
+	}
 }
 
 // A refused combination keeps the previous shortcut and says so on the row;
 // the same combination as another row's counts as refused.
 func TestShortcutRecordingBusyKeepsPrevious(t *testing.T) {
-	stubSettingsSeams(t, false, nil, nil)
-	held, released, _ := stubKeyboard(t)
-	a, view := newSettingsShelf(t)
+	a, view, f := shortcutShelf(t)
 	openSettingsPage(t, view, "快捷键")
 
-	// The system refuses Ctrl+Alt+V for the toggle (the clipboard holds it
-	// in the app's own registry, so this is the duplicate path).
 	if err := view.Click("显示 / 收起"); err != nil {
 		t.Fatal(err)
 	}
@@ -165,8 +279,8 @@ func TestShortcutRecordingBusyKeepsPrevious(t *testing.T) {
 	if a.settings.Shortcuts.Toggle != settings.DefaultShortcutToggle {
 		t.Fatalf("busy combination replaced the shortcut: %q", a.settings.Shortcuts.Toggle)
 	}
-	if len(*released) != 0 {
-		t.Fatalf("the previous shortcut was touched: %v", *released)
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+V") || !f.has("Ctrl+Alt+O") {
+		t.Fatalf("a refused combination left the registry inconsistent: %v", f.regs)
 	}
 	view.Frame()
 	if !view.HasText(locales.In("").SettingsShortcutBusy()) {
@@ -180,28 +294,16 @@ func TestShortcutRecordingBusyKeepsPrevious(t *testing.T) {
 	if a.shortcutBusy[shortcutToggle] {
 		t.Fatal("the busy note survived a successful change")
 	}
-	if len(*held) != 1 || (*held)[0] != "Ctrl+Alt+K" {
-		t.Fatalf("the new shortcut was not registered: %v", *held)
+	if !f.has("Ctrl+Alt+K") || f.has("Ctrl+Alt+Space") {
+		t.Fatalf("registry after the change: %v", f.regs)
 	}
 }
 
 // A registration the system refuses (another app holds the keys) restores
 // the previous registration and saves nothing.
 func TestShortcutRecordingSystemRefusal(t *testing.T) {
-	stubSettingsSeams(t, false, nil, nil)
-	var held, released []string
-	origReg, origUnreg := registerKey, unregisterKey
-	registerKey = func(acc string, fn func()) error {
-		if acc == "Ctrl+Alt+P" {
-			return errShortcutBusy
-		}
-		held = append(held, acc)
-		return nil
-	}
-	unregisterKey = func(acc string) { released = append(released, acc) }
-	t.Cleanup(func() { registerKey, unregisterKey = origReg, origUnreg })
-
-	a, view := newSettingsShelf(t)
+	a, view, f := shortcutShelf(t)
+	f.fail["Ctrl+Alt+P"] = 1
 	openSettingsPage(t, view, "快捷键")
 	if err := view.Click("显示 / 收起"); err != nil {
 		t.Fatal(err)
@@ -215,12 +317,11 @@ func TestShortcutRecordingSystemRefusal(t *testing.T) {
 	if !a.shortcutBusy[shortcutToggle] {
 		t.Fatal("the refusal was not reported on the row")
 	}
-	// The old shortcut was released, then claimed again.
-	if len(released) != 1 || released[0] != settings.DefaultShortcutToggle {
-		t.Fatalf("released = %v", released)
+	if f.has("Ctrl+Alt+P") {
+		t.Fatal("the refused combination was registered")
 	}
-	if len(held) != 1 || held[0] != settings.DefaultShortcutToggle {
-		t.Fatalf("the previous shortcut was not restored: %v", held)
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+V") || !f.has("Ctrl+Alt+O") {
+		t.Fatalf("the previous shortcuts were not restored: %v", f.regs)
 	}
 	saved, err := settings.Load(a.dataDir)
 	if err != nil || saved.Shortcuts.Toggle != settings.DefaultShortcutToggle {
@@ -228,31 +329,158 @@ func TestShortcutRecordingSystemRefusal(t *testing.T) {
 	}
 }
 
+// Claiming the new keys never releases the old registration first: a
+// refused change leaves the system exactly as it was.
+func TestApplyShortcutClaimsBeforeReleasing(t *testing.T) {
+	a, _, f := shortcutShelf(t)
+	f.fail["Ctrl+Alt+X"] = 1
+	if err := a.applyShortcut(shortcutToggle, "Ctrl+Alt+X"); err == nil {
+		t.Fatal("a refused combination was accepted")
+	}
+	if !f.has("Ctrl+Alt+Space") {
+		t.Fatalf("the old shortcut is gone: %v", f.unregs)
+	}
+	if len(f.unregs) != 0 {
+		t.Fatalf("the old registration was released before the new one was claimed: %v", f.unregs)
+	}
+}
+
+// Restoring a suspended shortcut can fail too (another app took it while
+// the row listened): the row says so, and the app knows nothing is held.
+func TestShortcutRecordingRestoreFailure(t *testing.T) {
+	a, view, f := shortcutShelf(t)
+	f.fail["Ctrl+Alt+O"] = 1
+	openSettingsPage(t, view, "快捷键")
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	view.Key(ui.Ctrl|ui.Alt, ui.KeyK)
+	view.Frame()
+	if !a.shortcutBusy[shortcutCapture] {
+		t.Fatal("a failed restore was not reported on its row")
+	}
+	if f.has("Ctrl+Alt+O") {
+		t.Fatal("the refused restore reported success")
+	}
+	if !f.has("Ctrl+Alt+K") || !f.has("Ctrl+Alt+V") {
+		t.Fatalf("the rest of the registry: %v", f.regs)
+	}
+}
+
+// A combination settings.json names but the system refused at launch is
+// retried when the user records it again; "already saved" is not "held".
+func TestShortcutRecordingRetriesRefusedAtLaunch(t *testing.T) {
+	stubSettingsSeams(t, false, nil, nil)
+	f := installFakeKeys(t)
+	a, view := newSettingsShelf(t)
+	f.fail["Ctrl+Alt+V"] = 1
+	a.registerShortcuts()
+	if !a.shortcutBusy[shortcutClipboard] || f.has("Ctrl+Alt+V") {
+		t.Fatalf("the refused launch registration did not stick: busy=%v", a.shortcutBusy)
+	}
+	openSettingsPage(t, view, "快捷键")
+	if err := view.Click("剪贴板搜索"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	view.Key(ui.Ctrl|ui.Alt, ui.KeyV)
+	view.Frame()
+	if !f.has("Ctrl+Alt+V") {
+		t.Fatal("recording the same combination did not retry it")
+	}
+	if a.shortcutBusy[shortcutClipboard] {
+		t.Fatal("the busy note survived the successful retry")
+	}
+	if a.settings.Shortcuts.Clipboard != settings.DefaultShortcutClipboard {
+		t.Fatalf("the retry changed the saved value: %q", a.settings.Shortcuts.Clipboard)
+	}
+}
+
+// A save that fails releases only the keys it claimed and leaves the file's
+// shortcut registered, so the three places still agree afterwards.
+func TestShortcutSaveFailureReleasesOnlyTheNewKeys(t *testing.T) {
+	a, view, f := shortcutShelf(t)
+	openSettingsPage(t, view, "快捷键")
+	a.dataDir = filepath.Join(t.TempDir(), "gone") // settings.json cannot be written
+	f.fail["Ctrl+Alt+Space"] = 1                   // and the old keys are taken meanwhile
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	view.Key(ui.Ctrl|ui.Alt, ui.KeyK)
+	view.Frame()
+	if a.settings.Shortcuts.Toggle != settings.DefaultShortcutToggle {
+		t.Fatalf("the unsaved combination was kept in memory: %q", a.settings.Shortcuts.Toggle)
+	}
+	if f.has("Ctrl+Alt+K") {
+		t.Fatal("the unsaved combination stayed registered")
+	}
+	if f.has("Ctrl+Alt+Space") {
+		t.Fatal("a restore the system refused was reported as held")
+	}
+	if !a.shortcutBusy[shortcutToggle] {
+		t.Fatal("the failed save was not reported on the row")
+	}
+	// With the file writable again, recording the same saved value claims
+	// it: a value the system does not hold is never reported as success
+	// without being registered.
+	a.dataDir = t.TempDir()
+	os.WriteFile(filepath.Join(a.dataDir, settings.FileName), []byte(`{}`), 0o600)
+	a.settings.Shortcuts.Toggle = settings.DefaultShortcutToggle
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	view.Key(ui.Ctrl|ui.Alt, ui.KeySpace)
+	view.Frame()
+	if !f.has("Ctrl+Alt+Space") || a.shortcutBusy[shortcutToggle] {
+		t.Fatalf("the retry did not claim the combination: %v busy=%v", f.regs, a.shortcutBusy)
+	}
+}
+
 // Launch registers what settings.json holds, including a cleared shortcut,
 // and keeps a refused one on its row instead of stopping.
 func TestRegisterShortcutsAtLaunch(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
-	var held []string
-	origReg := registerKey
-	registerKey = func(acc string, fn func()) error {
-		if acc == "Ctrl+Alt+O" {
-			return errShortcutBusy
-		}
-		held = append(held, acc)
-		return nil
-	}
-	t.Cleanup(func() { registerKey = origReg })
+	f := installFakeKeys(t)
+	f.fail["Ctrl+Alt+O"] = 1
 
 	a := &shelf{settings: settings.Default()}
 	a.settings.Shortcuts.Clipboard = ""
 	a.settings.Shortcuts.Tray = "Ctrl+Alt+T"
 	a.registerShortcuts()
-	want := []string{"Ctrl+Alt+Space", "Ctrl+Alt+T"}
-	if len(held) != len(want) || held[0] != want[0] || held[1] != want[1] {
-		t.Fatalf("registered %v, want %v", held, want)
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+T") || f.has("Ctrl+Alt+O") {
+		t.Fatalf("registry %v", f.regs)
 	}
 	if !a.shortcutBusy[shortcutCapture] || a.shortcutBusy[shortcutClipboard] {
 		t.Fatalf("busy flags = %v", a.shortcutBusy)
+	}
+}
+
+// 「打开托盘」 puts the panel on the 托盘 page: it opens a closed shelf, grows
+// the overview, and switches a panel that sits on another page.
+func TestOpenTrayShortcutShowsTheTrayPage(t *testing.T) {
+	a, _ := levelShelf(t)
+	a.visible = false
+	openTray := a.shortcutAction(shortcutOpenTray)
+	openTray()
+	if !a.visible || a.currentLevel() != 2 || a.currentPage().id() != pageTray {
+		t.Fatalf("open from closed: visible=%v level=%d page=%v",
+			a.visible, a.currentLevel(), a.currentPage().id())
+	}
+	a.setTab(pageClipboard)
+	if a.currentPage().id() != pageClipboard {
+		t.Fatalf("the test did not switch pages: %v", a.currentPage().id())
+	}
+	openTray()
+	if a.currentPage().id() != pageTray {
+		t.Fatalf("open on 托盘 left the panel on %v", a.currentPage().id())
+	}
+	// The action the shortcut kind runs is this one.
+	openTray()
+	if a.currentPage().id() != pageTray {
+		t.Fatalf("the shortcut left the panel on %v", a.currentPage().id())
 	}
 }
 

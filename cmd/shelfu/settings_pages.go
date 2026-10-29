@@ -423,8 +423,7 @@ func (a *shelf) settingsShortcutRow(c *ui.Context, kind shortcutKind, label, cap
 		})
 	})
 	if row.Clicked() {
-		a.settingsRecording = kind
-		a.repaintSettings()
+		a.startShortcutRecording(kind)
 	}
 }
 

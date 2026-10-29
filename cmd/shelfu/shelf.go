@@ -84,20 +84,22 @@ type shelf struct {
 	dragSerial                                                  int64
 	dragOpenTools                                               bool // 本次外部拖拽开始时面板开在工具页（design §1: 只有这时才用卡片接文件）
 	dragging, suppressed, pointerDrag, ownDrag, dropHot, inBand bool
-	drop                                                        dropZoneState         // incoming-drag zone memory; zero while no drag hovers
-	dataDir                                                     string                // where state.json and settings.json live
-	settingsBroken                                              bool                  // settings.json unreadable: never overwrite it
-	settingsWin                                                 *mygo.Window          // the 设置 window; nil while closed
-	settingsPrevPID                                             int                   // app to hand the keyboard back to when it closes
-	perm                                                        permissionFlow        // 系统权限 unified entry's guided walk; zero = idle
-	loginOn                                                     bool                  // 开机时自动启动，read back each time the window opens
-	loginErr                                                    string                // last SetOpenAtLogin failure, shown inline
-	rn                                                          *renameUI             // 重新命名 window session; nil until first use
-	settingsScroll                                              ui.ScrollState        // the Settings window's scroll position
-	settingsPage                                                settingsPageID        // the sidebar destination shown
-	settingsRecording                                           shortcutKind          // the shortcut row recording keys, shortcutNone when idle
-	shortcutBusy                                                map[shortcutKind]bool // shortcuts the system refused
-	update                                                      *mygo.Update          // version the feed offers, waiting for the user
+	drop                                                        dropZoneState           // incoming-drag zone memory; zero while no drag hovers
+	dataDir                                                     string                  // where state.json and settings.json live
+	settingsBroken                                              bool                    // settings.json unreadable: never overwrite it
+	settingsWin                                                 *mygo.Window            // the 设置 window; nil while closed
+	settingsPrevPID                                             int                     // app to hand the keyboard back to when it closes
+	perm                                                        permissionFlow          // 系统权限 unified entry's guided walk; zero = idle
+	loginOn                                                     bool                    // 开机时自动启动，read back each time the window opens
+	loginErr                                                    string                  // last SetOpenAtLogin failure, shown inline
+	rn                                                          *renameUI               // 重新命名 window session; nil until first use
+	settingsScroll                                              ui.ScrollState          // the Settings window's scroll position
+	settingsPage                                                settingsPageID          // the sidebar destination shown
+	settingsRecording                                           shortcutKind            // the shortcut row recording keys, shortcutNone when idle
+	shortcutBusy                                                map[shortcutKind]bool   // shortcuts the system refused
+	shortcutReg                                                 map[shortcutKind]string // what the system holds per shortcut, "" for none
+	shortcutsSuspended                                          bool                    // a recording released the shortcuts; restore them after
+	update                                                      *mygo.Update            // version the feed offers, waiting for the user
 	updateChecking, updateInstalling                            bool
 	updateInstalled                                             bool    // swapped into place; runs at the next launch
 	updateProgress                                              float64 // download progress while installing

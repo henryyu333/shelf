@@ -189,7 +189,7 @@ func (a *shelf) settingsTakeKeyboard() {
 // window too; nothing may be re-registered or re-activated then.
 func (a *shelf) settingsClosed() {
 	a.stopPermissionFlow()
-	a.settingsRecording = shortcutNone
+	a.endShortcutRecording()
 	a.settingsWin = nil
 	if a.quitting {
 		return
@@ -267,7 +267,7 @@ func (a *shelf) setSettingsPage(page settingsPageID) {
 	}
 	a.settingsPage = page
 	a.settingsScroll.Y = 0
-	a.settingsRecording = shortcutNone
+	a.endShortcutRecording()
 	a.repaintSettings()
 }
 

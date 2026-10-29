@@ -65,7 +65,7 @@ func (a *shelf) shortcutAction(k shortcutKind) func() {
 	case shortcutCapture:
 		return a.startScreenOCR
 	case shortcutOpenTray:
-		return func() { a.show(false) }
+		return a.openTray
 	}
 	return func() {}
 }
@@ -76,6 +76,44 @@ func (a *shelf) shortcutAcc(k shortcutKind) string {
 		return *p
 	}
 	return ""
+}
+
+// shortcutHeld is the combination the system currently holds for the kind,
+// "" for none. The saved value and this one differ exactly when the system
+// refused a combination settings.json still names (a hand edit, another app
+// holding it at launch).
+func (a *shelf) shortcutHeld(k shortcutKind) string {
+	return a.shortcutReg[k]
+}
+
+// heldShortcut records what the system now holds for the kind. It is the
+// one place shortcutReg changes, so no register or unregister can leave it
+// stale.
+func (a *shelf) heldShortcut(k shortcutKind, acc string) {
+	if a.shortcutReg == nil {
+		a.shortcutReg = map[shortcutKind]string{}
+	}
+	if acc == "" {
+		delete(a.shortcutReg, k)
+		return
+	}
+	a.shortcutReg[k] = acc
+}
+
+// openTray shows the panel on the 托盘 page: it opens the shelf when it is
+// closed, grows it from the overview, and switches it when another page is
+// showing.
+func (a *shelf) openTray() {
+	if !a.visible {
+		a.show(false)
+	}
+	if a.currentLevel() == 1 {
+		a.setLevel(2)
+	}
+	a.setTab(pageTray)
+	if a.win != nil {
+		a.win.Invalidate()
+	}
 }
 
 // registerShortcuts registers every saved shortcut at launch, and keeps a
@@ -104,16 +142,101 @@ func (a *shelf) registerShortcuts() {
 			default:
 				a.notice(l.StartupShortcutBusy(err.Error()))
 			}
+			continue
 		}
+		a.heldShortcut(k, acc)
 	}
 }
 
-// applyShortcut makes acc the kind's shortcut: it claims the keys first and
-// saves only once they are the app's own, so a refused combination leaves
-// both the running app and settings.json on the previous one.
+// suspendShortcuts releases every registered shortcut, and restoreShortcuts
+// claims them back. Recording uses the pair: while a row listens for keys, a
+// key the app already holds must reach the recorder instead of running its
+// old action.
+func (a *shelf) suspendShortcuts() {
+	a.shortcutsSuspended = true
+	for k := shortcutToggle; k < shortcutKindCount; k++ {
+		acc := a.shortcutHeld(k)
+		if acc == "" {
+			continue
+		}
+		unregisterKey(acc)
+		a.heldShortcut(k, "")
+	}
+}
+
+// restoreShortcuts claims every saved shortcut the system does not hold any
+// more, and keeps a refusal on the row: the combination is taken while the
+// app needed it back.
+func (a *shelf) restoreShortcuts() {
+	if !a.shortcutsSuspended {
+		// Nothing stood down: a shelf that never registered (a headless
+		// window, a test) must not claim the user's combinations here.
+		return
+	}
+	a.shortcutsSuspended = false
+	if a.shortcutBusy == nil {
+		a.shortcutBusy = map[shortcutKind]bool{}
+	}
+	for k := shortcutToggle; k < shortcutKindCount; k++ {
+		acc := a.shortcutAcc(k)
+		if acc == "" || a.shortcutHeld(k) == acc {
+			continue
+		}
+		if err := registerKey(acc, a.shortcutAction(k)); err != nil {
+			a.shortcutBusy[k] = true
+			continue
+		}
+		a.heldShortcut(k, acc)
+	}
+}
+
+// startShortcutRecording puts one row in listening mode: the app's own
+// shortcuts stand down so the keys reach the recorder.
+func (a *shelf) startShortcutRecording(k shortcutKind) {
+	if a.settingsRecording != shortcutNone {
+		return
+	}
+	a.suspendShortcuts()
+	a.settingsRecording = k
+	a.repaintSettings()
+}
+
+// cancelShortcutRecording ends the listening mode without a change and
+// claims the suspended shortcuts back.
+func (a *shelf) cancelShortcutRecording() {
+	active := a.settingsRecording != shortcutNone
+	a.settingsRecording = shortcutNone
+	a.restoreShortcuts()
+	if active {
+		a.repaintSettings()
+	}
+}
+
+// endShortcutRecording ends a listening row without repainting: the window
+// is closing or leaving the page, which repaint themselves.
+func (a *shelf) endShortcutRecording() {
+	if a.settingsRecording == shortcutNone {
+		return
+	}
+	a.settingsRecording = shortcutNone
+	if a.quitting {
+		// The app is going away: nothing may claim keys on the way out.
+		a.shortcutsSuspended = false
+		return
+	}
+	a.restoreShortcuts()
+}
+
+// applyShortcut makes acc the kind's shortcut. It claims the new keys
+// before it releases the old ones and before it writes the file, so a
+// refused combination changes nothing: the registry, settings.json and the
+// running app stay on the previous one. A file that cannot be written
+// releases the keys it just claimed.
 func (a *shelf) applyShortcut(k shortcutKind, acc string) error {
-	cur := a.shortcutAcc(k)
-	if acc == cur {
+	curSaved := a.shortcutAcc(k)
+	if acc == curSaved && a.shortcutHeld(k) == acc {
+		// Saved and held: nothing to do. A saved value the system refused
+		// ("" held) is not this case: recording it again retries it.
 		return nil
 	}
 	if a.settingsBroken {
@@ -128,29 +251,25 @@ func (a *shelf) applyShortcut(k shortcutKind, acc string) error {
 			}
 		}
 	}
-	if cur != "" {
-		unregisterKey(cur)
-	}
-	if acc != "" {
+	held := a.shortcutHeld(k)
+	alreadyHeld := held == acc
+	if acc != "" && !alreadyHeld {
 		if err := registerKey(acc, a.shortcutAction(k)); err != nil {
-			if cur != "" {
-				_ = registerKey(cur, a.shortcutAction(k))
-			}
+			// The old registration was never released: nothing to undo.
 			return errShortcutBusy
 		}
 	}
 	next := a.settings
 	*k.field(&next.Shortcuts) = acc
 	if !a.applySettings(next) {
-		// The file could not take it: put the keys back so what runs and
-		// what is saved cannot disagree.
-		if acc != "" {
+		if acc != "" && !alreadyHeld {
 			unregisterKey(acc)
 		}
-		if cur != "" {
-			_ = registerKey(cur, a.shortcutAction(k))
-		}
 		return errors.New("settings.json could not be saved")
+	}
+	a.heldShortcut(k, acc)
+	if held != "" && held != acc {
+		unregisterKey(held)
 	}
 	return nil
 }
@@ -166,7 +285,11 @@ func (a *shelf) finishShortcut(acc string) {
 	if a.shortcutBusy == nil {
 		a.shortcutBusy = map[shortcutKind]bool{}
 	}
-	if err := a.applyShortcut(k, acc); err != nil {
+	err := a.applyShortcut(k, acc)
+	// Whatever happened, the rows that stood down for the recording come
+	// back; a refusal stays on its row.
+	a.restoreShortcuts()
+	if err != nil {
 		a.shortcutBusy[k] = true
 	} else {
 		delete(a.shortcutBusy, k)
@@ -195,16 +318,14 @@ func (a *shelf) shortcutCaptureInput(ev ui.InputEvent) bool {
 		return true
 	case ui.InputPointerDown:
 		// A click outside the keycaps cancels, as Esc does.
-		a.settingsRecording = shortcutNone
-		a.repaintSettings()
+		a.cancelShortcutRecording()
 		return true
 	default:
 		return false
 	}
 	switch ev.Key {
 	case ui.KeyEscape:
-		a.settingsRecording = shortcutNone
-		a.repaintSettings()
+		a.cancelShortcutRecording()
 		return true
 	case ui.KeyBackspace, ui.KeyDelete:
 		a.finishShortcut("")

@@ -209,6 +209,9 @@ func (a *shelf) permissionMenuItem() *mygo.MenuItem {
 // starts the guided flow.
 func (a *shelf) showPermissions() {
 	openSettingsWindow(a)
+	// The guided walk lives on its own page: switching first means the
+	// flow's captions are visible on an already-open window too.
+	a.setSettingsPage(settingsPagePermissions)
 	a.startPermissionFlow()
 }
 
