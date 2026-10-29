@@ -1044,7 +1044,10 @@ func (a *shelf) leaveFocusMode() {
 		a.holdKeys()
 		a.win.Invalidate()
 	}
-	a.activatePreviousApp(prev)
+	// The panel stays open, so the hand-back must not hide this app: the
+	// close path's fallback (resignSelf) would take the notch window with it
+	// when the remembered app is gone. Only the close may resign.
+	a.handBackApp(prev)
 }
 
 // hide collapses the shelf. exit decides whether the remembered app gets

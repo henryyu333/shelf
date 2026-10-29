@@ -3,6 +3,7 @@
 package main
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -108,16 +109,22 @@ func TestCollapsedMarginsReachUnderlyingWindow(t *testing.T) {
 			// Park the pointer on the point first and let it settle: the
 			// window at a point is only meaningful once nothing is about
 			// to move there, and another copy of ShelfU (the installed
-			// one) may open its own panel at the notch. When the point is
-			// not our receiver's at click time the pass-through assertion
-			// cannot be exercised, and the guard is right to refuse.
+			// one) may open its own panel at the notch. Only a window owned
+			// by another process may take the point; this process taking it
+			// means our own margin stopped letting clicks through, which is
+			// the regression this test exists to catch, so that fails.
 			warpPointerTo(t, float64(point.X), float64(point.Y))
 			time.Sleep(350 * time.Millisecond)
 			var now int
 			onMain(func() { now = mac.WindowAtPoint(float64(point.X), float64(point.Y), float64(a.dispBounds.Y+a.dispBounds.Height)) })
 			if now != receiverNum {
-				t.Skipf("%s: window %d (pid %d) took the point, not the test's receiver %d",
-					state, now, windowOwnerPID(t, now), receiverNum)
+				owner := windowOwnerPID(t, now)
+				if owner > 0 && owner != os.Getpid() {
+					t.Skipf("%s: window %d (pid %d) took the point, not the test's receiver %d",
+						state, now, owner, receiverNum)
+				}
+				t.Fatalf("%s: window %d (owner pid %d) took the point, not the test's receiver %d; the owner is this process or unidentifiable",
+					state, now, owner, receiverNum)
 			}
 			clickAt(t, float64(point.X), float64(point.Y))
 			var count int

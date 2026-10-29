@@ -395,6 +395,56 @@ func TestLeaveFocusModeHandsTheKeyboardBack(t *testing.T) {
 	}
 }
 
+// TestLeaveFocusModeKeepsTheOpenPanel: leaving the clipboard search's
+// keyboard mode hands the keyboard back without ever hiding this app. The
+// remembered app may already be gone, and activating it then fails; the
+// close path's own fallback resigns NSApp, which would take the panel the
+// user is still looking at down with it. This path must only ask, and a
+// live remembered app must still get the keyboard at once.
+func TestLeaveFocusModeKeepsTheOpenPanel(t *testing.T) {
+	oldActive, oldActivate, oldResign := appIsActive, activateApp, resignSelf
+	var activated []int
+	resigned := 0
+	appIsActive = func() bool { return true }
+	activateApp = func(pid int) bool { activated = append(activated, pid); return false }
+	resignSelf = func() { resigned++ }
+	t.Cleanup(func() { appIsActive, activateApp, resignSelf = oldActive, oldActivate, oldResign })
+
+	a, view := overviewShelf(t)
+	searching := func() {
+		// The ⌃⌥V state with the search empty, so one Esc leaves the mode
+		// instead of first clearing the query.
+		a.tab, a.tabFrom, a.level = pageClipboard, pageClipboard, 2
+		a.search, a.focusMode, a.prevAppPID = "", true, 4242
+	}
+	searching()
+	view.Frame()
+	view.Key(0, ui.KeyEscape) // the remembered app is gone: activation fails
+	if a.focusMode {
+		t.Fatal("Esc left the keyboard mode on")
+	}
+	if len(activated) != 1 || activated[0] != 4242 {
+		t.Fatalf("the hand-back did not try the remembered app: %v", activated)
+	}
+	if resigned != 0 {
+		t.Fatalf("the hand-back resigned the app %d times and hid the open panel", resigned)
+	}
+	if !a.visible {
+		t.Fatal("the panel was hidden while it was still open")
+	}
+
+	activateApp = func(pid int) bool { activated = append(activated, pid); return true }
+	searching()
+	view.Frame()
+	view.Key(0, ui.KeyEscape)
+	if len(activated) != 2 || activated[1] != 4242 {
+		t.Fatalf("a live remembered app was not reactivated: %v", activated)
+	}
+	if resigned != 0 || !a.visible {
+		t.Fatalf("the panel did not survive the hand-back: resigned=%d visible=%v", resigned, a.visible)
+	}
+}
+
 // TestWelcomeFinishesTheVersionToo: finishing the welcome card records the
 // version as read, so the same build's new-version card never follows it.
 func TestWelcomeFinishesTheVersionToo(t *testing.T) {
