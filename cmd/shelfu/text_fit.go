@@ -5,7 +5,7 @@ package main
 // fitText is the one-line text the home and tools pages draw. When a test
 // installs fitIssue, every text is measured at its real font and recorded
 // if it cannot fit the width its layout gives it — the permanent guard
-// against clipped or wrapped text in the fixed 396 × 174 content area.
+// against clipped or wrapped text in the fixed 416 × 174 content area.
 // Production leaves fitIssue nil and pays nothing.
 
 import (

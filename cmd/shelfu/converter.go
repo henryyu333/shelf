@@ -273,7 +273,7 @@ func (m *converter) chip(c *ui.Context) ui.Element {
 	}
 	tip := l.ConvChipTooltip(title, step)
 	chip := ui.Row(c.Key("conv-chip")).Height(chipH).Radius(chipH/2).Background(fill1).
-		Padding(0, 3, 0, 3).Gap(4).AlignItems(ui.Center).
+		Padding(0, 2, 0, 2).Gap(3).AlignItems(ui.Center).
 		Label(title).Tooltip(tip)
 	chip.Children(func() {
 		if m.cancelOpen {

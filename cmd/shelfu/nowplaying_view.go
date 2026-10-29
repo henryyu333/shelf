@@ -87,7 +87,7 @@ func (m *nowPlayingModule) peekWings(c *ui.Context, w, h, k float32) bool {
 		m.eqBars(c, st.Playing)
 	})
 	if wings.Clicked() {
-		m.host.show(false)
+		m.host.openPlaying()
 	}
 	return true
 }
@@ -123,34 +123,6 @@ func (m *nowPlayingModule) eqBars(c *ui.Context, playing bool) {
 // most useful while paused).
 func (m *nowPlayingModule) live() bool { return m.hasTrack() }
 
-// miniPlayer is the first level's left half: 38pt cover, title, artist ·
-// app, the equalizer, and play/pause. It takes the island row's width
-// minus the separator and the page icons.
-func (m *nowPlayingModule) miniPlayer(c *ui.Context) {
-	st, ok := m.track()
-	if !ok {
-		return
-	}
-	l := loc(c)
-	row := ui.Row(c.Key("np-mini")).Grow(1).MinWidth(0).Gap(8).AlignItems(ui.Center)
-	row.Label(st.Title).Tooltip(l.NpPlaying(st.Title))
-	row.Children(func() {
-		m.coverArt(c, "np-mini-art", islandArt, islandArtR)
-		ui.Column(c).Grow(1).MinWidth(0).Gap(1).Justify(ui.Center).Children(func() {
-			ui.Text(c.Key("np-mini-title"), st.Title).SingleLine().FontSize(12.5).FontWeight(600).TextColor(ink)
-			meta := st.Artist
-			if meta == "" {
-				meta = m.cardMeta(st)
-			}
-			if meta != "" {
-				ui.Text(c.Key("np-mini-artist"), meta).SingleLine().FontSize(10.5).TextColor(ink2)
-			}
-		})
-		m.eqBars(c, st.Playing)
-		m.chipToggle(c, "np-mini-toggle", st.Playing, 22, 13)
-	})
-}
-
 // chip is the sheet's now-playing capsule: 16pt cover, equalizer and
 // play/pause. The track's name is its tooltip.
 func (m *nowPlayingModule) chip(c *ui.Context) ui.Element {
@@ -164,7 +136,7 @@ func (m *nowPlayingModule) chip(c *ui.Context) ui.Element {
 		tip = l.NpPlayingPlay(st.Title)
 	}
 	chip := ui.Row(c.Key("np-chip")).Height(chipH).Radius(chipH/2).Background(fill1).
-		Padding(0, 3, 0, 3).Gap(4).AlignItems(ui.Center).Label(st.Title).Tooltip(tip)
+		Padding(0, 2, 0, 2).Gap(3).AlignItems(ui.Center).Label(st.Title).Tooltip(tip)
 	chip.Children(func() {
 		m.coverArt(c, "np-chip-art", 16, 4)
 		m.eqBarsCompact(c, st.Playing)

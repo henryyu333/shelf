@@ -34,16 +34,15 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
-	"github.com/egoist/mygo/ui"
 
 	"shelf/locales"
 )
 
 // The three highlight colours the activities use inside the black shell.
 var (
-	liveGreen = ui.Hex("#30D158")
-	liveBlue  = ui.Hex("#0A84FF")
-	liveRed   = ui.Hex("#FF453A")
+	liveGreen = success
+	liveBlue  = accent
+	liveRed   = danger
 )
 
 const (

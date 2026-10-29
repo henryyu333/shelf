@@ -265,7 +265,7 @@ func TestIslandSmokeScreenshots(t *testing.T) {
 	}
 	var l1w, l1h float32
 	onMain(func() { l1w, l1h = a.fx.w, a.fx.h })
-	if l1w != islandW || l1h != islandH {
+	if l1w != overviewW || l1h != overviewH {
 		t.Fatalf("level 1 shell = %.0fx%.0f, want 340x104", l1w, l1h)
 	}
 

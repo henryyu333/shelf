@@ -5644,3 +5644,283 @@ func PinDropFailed(err string) string { return In(i18n.Locale()).PinDropFailed(e
 func (msgs Messages) PinDropFailed(err string) string {
 	return Catalog.Format(msgs.locale, "pinDropFailed", map[string]any{"err": err})
 }
+
+// OverviewTitle says "总览"
+// in the language the app shows.
+func OverviewTitle() string { return In(i18n.Locale()).OverviewTitle() }
+
+// OverviewTitle says "总览"
+// in the language of msgs.
+func (msgs Messages) OverviewTitle() string {
+	return Catalog.Format(msgs.locale, "overviewTitle", nil)
+}
+
+// OverviewTrayCount says "托盘 {n, number, ::group-off} 项"
+// in the language the app shows.
+func OverviewTrayCount(n int) string { return In(i18n.Locale()).OverviewTrayCount(n) }
+
+// OverviewTrayCount says "托盘 {n, number, ::group-off} 项"
+// in the language of msgs.
+func (msgs Messages) OverviewTrayCount(n int) string {
+	return Catalog.Format(msgs.locale, "overviewTrayCount", map[string]any{"n": n})
+}
+
+// OverviewClipCount says "剪贴板 {n, number, ::group-off} 条"
+// in the language the app shows.
+func OverviewClipCount(n int) string { return In(i18n.Locale()).OverviewClipCount(n) }
+
+// OverviewClipCount says "剪贴板 {n, number, ::group-off} 条"
+// in the language of msgs.
+func (msgs Messages) OverviewClipCount(n int) string {
+	return Catalog.Format(msgs.locale, "overviewClipCount", map[string]any{"n": n})
+}
+
+// OverviewWorkingTitle says "正在处理"
+// in the language the app shows.
+func OverviewWorkingTitle() string { return In(i18n.Locale()).OverviewWorkingTitle() }
+
+// OverviewWorkingTitle says "正在处理"
+// in the language of msgs.
+func (msgs Messages) OverviewWorkingTitle() string {
+	return Catalog.Format(msgs.locale, "overviewWorkingTitle", nil)
+}
+
+// OverviewWorkingHint says "做完的会留在托盘"
+// in the language the app shows.
+func OverviewWorkingHint() string { return In(i18n.Locale()).OverviewWorkingHint() }
+
+// OverviewWorkingHint says "做完的会留在托盘"
+// in the language of msgs.
+func (msgs Messages) OverviewWorkingHint() string {
+	return Catalog.Format(msgs.locale, "overviewWorkingHint", nil)
+}
+
+// OverviewRecent says "最近放入"
+// in the language the app shows.
+func OverviewRecent() string { return In(i18n.Locale()).OverviewRecent() }
+
+// OverviewRecent says "最近放入"
+// in the language of msgs.
+func (msgs Messages) OverviewRecent() string {
+	return Catalog.Format(msgs.locale, "overviewRecent", nil)
+}
+
+// OverviewAll says "全部 ›"
+// in the language the app shows.
+func OverviewAll() string { return In(i18n.Locale()).OverviewAll() }
+
+// OverviewAll says "全部 ›"
+// in the language of msgs.
+func (msgs Messages) OverviewAll() string {
+	return Catalog.Format(msgs.locale, "overviewAll", nil)
+}
+
+// OverviewEmpty says "口袋还空着。把文件拖到刘海，就会出现在这里。"
+// in the language the app shows.
+func OverviewEmpty() string { return In(i18n.Locale()).OverviewEmpty() }
+
+// OverviewEmpty says "口袋还空着。把文件拖到刘海，就会出现在这里。"
+// in the language of msgs.
+func (msgs Messages) OverviewEmpty() string {
+	return Catalog.Format(msgs.locale, "overviewEmpty", nil)
+}
+
+// OverviewUpdateReady says "新版本已就绪 · 重新启动"
+// in the language the app shows.
+func OverviewUpdateReady() string { return In(i18n.Locale()).OverviewUpdateReady() }
+
+// OverviewUpdateReady says "新版本已就绪 · 重新启动"
+// in the language of msgs.
+func (msgs Messages) OverviewUpdateReady() string {
+	return Catalog.Format(msgs.locale, "overviewUpdateReady", nil)
+}
+
+// OverviewJustCopied says "刚复制：{text}"
+// in the language the app shows.
+func OverviewJustCopied(text string) string { return In(i18n.Locale()).OverviewJustCopied(text) }
+
+// OverviewJustCopied says "刚复制：{text}"
+// in the language of msgs.
+func (msgs Messages) OverviewJustCopied(text string) string {
+	return Catalog.Format(msgs.locale, "overviewJustCopied", map[string]any{"text": text})
+}
+
+// OverviewOpen says "打开"
+// in the language the app shows.
+func OverviewOpen() string { return In(i18n.Locale()).OverviewOpen() }
+
+// OverviewOpen says "打开"
+// in the language of msgs.
+func (msgs Messages) OverviewOpen() string {
+	return Catalog.Format(msgs.locale, "overviewOpen", nil)
+}
+
+// WelcomeTitle says "你好，我是 ShelfU"
+// in the language the app shows.
+func WelcomeTitle() string { return In(i18n.Locale()).WelcomeTitle() }
+
+// WelcomeTitle says "你好，我是 ShelfU"
+// in the language of msgs.
+func (msgs Messages) WelcomeTitle() string {
+	return Catalog.Format(msgs.locale, "welcomeTitle", nil)
+}
+
+// WelcomeBody says "把文件和图片先放在这里，用到时再拖出去。"
+// in the language the app shows.
+func WelcomeBody() string { return In(i18n.Locale()).WelcomeBody() }
+
+// WelcomeBody says "把文件和图片先放在这里，用到时再拖出去。"
+// in the language of msgs.
+func (msgs Messages) WelcomeBody() string {
+	return Catalog.Format(msgs.locale, "welcomeBody", nil)
+}
+
+// WelcomeTry says "把一个文件拖到刘海试试"
+// in the language the app shows.
+func WelcomeTry() string { return In(i18n.Locale()).WelcomeTry() }
+
+// WelcomeTry says "把一个文件拖到刘海试试"
+// in the language of msgs.
+func (msgs Messages) WelcomeTry() string {
+	return Catalog.Format(msgs.locale, "welcomeTry", nil)
+}
+
+// WelcomeSkip says "跳过"
+// in the language the app shows.
+func WelcomeSkip() string { return In(i18n.Locale()).WelcomeSkip() }
+
+// WelcomeSkip says "跳过"
+// in the language of msgs.
+func (msgs Messages) WelcomeSkip() string {
+	return Catalog.Format(msgs.locale, "welcomeSkip", nil)
+}
+
+// WelcomeDone says "放好了 · 下次用时从这里拖出去"
+// in the language the app shows.
+func WelcomeDone() string { return In(i18n.Locale()).WelcomeDone() }
+
+// WelcomeDone says "放好了 · 下次用时从这里拖出去"
+// in the language of msgs.
+func (msgs Messages) WelcomeDone() string {
+	return Catalog.Format(msgs.locale, "welcomeDone", nil)
+}
+
+// WhatsNewTitle says "ShelfU {version} 的新变化"
+// in the language the app shows.
+func WhatsNewTitle(version string) string { return In(i18n.Locale()).WhatsNewTitle(version) }
+
+// WhatsNewTitle says "ShelfU {version} 的新变化"
+// in the language of msgs.
+func (msgs Messages) WhatsNewTitle(version string) string {
+	return Catalog.Format(msgs.locale, "whatsNewTitle", map[string]any{"version": version})
+}
+
+// WhatsNewOne says "点一下刘海就打开总览"
+// in the language the app shows.
+func WhatsNewOne() string { return In(i18n.Locale()).WhatsNewOne() }
+
+// WhatsNewOne says "点一下刘海就打开总览"
+// in the language of msgs.
+func (msgs Messages) WhatsNewOne() string {
+	return Catalog.Format(msgs.locale, "whatsNewOne", nil)
+}
+
+// WhatsNewTwo says "设置窗口重做，快捷键可以自己改"
+// in the language the app shows.
+func WhatsNewTwo() string { return In(i18n.Locale()).WhatsNewTwo() }
+
+// WhatsNewTwo says "设置窗口重做，快捷键可以自己改"
+// in the language of msgs.
+func (msgs Messages) WhatsNewTwo() string {
+	return Catalog.Format(msgs.locale, "whatsNewTwo", nil)
+}
+
+// WhatsNewThree says "小组件搬到工具页，和动作卡一起排"
+// in the language the app shows.
+func WhatsNewThree() string { return In(i18n.Locale()).WhatsNewThree() }
+
+// WhatsNewThree says "小组件搬到工具页，和动作卡一起排"
+// in the language of msgs.
+func (msgs Messages) WhatsNewThree() string {
+	return Catalog.Format(msgs.locale, "whatsNewThree", nil)
+}
+
+// WhatsNewOK says "好的"
+// in the language the app shows.
+func WhatsNewOK() string { return In(i18n.Locale()).WhatsNewOK() }
+
+// WhatsNewOK says "好的"
+// in the language of msgs.
+func (msgs Messages) WhatsNewOK() string {
+	return Catalog.Format(msgs.locale, "whatsNewOK", nil)
+}
+
+// MusicTitle says "正在播放"
+// in the language the app shows.
+func MusicTitle() string { return In(i18n.Locale()).MusicTitle() }
+
+// MusicTitle says "正在播放"
+// in the language of msgs.
+func (msgs Messages) MusicTitle() string {
+	return Catalog.Format(msgs.locale, "musicTitle", nil)
+}
+
+// MusicOpen says "打开正在播放"
+// in the language the app shows.
+func MusicOpen() string { return In(i18n.Locale()).MusicOpen() }
+
+// MusicOpen says "打开正在播放"
+// in the language of msgs.
+func (msgs Messages) MusicOpen() string {
+	return Catalog.Format(msgs.locale, "musicOpen", nil)
+}
+
+// MusicNext says "下一首"
+// in the language the app shows.
+func MusicNext() string { return In(i18n.Locale()).MusicNext() }
+
+// MusicNext says "下一首"
+// in the language of msgs.
+func (msgs Messages) MusicNext() string {
+	return Catalog.Format(msgs.locale, "musicNext", nil)
+}
+
+// MusicPrevious says "上一首"
+// in the language the app shows.
+func MusicPrevious() string { return In(i18n.Locale()).MusicPrevious() }
+
+// MusicPrevious says "上一首"
+// in the language of msgs.
+func (msgs Messages) MusicPrevious() string {
+	return Catalog.Format(msgs.locale, "musicPrevious", nil)
+}
+
+// MusicVolume says "音量"
+// in the language the app shows.
+func MusicVolume() string { return In(i18n.Locale()).MusicVolume() }
+
+// MusicVolume says "音量"
+// in the language of msgs.
+func (msgs Messages) MusicVolume() string {
+	return Catalog.Format(msgs.locale, "musicVolume", nil)
+}
+
+// MusicVolumeUnsupported says "此设备不支持调音量"
+// in the language the app shows.
+func MusicVolumeUnsupported() string { return In(i18n.Locale()).MusicVolumeUnsupported() }
+
+// MusicVolumeUnsupported says "此设备不支持调音量"
+// in the language of msgs.
+func (msgs Messages) MusicVolumeUnsupported() string {
+	return Catalog.Format(msgs.locale, "musicVolumeUnsupported", nil)
+}
+
+// MusicEmpty says "没有在播放"
+// in the language the app shows.
+func MusicEmpty() string { return In(i18n.Locale()).MusicEmpty() }
+
+// MusicEmpty says "没有在播放"
+// in the language of msgs.
+func (msgs Messages) MusicEmpty() string {
+	return Catalog.Format(msgs.locale, "musicEmpty", nil)
+}

@@ -467,7 +467,7 @@ func TestSnapFailureNoticeShowsOnIsland(t *testing.T) {
 	if !a.visible || a.level != 1 || a.snap.drawn {
 		t.Fatalf("island not restored: visible=%v level=%d drawn=%v", a.visible, a.level, a.snap.drawn)
 	}
-	view := ui.NewTester(a.view, islandW, islandH)
+	view := ui.NewTester(a.view, overviewW, overviewH)
 	view.Frame()
 	if !view.HasText("这个窗口不能调整大小") {
 		t.Fatalf("the island did not draw the notice; texts %v", view.Texts())
@@ -810,7 +810,7 @@ func TestSnapPanelUsesItsOwnBox(t *testing.T) {
 		t.Fatalf("open frame = %+v, want at least %d wide and snapH tall", frame, snapW)
 	}
 	a.snap.panel, a.snap.drawn, a.visible = false, false, false
-	if w, h := a.panelBox(); w != islandW || h != islandH {
+	if w, h := a.panelBox(); w != overviewW || h != overviewH {
 		t.Fatalf("ordinary island box = %g×%g", w, h)
 	}
 }

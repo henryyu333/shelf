@@ -13,19 +13,20 @@ func TestPackToolCardsSpans(t *testing.T) {
 		{ID: "a", Span: 1}, {ID: "b", Span: 2}, {ID: "c", Span: 1},
 		{ID: "d", Span: 2}, {ID: "e", Span: 2},
 	}
-	cells := packToolCards(cards, false)
+	cells := packToolCards(cards, nil, false)
 	if len(cells) != 5 {
 		t.Fatalf("cells = %d", len(cells))
 	}
 	// a(1) b(2) c(1) fills row 0; d(2)+e(2) fills row 1.
 	colW := toolColW(1)
 	spanW := toolColW(2)
+	rowH := toolRowH(1)
 	want := []toolCell{
-		{id: "a", x: 0, y: 0, w: colW},
-		{id: "b", x: colW + toolCellGap, y: 0, w: spanW},
-		{id: "c", x: 3*colW + 3*toolCellGap, y: 0, w: colW},
-		{id: "d", x: 0, y: toolCellH + toolCellGap, w: spanW},
-		{id: "e", x: 2*colW + 2*toolCellGap, y: toolCellH + toolCellGap, w: spanW},
+		{id: "a", x: 0, y: 0, w: colW, h: rowH},
+		{id: "b", x: colW + toolCellGap, y: 0, w: spanW, h: rowH},
+		{id: "c", x: 3*colW + 3*toolCellGap, y: 0, w: colW, h: rowH},
+		{id: "d", x: 0, y: toolCellH + toolCellGap, w: spanW, h: rowH},
+		{id: "e", x: 2*colW + 2*toolCellGap, y: toolCellH + toolCellGap, w: spanW, h: rowH},
 	}
 	for i, cell := range cells {
 		if cell != want[i] {
@@ -38,18 +39,18 @@ func TestPackToolCardsPlus(t *testing.T) {
 	// Edit mode appends the + slot after the last card, wrapping to the
 	// next row when the row is full.
 	cards := []layout.Card{{ID: "a", Span: 1}, {ID: "b", Span: 1}, {ID: "c", Span: 1}, {ID: "d", Span: 1}}
-	cells := packToolCards(cards, true)
+	cells := packToolCards(cards, nil, true)
 	last := cells[len(cells)-1]
 	if !last.plus || last.y != toolCellH+toolCellGap {
 		t.Fatalf("+ = %+v, want it on row 1", last)
 	}
-	cells = packToolCards(cards[:3], true)
+	cells = packToolCards(cards[:3], nil, true)
 	last = cells[len(cells)-1]
 	if !last.plus || last.y != 0 || last.x != 3*(toolColW(1)+toolCellGap) {
 		t.Fatalf("+ = %+v, want column 3 of row 0", last)
 	}
 	// Normal mode never has it.
-	for _, cell := range packToolCards(cards, false) {
+	for _, cell := range packToolCards(cards, nil, false) {
 		if cell.plus {
 			t.Fatal("+ slot without edit mode")
 		}

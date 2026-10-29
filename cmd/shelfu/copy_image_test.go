@@ -246,7 +246,7 @@ func TestSyncCopyKeyHoldsAndReleases(t *testing.T) {
 	}
 	item := s.Items[0]
 	rec := &recordClip{}
-	a := &shelf{store: s, dataDir: dir, visible: true, tab: pageTray,
+	a := &shelf{store: s, dataDir: dir, visible: true, level: 2, tab: pageTray,
 		write: rec, win: &mygo.Window{}, escHeld: true}
 	var held string
 	var press func()

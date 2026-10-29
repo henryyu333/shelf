@@ -88,6 +88,12 @@ var (
 	// auxiliaryTopRightArea); the struct return needs RegisterFunc too.
 	msgRect func(id, objc.SEL) NSRect
 
+	// msgInitRect allocates an object with an NSRect (initWithFrame:);
+	// msgSetFloat sends a double argument (a layer's cornerRadius).
+	msgInitRect func(obj id, sel objc.SEL, r NSRect) id
+	msgSetRect  func(obj id, sel objc.SEL, r NSRect) id
+	msgSetFloat func(obj id, sel objc.SEL, v float64) id
+
 	// msgFirstRectForRange calls a text input client's
 	// firstRectForCharacterRange:actualRange: — the screen rect IME
 	// candidate panels anchor to.
@@ -199,6 +205,9 @@ func load() {
 		purego.RegisterFunc(&msgSetRectBool, msgSendAddr)
 		purego.RegisterFunc(&msgSetPoint, msgSendAddr)
 		purego.RegisterFunc(&msgFirstRectForRange, msgSendAddr)
+		purego.RegisterFunc(&msgInitRect, msgSendAddr)
+		purego.RegisterFunc(&msgSetRect, msgSendAddr)
+		purego.RegisterFunc(&msgSetFloat, msgSendAddr)
 		purego.RegisterLibFunc(&cgEventSourceButtonState, libCG, "CGEventSourceButtonState")
 		purego.RegisterLibFunc(&classReplaceMethod, libObjC, "class_replaceMethod")
 		purego.RegisterLibFunc(&classGetMethodImplementation, libObjC, "class_getMethodImplementation")

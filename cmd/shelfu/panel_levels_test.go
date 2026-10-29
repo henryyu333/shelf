@@ -23,7 +23,7 @@ import (
 	"shelf/internal/store"
 )
 
-// levelShelf is a headless shelf on the island with a little of both
+// levelShelf is a headless shelf on the overview with a little of both
 // stores so every page has content.
 func levelShelf(t *testing.T) (*shelf, *ui.Tester) {
 	t.Helper()
@@ -47,89 +47,61 @@ func levelShelf(t *testing.T) (*shelf, *ui.Tester) {
 	return a, ui.NewTester(a.view, sheetW, sheetH)
 }
 
-func TestIslandOpensFirstAndPageIconOpensSheet(t *testing.T) {
+// TestOverviewOpensFirstAndPageIconOpensThePage: one click on the notch is
+// the overview; a page icon grows the same shell to the page's size.
+func TestOverviewOpensFirstAndPageIconOpensThePage(t *testing.T) {
 	a, view := levelShelf(t)
 	a.visible = true
 	view.Frame()
 	if a.currentLevel() != 1 {
-		t.Fatalf("level = %d, want the island", a.currentLevel())
+		t.Fatalf("level = %d, want the overview", a.currentLevel())
 	}
-	if !view.HasText("托盘 1 项 · 剪贴板 12 条") {
-		t.Fatalf("the island lost its counts; texts %v", view.Texts())
+	if !view.HasText("托盘 1 项") || !view.HasText("剪贴板 12 条") {
+		t.Fatalf("the overview lost its counts; texts %v", view.Texts())
 	}
 	if err := view.Click("托盘"); err != nil {
-		t.Fatalf("island page icon: %v", err)
+		t.Fatalf("page icon: %v", err)
 	}
 	if a.currentLevel() != 2 || a.tab != pageTray {
-		t.Fatalf("page icon: level=%d tab=%s, want the sheet on the tray", a.currentLevel(), a.tab)
+		t.Fatalf("page icon: level=%d tab=%s, want the page on the tray", a.currentLevel(), a.tab)
 	}
 	view.Frame()
-	name := a.currentPage().title()
-	if _, ok := view.Find(name); !ok {
-		t.Fatalf("the sheet lost its back-row page name %q; texts %v", name, view.Texts())
+	if !view.HasText("托盘里一条") {
+		t.Fatalf("the tray page did not draw its item; texts %v", view.Texts())
 	}
-	// Esc is the way back now: the title is plain text with no ‹ and no
-	// click of its own.
-	view.Key(0, ui.KeyEscape)
-	if a.currentLevel() != 1 {
-		t.Fatalf("Esc left level %d, want the island", a.currentLevel())
-	}
-}
-
-// TestBackRowTitleHasNoBackControl: the back row's left edge is the page's
-// plain name, aligned with the content box — no ‹, no clickable back and
-// no 「返回一级岛」 label. Clicking the title keeps the sheet open; Esc is
-// what steps back to the island.
-func TestBackRowTitleHasNoBackControl(t *testing.T) {
-	a, view := levelShelf(t)
-	a.visible, a.level = true, 2
-	left := float32((sheetW - contentW) / 2)
-	for _, id := range []pageID{pageHome, pageTray, pageClipboard} {
-		a.setTab(id)
-		view.Frame()
-		view.Frame()
-		name := a.page(id).title()
-		r, ok := view.Find(name)
-		if !ok {
-			t.Fatalf("%s: the page title %q is missing; texts %v", id, name, view.Texts())
-		}
-		if r.X < left-0.5 || r.X > left+0.5 {
-			t.Fatalf("%s: the title starts at %.1f, want the content's left edge %.1f", id, r.X, left)
-		}
-		for _, text := range view.Texts() {
-			if strings.Contains(text, "‹") || strings.Contains(text, "返回") {
-				t.Fatalf("%s: the back row still shows a back control %q; texts %v", id, text, view.Texts())
-			}
-		}
-		if err := view.Click(name); err != nil {
-			t.Fatalf("%s: clicking the title: %v", id, err)
-		}
-		if a.currentLevel() != 2 {
-			t.Fatalf("%s: clicking the title went back to the island", id)
-		}
-		view.Key(0, ui.KeyEscape)
-		if a.currentLevel() != 1 || !a.visible {
-			t.Fatalf("%s: Esc left level %d visible=%v, want the island", id, a.currentLevel(), a.visible)
-		}
-		a.setLevel(2)
-	}
-}
-
-func TestEscapeStepsBackThenCloses(t *testing.T) {
-	a, view := levelShelf(t)
-	a.visible, a.level = true, 2
-	view.Frame()
+	// Esc steps back to the overview; the overview's Esc closes.
 	view.Key(0, ui.KeyEscape)
 	if a.currentLevel() != 1 || !a.visible {
-		t.Fatalf("first Esc: level=%d visible=%v, want the island still open", a.currentLevel(), a.visible)
+		t.Fatalf("Esc left level %d visible=%v, want the overview", a.currentLevel(), a.visible)
 	}
 	view.Frame()
 	view.Key(0, ui.KeyEscape)
 	if a.visible {
-		t.Fatal("second Esc did not close the island")
+		t.Fatal("the overview's Esc did not close the panel")
 	}
 }
 
+// TestPageTabsCarryNoBackControl: the band carries the page icons, the
+// page's own row carries no ‹ and no 「返回」 wording.
+func TestPageTabsCarryNoBackControl(t *testing.T) {
+	a, view := levelShelf(t)
+	a.visible, a.level = true, 2
+	for _, id := range []pageID{pageTray, pageClipboard, pageTools} {
+		a.setTab(id)
+		view.Frame()
+		view.Frame()
+		for _, text := range view.Texts() {
+			if strings.Contains(text, "‹") || strings.Contains(text, "返回") {
+				t.Fatalf("%s: the page row still shows a back control %q; texts %v", id, text, view.Texts())
+			}
+		}
+		if _, ok := view.Find("设置"); !ok {
+			t.Fatalf("%s: the band lost its settings button", id)
+		}
+	}
+}
+
+// TestOutsideClickAndShortcutCloseFromEitherLevel closes from both sizes.
 func TestOutsideClickAndShortcutCloseFromEitherLevel(t *testing.T) {
 	a, _ := levelShelf(t)
 	for _, level := range []int{1, 2} {
@@ -138,10 +110,9 @@ func TestOutsideClickAndShortcutCloseFromEitherLevel(t *testing.T) {
 		if a.visible {
 			t.Fatalf("level %d: an outside click did not close the panel", level)
 		}
-		// The shortcut toggles the same state.
 		a.toggle()
 		if !a.visible || a.currentLevel() != 1 {
-			t.Fatalf("level %d: toggle opened level %d visible=%v, want the island", level, a.currentLevel(), a.visible)
+			t.Fatalf("level %d: toggle opened level %d visible=%v, want the overview", level, a.currentLevel(), a.visible)
 		}
 		a.toggle()
 		if a.visible {
@@ -151,7 +122,7 @@ func TestOutsideClickAndShortcutCloseFromEitherLevel(t *testing.T) {
 	}
 }
 
-func TestIncomingDragOpensTheSheetOnTheTray(t *testing.T) {
+func TestIncomingDragOpensThePageOnTheTray(t *testing.T) {
 	a, view := levelShelf(t)
 	t.Setenv("SHELF_DEBUG_DROP_FILES", "/tmp/a.png,/tmp/b.png")
 	a.dragging = true
@@ -159,14 +130,14 @@ func TestIncomingDragOpensTheSheetOnTheTray(t *testing.T) {
 	a.show(true)
 	view.Frame()
 	if a.currentLevel() != 2 || a.tab != pageTray {
-		t.Fatalf("drag open: level=%d tab=%s, want the sheet on the tray", a.currentLevel(), a.tab)
+		t.Fatalf("drag open: level=%d tab=%s, want the page on the tray", a.currentLevel(), a.tab)
 	}
 	if !view.HasText("放入托盘") || !view.HasText("投放") {
 		t.Fatalf("the drop zone is missing; texts %v", view.Texts())
 	}
 }
 
-func TestClipboardShortcutOpensTheSheetOnSearch(t *testing.T) {
+func TestClipboardShortcutOpensThePageOnSearch(t *testing.T) {
 	a, view := levelShelf(t)
 	a.openClipboardSearch()
 	view.Frame()
@@ -175,25 +146,6 @@ func TestClipboardShortcutOpensTheSheetOnSearch(t *testing.T) {
 	}
 	if !view.Focused(searchLabel) {
 		t.Fatal("⌃⌥V did not focus the search field")
-	}
-}
-
-func TestMiniPlayerOnlyWhileATrackIsLoaded(t *testing.T) {
-	a, view := levelShelf(t)
-	a.settings.IslandNowPlaying = true
-	a.np = &nowPlayingModule{host: a, have: true, last: mac.NowPlayingState{Playing: true, Title: "夜曲", Artist: "周杰伦"}}
-	a.visible = true
-	view.Frame()
-	if !view.HasText("夜曲") || !view.HasText("周杰伦") {
-		t.Fatalf("the island lost its mini player; texts %v", view.Texts())
-	}
-	if view.HasText("托盘 1 项 · 剪贴板 12 条") {
-		t.Fatal("the counts drew beside the mini player")
-	}
-	a.np = nil
-	view.Frame()
-	if view.HasText("夜曲") || !view.HasText("托盘 1 项 · 剪贴板 12 条") {
-		t.Fatalf("without a track the island must show the counts; texts %v", view.Texts())
 	}
 }
 
@@ -220,8 +172,8 @@ func pageRows(top int) []ui.Rect {
 	x := float32((sheetW - contentW) / 2)
 	return []ui.Rect{
 		{X: 0, Y: float32(top), W: sheetW, H: bandH},
-		{X: x, Y: float32(top + bandH), W: contentW, H: backRowH},
-		{X: x, Y: float32(top + bandH + backRowH + contentGap), W: contentW, H: contentH},
+		{X: x, Y: float32(top + bandH), W: contentW, H: pageActionH},
+		{X: x, Y: float32(top + bandH + pageActionH + actionsGap), W: contentW, H: contentH},
 	}
 }
 
@@ -291,32 +243,32 @@ func TestEveryPageFitsTheContentBox(t *testing.T) {
 	a, view := levelShelf(t)
 	a.visible, a.level = true, 2
 	drain := fitSink(t)
-	for _, id := range []pageID{pageHome, pageTray, pageClipboard, pageTools} {
+	for _, id := range []pageID{pageTray, pageClipboard, pageTools, pagePlaying} {
 		a.setTab(id)
 		view.Frame()
 		drain() // the first frame has no boxes to measure yet
 		view.Frame()
 		assertPageFits(t, view, string(id), drain(), a.sheetTop())
 	}
-	// The 主页 page's edit grid and its open catalogue draw their own
+	// The tools page's edit grid and its open catalogue draw their own
 	// labels and rows; both states fit too.
-	a.setTab(pageHome)
-	p := a.homePageOf()
+	a.setTab(pageTools)
+	p := a.toolsPage()
 	for _, state := range []struct {
 		name          string
 		editing, pick bool
 	}{
-		{"home-edit", true, false},
-		{"home-picker", true, true},
+		{"tools-edit", true, false},
+		{"tools-picker", true, true},
 	} {
 		p.editing, p.picking = state.editing, state.pick
 		view.Frame()
 		drain()
 		view.Frame()
 		// The state must really be on screen, or the audit proves nothing.
-		want := "移除"
+		want := "完成"
 		if state.pick {
-			want = "小组件目录"
+			want = "卡片目录"
 		}
 		if !view.HasText(want) {
 			t.Fatalf("%s: the page did not draw its state (%q missing); texts %v", state.name, want, view.Texts())
@@ -509,29 +461,30 @@ func TestActivityChipActionsStillWork(t *testing.T) {
 	})
 }
 
-func TestIslandHoldsFivePageIconsAndCounts(t *testing.T) {
+func TestOverviewHoldsFivePageIconsAndCounts(t *testing.T) {
 	fx := newUsageFixture(t, true)
 	a := fx.a
 	a.level, a.visible = 1, true
-	a.registerPage(&fakePage{on: true}) // stands in for H's 主页
+	a.registerPage(&fakePage{on: true}) // a sixth page: the band keeps five
 	view := ui.NewTester(a.view, sheetW, sheetH)
 	view.Frame()
-	for _, label := range []string{"托盘", "剪贴板", "工具", "AI 用量", "假页面"} {
-		if _, ok := view.Find(label); !ok {
-			t.Fatalf("the island lost the %q icon; texts %v", label, view.Texts())
+	for _, label := range []string{"总览", "托盘", "剪贴板", "工具", "AI 用量"} {
+		r, ok := view.Find(label)
+		if !ok {
+			t.Fatalf("the band lost the %q icon; texts %v", label, view.Texts())
+		}
+		if r.Y+r.H > bandH {
+			t.Fatalf("the %q icon left the band: %+v", label, r)
 		}
 	}
-	counts, ok := view.Find("托盘 0 项 · 剪贴板 0 条")
-	if !ok {
-		t.Fatalf("the island lost its counts; texts %v", view.Texts())
-	}
-	first, _ := view.Find("托盘")
-	if counts.X+counts.W > first.X-2 {
-		t.Fatalf("counts %+v run into the page icons at %+v", counts, first)
+	for _, line := range []string{"托盘 0 项", "剪贴板 0 条"} {
+		if _, ok := view.Find(line); !ok {
+			t.Fatalf("the overview lost %q; texts %v", line, view.Texts())
+		}
 	}
 }
 
-func TestTwoActivityChipsFitTheLeftEar(t *testing.T) {
+func TestTwoActivityChipsFitTheRightEar(t *testing.T) {
 	a := &shelf{level: 2, notchW: 180, notchH: 32, topInset: 32, settings: settings.Default()}
 	a.settings.IslandNowPlaying = true
 	a.np = &nowPlayingModule{host: a, have: true, last: mac.NowPlayingState{Playing: true, Title: "夜曲", Artist: "周杰伦"}}
@@ -549,13 +502,17 @@ func TestTwoActivityChipsFitTheLeftEar(t *testing.T) {
 	if !ok {
 		t.Fatalf("the awake chip is missing; texts %v", view.Texts())
 	}
-	housingLeft := float32(sheetPadX + (sheetW-24-(180+12))/2)
-	if music.X < sheetPadX-0.5 || hold.X+hold.W > housingLeft+0.5 {
-		t.Fatalf("chips %+v and %+v leave the left ear (housing at %v)", music, hold, housingLeft)
+	housingRight := float32(sheetW-sheetPadX) - (float32(sheetW)-float32(180+12))/2
+	settings, ok := view.Find("设置")
+	if !ok {
+		t.Fatal("the settings button is missing")
+	}
+	if music.X < housingRight-0.5 || hold.X+hold.W > settings.X-1 {
+		t.Fatalf("chips %+v and %+v do not fit the right ear between the housing and settings %+v", music, hold, settings)
 	}
 }
 
-func TestMusicAndCancelChipsFitTheLeftEar(t *testing.T) {
+func TestMusicAndCancelChipsFitTheRightEar(t *testing.T) {
 	j := &convertJob{target: toJPEG, started: time.Now().Add(-time.Second)}
 	j.total.Store(3)
 	j.done.Store(1)
@@ -574,9 +531,13 @@ func TestMusicAndCancelChipsFitTheLeftEar(t *testing.T) {
 	if !ok {
 		t.Fatalf("the cancel state is missing; texts %v", view.Texts())
 	}
-	housingLeft := float32(sheetPadX + (sheetW-24-(180+12))/2)
-	if music.X < sheetPadX-0.5 || cancel.X+cancel.W > housingLeft+0.5 {
-		t.Fatalf("chips %+v and %+v leave the left ear (housing at %v)", music, cancel, housingLeft)
+	housingRight := float32(sheetW-sheetPadX) - (float32(sheetW)-float32(180+12))/2
+	settings, ok := view.Find("设置")
+	if !ok {
+		t.Fatal("the settings button is missing")
+	}
+	if music.X < housingRight-0.5 || cancel.X+cancel.W > settings.X-1 {
+		t.Fatalf("chips %+v and %+v do not fit the right ear between the housing and settings %+v", music, cancel, settings)
 	}
 }
 
@@ -588,8 +549,8 @@ func TestLevelSpringsBetweenTheTwoSizes(t *testing.T) {
 		view.Frame()
 		view.Advance(16 * time.Millisecond)
 	}
-	if a.fx.w < islandW-0.5 || a.fx.w > islandW+1 || a.fx.h < islandH-0.5 || a.fx.h > islandH+1 {
-		t.Fatalf("island shell = %.1f×%.1f, want %d×%d", a.fx.w, a.fx.h, islandW, islandH)
+	if a.fx.w < overviewW-0.5 || a.fx.w > overviewW+1 || a.fx.h < overviewH-0.5 || a.fx.h > overviewH+1 {
+		t.Fatalf("island shell = %.1f×%.1f, want %d×%d", a.fx.w, a.fx.h, overviewW, overviewH)
 	}
 	a.setLevel(2)
 	for i := range 80 {
@@ -608,7 +569,7 @@ func TestLevelSpringsBetweenTheTwoSizes(t *testing.T) {
 		view.Frame()
 		view.Advance(16 * time.Millisecond)
 	}
-	if a.fx.w > islandW+1 || a.fx.h > islandH+1 {
+	if a.fx.w > overviewW+1 || a.fx.h > overviewH+1 {
 		t.Fatalf("back to island: shell %.1f×%.1f", a.fx.w, a.fx.h)
 	}
 }

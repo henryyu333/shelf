@@ -13,7 +13,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/store"
-	"shelf/locales"
 )
 
 var (
@@ -55,31 +54,7 @@ func fillSymbol(paths string) *ui.SVG {
 	return ui.MustParseSVG([]byte(`<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor" stroke="none">` + paths + `</svg>`))
 }
 
-// DESIGN.md 色彩令牌：纯黑面板上只靠白色透明度分层，唯一强调色系统蓝。
-var (
-	ink      = ui.Hex("#F5F5F7")            // 主文字、主图标
-	ink2     = ui.RGBA(255, 255, 255, 0.56) // 次文字、非激活标签、图标按钮
-	ink3     = ui.RGBA(255, 255, 255, 0.34) // 辅助说明、时间、计数
-	fill1    = ui.RGBA(255, 255, 255, 0.06) // 悬停底、搜索框
-	fill2    = ui.RGBA(255, 255, 255, 0.10) // 激活标签胶囊、按钮悬停
-	fill3    = ui.RGBA(255, 255, 255, 0.16) // 进度条轨道
-	accent   = ui.Hex("#0A84FF")            // 唯一的强调色
-	accent16 = accent.Alpha(0.16)           // 网格选中底
-	accent24 = accent.Alpha(0.24)           // 列表选中底
-	progress = ui.RGBA(255, 255, 255, 0.88) // 进度条
-	danger   = ui.Hex("#FF453A")            // 错误红点
-)
-
-// 旧调色板名仍被 settings.go（同伴正在重写它）引用；全部映射到新令牌，
-// 等那边落地后可以删掉别名。
-var (
-	textPrimary  = ink
-	textMuted    = ink2
-	cardSurface  = fill1
-	cardHover    = fill2
-	cardSelected = accent24
-	hairline     = fill2
-)
+// The palette and every other design token live in theme.go.
 
 // panelTheme keeps the frame dark with the design's single accent: the
 // default theme would take the user's accent color and a light appearance
@@ -217,48 +192,51 @@ func panelLines(c *ui.Context, text string, size float32, weight int) ui.Element
 // 一级岛 340 × 104，二级面板 420 × 250。二级面板的 250 由 32 菜单栏行、
 // 26 返回行、6 间距、396 × 174 内容区和 12 底边拼成；一级岛的 104 由
 // 32 菜单栏行、56 播放器行和 16 底边拼成。页面内容永远画在 396 × 174 里。
+// 展开面板有两种尺寸：总览 440 × 156（点刘海就到），页面 440 × 250（点顶部
+// 页面图标，同一个外壳向下长）。总览的 156 由 32 顶栏、6 间距、416 × 106、
+// 12 底边拼成；页面 250 由 32 顶栏、6 间距、200 页面区、12 底边拼成，页面区
+// 自己再分 22 动作行 + 4 间距 + 416 × 174 内容。宽度不变。
 const (
-	islandW, islandH   = 340, 104
-	sheetW, sheetH     = 420, 250
-	contentW, contentH = 396, 174
+	overviewW, overviewH = 440, 156
+	sheetW, sheetH       = 440, 250
+	contentW, contentH   = 416, 174
+	overviewBodyH        = 106
+	pageBodyH            = 200
 
-	bandH           = 32 // 菜单栏那一行
-	backRowH        = 26 // 二级的返回行
-	contentGap      = 6  // 返回行到内容区
-	sheetPadX       = 12 // 左右内边距
-	sheetPadBottom  = 12 // 二级底边
-	islandRowH      = 56 // 一级播报 / 图标行
-	islandPadBottom = 16
-	islandRadius    = 22
-	sheetRadius     = 24
+	bandH          = 32 // 顶栏那一行
+	sheetPadX      = padX
+	sheetPadBottom = padBottom
+	contentGap     = bodyGap
+	overviewRadius = rOverview
+	sheetRadius    = rPage
+	tileRadius     = rTile
 
-	islandArt       = 38 // 迷你播放器封面
-	islandArtR      = 9
-	islandIcon      = 28 // 一级页面图标
-	islandIconGap   = 2
-	islandIconGlyph = 15
-	bandBtn         = 22 // 菜单栏行的按钮
-	backIcon        = 22 // 返回行里其余页面的图标
-	chipH           = 22 // 活动小胶囊
-	chipMax         = 2  // 左耳最多两个
+	bandBtn        = 22 // 顶栏行的按钮
+	bandIcon       = 22 // 顶栏的页面图标
+	bandIconGlyph  = 14
+	bandIconGap    = 2
+	pageActionH    = bodyActions // 页面动作行
+	pageActionsGap = actionsGap
+	chipH          = 22 // 活动小胶囊
+	chipMax        = 2  // 左耳最多两个
 
 	menuBarMinH  = 24 // 无刘海屏的菜单栏高
 	headerTopGap = 8  // 键盘搜索时：菜单栏下沿到面板顶边
 
-	gridCols    = 5   // 托盘网格列数
-	gridGap     = 4   // 格子间距
-	tileH       = 85  // 格子高（两行正好 10 项）
-	tileArt     = 40  // 缩略图边长
-	clipRowH    = 30  // 剪贴板行高
-	clipRowGap  = 0   // 行紧挨着，同原型 .cl
-	clipSearchW = 140 // 收窄 10pt：返回行要放下页名、5 个页面图标、搜索框与清空
+	gridCols    = 5  // 托盘网格列数
+	tileH       = 85 // 格子高（两行正好 174）
+	tileArt     = 40 // 缩略图边长
+	clipRowH    = 30 // 剪贴板行高
+	clipRowGap  = 0  // 行紧挨着，同原型 .cl
+	clipSearchW = 150
 	clipSearchH = 22
-	// earMaxPages is how many page icons the back row (and the island)
-	// carries: one per page of the design.
-	earMaxPages = 5
+	// tabMaxPages is how many page icons the band carries; the current
+	// page always has a seat (a sixth page replaces the last one while it
+	// is current).
+	tabMaxPages = 5
 
-	toastLife = 2500 * time.Millisecond // 状态胶囊的展示时长
-	toastFade = 220 * time.Millisecond  // 淡出时长
+	toastLife = durToast     // 状态胶囊的展示时长
+	toastFade = durToastFade // 淡出时长
 	// earR 是壳顶边左右各伸出的耳角半径；窗口宽度必须包含两侧耳角，
 	// 任何一帧耳角都是完整圆弧（desiredFrame 据此加宽）。
 	earR = 12
@@ -383,6 +361,15 @@ func (a *shelf) view(c *ui.Context) {
 	c.Root().Background(ui.Transparent)
 	opts := transfer.DropOptions{Formats: []transfer.Format{transfer.FileList, transfer.URIList, transfer.PNG, transfer.Text}, Operations: transfer.Copy}
 	now := c.Now()
+	// The welcome and new-version cards wait a moment after the opening:
+	// ask for the frame that shows them.
+	if a.visible {
+		if a.welcomePending && !a.welcomeUp && !a.openedAt.IsZero() {
+			c.After(max(time.Second-now.Sub(a.openedAt), 0) + 10*time.Millisecond)
+		} else if a.whatsNewPending && !a.whatsNewUp && !a.openedAt.IsZero() {
+			c.After(max(400*time.Millisecond-now.Sub(a.openedAt), 0) + 10*time.Millisecond)
+		}
+	}
 	// What a closed panel has to say grows out of the notch (feedback.go);
 	// the text is measured before the shell is sized around it.
 	// 悬停或外来拖拽占用探头形状期间，胶囊根本没画出来：计时随让位整体
@@ -461,6 +448,9 @@ func (a *shelf) view(c *ui.Context) {
 		}
 		if peekTarget == 0 {
 			peekAnim.Spring.Velocity = -0.5 // 收起反向同样不带外冲速度
+		}
+		if reduceMotion(c) {
+			openAnim = plainSpring
 		}
 		openK = zone.AnimateTo("open", openTarget, openAnim)
 		if a.visible {
@@ -592,7 +582,11 @@ func (a *shelf) view(c *ui.Context) {
 			levelK = zone.Jump("level", levelTarget)
 			a.jumpLevel = false
 		} else {
-			levelK = zone.AnimateTo("level", levelTarget, levelSpring)
+			levelAnim := levelSpring
+			if reduceMotion(c) {
+				levelAnim = plainSpring
+			}
+			levelK = zone.AnimateTo("level", levelTarget, levelAnim)
 		}
 	}
 	levelK = min(max(levelK, 0), 1)
@@ -670,7 +664,7 @@ func (a *shelf) view(c *ui.Context) {
 	// 刘海里长出来，而不是浮在菜单栏下方。窗口宽度含两侧耳角（earR），
 	// 这里画出的耳角任何一帧都不会被裁。
 	top := float32(a.sheetTop())
-	corner := float32(islandRadius) + float32(sheetRadius-islandRadius)*levelK
+	corner := float32(overviewRadius) + float32(sheetRadius-overviewRadius)*levelK
 	if a.snap.panel || a.snap.drawn {
 		corner = snapGhostR * 2 // 24: the design's snap panel corners
 	}
@@ -683,7 +677,7 @@ func (a *shelf) view(c *ui.Context) {
 		if a.island {
 			// 四角全圆的胶囊：空闲 15、两翼/提示条半圆、面板 22 → 24。
 			islandPath(&path, x0+shake, y0, x1+shake, y1, min(shellH/2, corner))
-			p.FillPath(&path, ui.Hex("#000000"))
+			p.FillPath(&path, surface)
 			return
 		}
 		ear := float32(earR)
@@ -698,7 +692,7 @@ func (a *shelf) view(c *ui.Context) {
 		path.LineTo(x1+shake, y0+earR)
 		path.QuadTo(x1+shake, y0, x1+ear+shake, y0)
 		path.Close()
-		p.FillPath(&path, ui.Hex("#000000"))
+		a.panelFill(p, &path, shellH)
 	})
 	zone.Children(func() {
 		if !expanded {
@@ -728,7 +722,7 @@ func (a *shelf) view(c *ui.Context) {
 			if alpha <= 0.001 && level != a.currentLevel() {
 				return
 			}
-			w, h := float32(islandW), float32(islandH)
+			w, h := float32(overviewW), float32(overviewH)
 			switch {
 			case level == 2:
 				w, h = sheetW, sheetH
@@ -754,7 +748,7 @@ func (a *shelf) view(c *ui.Context) {
 					case a.snap.drawn:
 						a.snapView(c)
 					default:
-						a.islandView(c)
+						a.overviewView(c, over)
 					}
 				})
 			})
@@ -781,48 +775,69 @@ func (a *shelf) view(c *ui.Context) {
 	}
 }
 
-// sheetView is the 420 × 250 sheet: the menu-bar band with the activity
-// chips, then the page frame (back row, 396 × 174 content, bottom pad).
+// sheetView is the 440 × 250 page shell: the band with the page tabs, then
+// the page frame (actions row, 416 × 174 content, bottom pad).
 func (a *shelf) sheetView(c *ui.Context, over bool) {
 	ui.Column(c.Key("sheet")).Width(sheetW).Height(sheetH).Children(func() {
-		a.bandRow(c, false)
+		a.bandRow(c)
 		a.tabBody(c, over)
 	})
 }
 
-// islandView is the 340 × 104 first level: the same band (left ear empty),
-// then the mini player and the page icons.
-func (a *shelf) islandView(c *ui.Context) {
-	ui.Column(c.Key("island")).Width(islandW).Height(islandH).Children(func() {
-		a.bandRow(c, true)
-		a.islandRow(c)
-		if a.status != "" {
-			// The island has no page content and therefore no toast layer;
-			// a status posted while it is open (a failed snap, a copy) still
-			// has to be readable. The pill sits in the bottom padding,
-			// below the 56pt row's content.
-			stack := ui.Column(c.Key("island-toast")).Absolute().Left(16).Right(16).Bottom(0).
-				AlignItems(ui.Center).PassThrough()
-			stack.Children(func() { a.statusToast(c) })
-		}
+// overviewView is the 440 × 156 first level: the same band, then the
+// overview's 416 × 106 body.
+func (a *shelf) overviewView(c *ui.Context, over bool) {
+	ui.Column(c.Key("overview")).Width(overviewW).Height(overviewH).Children(func() {
+		a.bandRow(c)
+		ui.Box(c.Key("overview-gap")).Height(contentGap)
+		ui.Column(c.Key("overview-body")).Width(contentW).Height(overviewBodyH).Children(func() {
+			// The overview has no toast layer: its context line is the
+			// status surface, so a pill never lands on top of it.
+			a.overviewBody(c, over)
+		})
 	})
 }
 
-// bandRow is the 32pt menu-bar row shared by both levels: activity chips
-// in the left ear (sheet only), settings and collapse in the right ear,
-// split around the camera housing while the shell sits under the notch.
+// tabMetrics is the page icons' size and gap inside the band's left ear.
+// The camera housing may not hold pixels, so the five icons have to fit
+// beside it; a wide notch shrinks them a little rather than letting one
+// slide under the hardware.
+func (a *shelf) tabMetrics() (size, gap float32) {
+	size, gap = bandIcon, bandIconGap
+	if a.notchW <= 0 || a.island || a.focusMode {
+		return
+	}
+	avail := (float32(sheetW)-float32(a.notchW+2*6))/2 - 8
+	for size > 16 && float32(tabMaxPages)*size+float32(tabMaxPages-1)*gap > avail {
+		size -= 0.5
+		if size <= 20 {
+			gap = 1
+		}
+	}
+	return
+}
+
+// bandRow is the 32pt row at the top of both sizes: the page icons in the
+// left ear with a fill2 capsule under the current one, activity chips and
+// the settings button in the right ear, split around the camera housing
+// while the shell sits under the notch. There is no collapse button: the
+// HIG popover rule — a click outside or Esc closes — is the way out.
 // While the clipboard search holds the keyboard the window sits below the
 // menu bar, so no housing gap is cut.
-func (a *shelf) bandRow(c *ui.Context, island bool) {
+func (a *shelf) bandRow(c *ui.Context) {
+	size, gap := a.tabMetrics()
 	row := ui.Row(c.Key("band")).Height(bandH).FillWidth().
 		Padding(0, sheetPadX, 0, sheetPadX).AlignItems(ui.Center)
+	var tabs map[pageID]ui.Element
 	row.Children(func() {
-		ui.Row(c.Key("band-left")).Grow(1).MinWidth(0).Gap(4).AlignItems(ui.Center).Children(func() {
-			if island {
-				return
-			}
-			for _, act := range a.liveActivities() {
-				act.chip(c)
+		ui.Row(c.Key("band-left")).Grow(1).MinWidth(0).Gap(gap).AlignItems(ui.Center).Children(func() {
+			tabs = map[pageID]ui.Element{}
+			for _, p := range a.tabPages() {
+				b := a.tabIcon(c, p, size, size*0.64, p.id() == a.currentPage().id())
+				tabs[p.id()] = b
+				if b.Clicked() && p.id() != a.tab {
+					a.openPage(p.id())
+				}
 			}
 		})
 		if a.notchW > 0 && !a.focusMode && !a.island {
@@ -830,40 +845,95 @@ func (a *shelf) bandRow(c *ui.Context, island bool) {
 			// notch shape; the island floats below it with no gap to cut.
 			ui.Box(c.Key("band-housing")).Width(float32(a.notchW + 2*6)).Shrink(0)
 		}
-		ui.Row(c.Key("band-right")).Grow(1).MinWidth(0).Gap(4).AlignItems(ui.Center).Justify(ui.End).Children(func() {
+		ui.Row(c.Key("band-right")).Grow(1).MinWidth(0).Gap(1).AlignItems(ui.Center).Justify(ui.End).Children(func() {
+			if a.currentLevel() == 2 {
+				// The overview's own context line already names the
+				// running job (with its cancel); the band keeps only the
+				// settings button there, as the design draws it.
+				for _, act := range a.liveActivities() {
+					act.chip(c)
+				}
+			}
 			l := loc(c)
 			if a.iconButton(c, "settings", gearSymbol, l.PanelSettings()).Clicked() {
 				a.openSettings()
 			}
-			if a.iconButton(c, "collapse", chevronUpSymbol, l.PanelCollapse()).Clicked() {
-				a.hide(hideExplicit)
-			}
 		})
+	})
+	// The active icon's capsule glides to the icon on a switch and stays
+	// glued to it on every other move.
+	cur, ok := tabs[a.currentPage().id()]
+	if !ok {
+		return
+	}
+	r := cur.LayoutBounds()
+	if r.W <= 0 {
+		cur.Background(fill2)
+		return
+	}
+	t := a.tabPhase(c.Now())
+	x := r.X
+	if t < 1 {
+		x = row.AnimateTo("tab-x", r.X, ui.Animation{Duration: tabAnimation, Ease: ui.EaseInOut})
+	} else {
+		x = row.Jump("tab-x", r.X)
+	}
+	prev := row.LayoutBounds()
+	row.Draw(func(p *ui.Painter, box ui.Rect) {
+		dx, dy := float32(0), float32(0)
+		if prev.W > 0 {
+			dx, dy = box.X-prev.X, box.Y-prev.Y
+		}
+		p.Fill(ui.Rect{X: x + dx, Y: r.Y + dy, W: r.W, H: r.H}, fill2, r.H/2)
 	})
 }
 
-// islandRow is the 56pt row under the band: the mini player (or the two
-// counts when nothing is loaded), a hairline, then one 28pt icon per page.
-func (a *shelf) islandRow(c *ui.Context) {
-	ui.Row(c.Key("island-row")).Height(islandRowH).FillWidth().
-		Padding(0, sheetPadX, 0, sheetPadX).Gap(10).AlignItems(ui.Center).Children(func() {
-		left := ui.Row(c.Key("island-left")).Grow(1).MinWidth(0).AlignItems(ui.Center)
-		left.Children(func() {
-			if a.np != nil && a.np.showsPlayer() {
-				a.np.miniPlayer(c)
-				return
-			}
-			panelLabel(c, "island-counts", a.countsText(loc(c)), 11.5, 0).TextColor(ink3)
-		})
-		ui.Box(c.Key("island-sep")).Width(1).Height(30).Background(fill2)
-		ui.Row(c.Key("island-pages")).Gap(islandIconGap).AlignItems(ui.Center).Children(func() {
-			for _, p := range a.enabledPages() {
-				if pageIcon := a.pageIconButton(c, p, islandIcon, islandIconGlyph, false); pageIcon.Clicked() {
-					a.openPage(p.id())
-				}
-			}
-		})
+// tabPages are the page icons the band draws: five at most, in the
+// registry's order, with the current page always among them (a page such
+// as 正在播放 takes the last seat while it is current).
+func (a *shelf) tabPages() []panelPage {
+	// 正在播放 is a detail page: it takes one of the five seats only while
+	// it is the page on screen, never in place of an ordinary page.
+	var pages []panelPage
+	cur := a.currentPage()
+	for _, p := range a.enabledPages() {
+		if p.id() == pagePlaying && cur.id() != pagePlaying {
+			continue
+		}
+		pages = append(pages, p)
+	}
+	if len(pages) <= tabMaxPages {
+		return pages
+	}
+	out := pages[:tabMaxPages]
+	for _, p := range out {
+		if p.id() == cur.id() {
+			return out
+		}
+	}
+	out[tabMaxPages-1] = cur
+	return out
+}
+
+// tabIcon is one page icon in the band: ink when active, ink2 with a
+// fill1 hover otherwise; the page's name is its tooltip and accessible
+// label.
+func (a *shelf) tabIcon(c *ui.Context, p panelPage, size, glyph float32, on bool) ui.Element {
+	name := pageLabel(c, p)
+	b := ui.ButtonBase(c.Key("page-"+string(p.id()))).Size(size, size).Radius(size / 2).Center().
+		Label(name).Tooltip(name)
+	if !on && b.Hovered() {
+		b.Background(fill1)
+	}
+	b.Children(func() {
+		g := p.icon(c, on || b.Hovered()).Size(glyph, glyph)
+		if on || b.Hovered() {
+			g.TextColor(ink)
+		} else {
+			g.TextColor(ink2)
+		}
 	})
+	return b
 }
 
 // pageLabel is the page icon's tooltip and accessible name in the
@@ -884,19 +954,7 @@ func pageTitle(c *ui.Context, p panelPage) string {
 	return p.title()
 }
 
-// countsText is the island's quiet line when no track is loaded.
-func (a *shelf) countsText(l locales.Messages) string {
-	tray, clip := 0, 0
-	if p, ok := a.page(pageTray).(*trayPage); ok {
-		tray = len(p.items())
-	}
-	if p, ok := a.page(pageClipboard).(*clipboardPage); ok {
-		clip = len(p.items())
-	}
-	return l.PanelCounts(tray, clip)
-}
-
-// tabBody holds the sheet under the band. A drag's drop zone and the
+// tabBody holds the page under the band. A drag's drop zone and the
 // screen-recording card replace the page whole — they are live gestures;
 // everything else switches through the page transition (see pageBody).
 func (a *shelf) tabBody(c *ui.Context, over bool) {
@@ -915,18 +973,17 @@ func (a *shelf) tabBody(c *ui.Context, over bool) {
 	})
 }
 
-// pageBody is the shared back row and the 396 × 174 content box: the page
-// being left fades out over the first tabOutShare, then the new page eases
-// in and settles from its icon's side (see pageMotion). Only the content
-// box crosses over; the five page icons stay put, so a switch never
-// reflows them.
+// pageBody is the page's own actions row and the 416 × 174 content box: the
+// page being left fades out over the first tabOutShare, then the new page
+// eases in and settles from its icon's side (see pageMotion). The band's
+// icons stay put, so a switch never reflows them.
 func (a *shelf) pageBody(c *ui.Context, over bool) {
 	t, dir := a.pageMotion(c.Now())
 	if c.Preferences().ReduceMotion {
 		dir = 0 // 减少动态效果：只淡入淡出，不位移
 	}
-	a.backRow(c, t)
-	ui.Box(c.Key("page-gap")).Height(contentGap)
+	a.pageActions(c, t)
+	ui.Box(c.Key("page-gap")).Height(pageActionsGap)
 	ui.Column(c.Key("page-content")).Width(contentW).Height(contentH).Clip().Children(func() {
 		// The warm layer goes first, under the visible page: its rows are
 		// drawn (their glyphs, thumbnails and layouts are the point) but
@@ -1055,155 +1112,41 @@ func (a *shelf) nextWarmPage(now time.Time) {
 	}
 }
 
-// sheetFrame stacks a back row, the 6pt gap and the fixed content box.
+// sheetFrame stacks a page's own top row, the gap and the fixed content box.
 func (a *shelf) sheetFrame(c *ui.Context, back, body func()) {
 	ui.Column(c.Key("page-frame")).FillWidth().Grow(1).MinHeight(0).Children(func() {
 		back()
-		ui.Box(c.Key("page-gap")).Height(contentGap)
+		ui.Box(c.Key("page-gap")).Height(pageActionsGap)
 		ui.Column(c.Key("page-content")).Width(contentW).Height(contentH).Clip().Children(body)
 	})
 }
 
-// backPages are the page icons the back row draws: five at most, in the
-// registry's order, with the current page always among them (production
-// has exactly five; a sixth page registered by an experiment takes the
-// last seat while it is current).
-func (a *shelf) backPages() []panelPage {
-	pages := a.enabledPages()
-	if len(pages) <= earMaxPages {
-		return pages
-	}
-	out := pages[:earMaxPages]
-	cur := a.currentPage()
-	for _, p := range out {
-		if p.id() == cur.id() {
-			return out
-		}
-	}
-	out[earMaxPages-1] = cur
-	return out
-}
-
-// backTitleSize and backTitleWeight are the title font: the slot is the
-// widest page name at exactly this size and weight.
-const (
-	backTitleSize   = 11.5
-	backTitleWeight = 600
-)
-
-// backTitleWidth is the width of the back row's title slot: the widest
-// name among the enabled pages' titles at the title font. Being one
-// width for every page keeps the page-strip icons at the same x when
-// the panel switches pages, instead of shifting by however wide the
-// incoming name is. A catalogue title (小组件目录, 卡片目录) is wider
-// than every page name and so widens the slot while the catalogue is
-// open. Widths are measured once per name and cached: the names are
-// fixed strings, so the map only grows when a new page registers.
-func (a *shelf) backTitleWidth(c *ui.Context) float32 {
-	w := float32(0)
-	for _, p := range a.enabledPages() {
-		name := pageTitle(c, p)
-		mw, ok := a.titleWidths[name]
-		if !ok {
-			mw, _ = c.MeasureText(0, ui.Span{Text: name, Size: backTitleSize, Weight: backTitleWeight})
-			if a.titleWidths == nil {
-				a.titleWidths = make(map[string]float32, len(a.pages))
-			}
-			a.titleWidths[name] = mw
-		}
-		w = max(w, mw)
-	}
-	return w
-}
-
-// backRow is the sheet's 26pt row: the page's plain name, the five page
-// icons with the active page's capsule, then the current page's own
-// buttons. The title is text, not a control — Esc steps back to the
-// island, while an outside click and the shortcut fold the panel away —
-// so the row carries no back button, and it names the page without a
-// count, which stays the island's line. t is the page switch's progress:
-// the title crossfades inside its fixed slot and the capsule glides over
-// tabAnimation (the value is 1 at rest).
-func (a *shelf) backRow(c *ui.Context, t float32) {
-	cur := a.currentPage()
-	name := pageTitle(c, cur)
-	row := ui.Row(c.Key("back-row")).Height(backRowH).FillWidth().Gap(4).AlignItems(ui.Center)
-	var navs map[pageID]ui.Element
-	row.Children(func() {
-		title := ui.Row(c.Key("back-title")).Width(a.backTitleWidth(c)).Height(22).
-			AlignItems(ui.Center).Clip()
-		title.Children(func() {
-			// The labels share that one slot: the outgoing name leaves over
-			// the first share, the incoming one arrives after it.
-			if t < tabOutShare && a.tabFrom != a.tab {
-				if from := a.page(a.tabFrom); from != nil && from.enabled() {
-					old := ui.Row(c.Key("back-name-out")).Absolute().Left(0).Top(0).Height(22).
-						AlignItems(ui.Center).Opacity(1 - ui.EaseIn(t/tabOutShare))
-					old.Children(func() {
-						panelLabel(c, nil, pageTitle(c, from), backTitleSize, backTitleWeight).TextColor(ink2)
-					})
-				}
-			}
-			in := float32(1)
-			if t < 1 {
-				in = ui.EaseOut(max(t-tabOutShare, 0) / (1 - tabOutShare))
-			}
-			now := ui.Row(c.Key("back-name-in")).Height(22).AlignItems(ui.Center).Opacity(in)
-			now.Children(func() {
-				panelLabel(c, nil, name, backTitleSize, backTitleWeight).TextColor(ink2)
-			})
-			if t < 1 {
-				c.AnimationFrame()
-			}
-		})
-		navs = map[pageID]ui.Element{}
-		ui.Row(c.Key("page-strip")).Gap(2).AlignItems(ui.Center).Children(func() {
-			for _, q := range a.backPages() {
-				b := a.pageIconButton(c, q, backIcon, 14, q.id() == cur.id())
-				navs[q.id()] = b
-				if b.Clicked() && q.id() != cur.id() {
-					a.setTab(q.id())
-				}
-			}
-		})
-		ui.Box(c).Grow(1)
-		ui.Row(c.Key("page-actions")).Gap(4).AlignItems(ui.Center).Children(func() {
-			for _, e := range cur.actions(c) {
-				_ = e
-				// Elements add themselves to the current parent when
-				// created; nothing to do here.
-			}
-		})
-	})
-	// The active icon's capsule glides to the icon on a switch and stays
-	// glued to it on every other move (the first frame paints it under
-	// the icon itself, before any box is known).
-	curIcon, ok := navs[cur.id()]
-	if !ok {
-		return
-	}
-	r := curIcon.LayoutBounds()
-	if r.W <= 0 {
-		curIcon.Background(fill2)
-		return
-	}
-	x := r.X
+// pageActions is the 22pt row above the page content: whatever the current
+// page puts at its right edge (the clipboard's search box, the tray's
+// selection hint and clear, the tools page's pencil, the usage page's
+// refresh). It fades in with the arriving page, so a switch never pops the
+// controls ahead of the content.
+func (a *shelf) pageActions(c *ui.Context, t float32) {
+	in := float32(1)
 	if t < 1 {
-		x = row.AnimateTo("tab-x", r.X, ui.Animation{Duration: tabAnimation, Ease: ui.EaseInOut})
-	} else {
-		x = row.Jump("tab-x", r.X)
+		in = ui.EaseOut(max(t-tabOutShare, 0) / (1 - tabOutShare))
 	}
-	prev := row.LayoutBounds()
-	row.Draw(func(p *ui.Painter, box ui.Rect) {
-		// The capsule rect comes from the last frame's boxes; anchor it to
-		// the row's current box so a frame that moved the row cannot
-		// unglue it.
-		dx, dy := float32(0), float32(0)
-		if prev.W > 0 {
-			dx, dy = box.X-prev.X, box.Y-prev.Y
+	row := ui.Row(c.Key("page-actions-row")).Height(pageActionH).FillWidth().Gap(4).
+		AlignItems(ui.Center).Justify(ui.End)
+	row.Children(func() {
+		now := ui.Row(c.Key("page-actions")).Height(pageActionH).Gap(4).AlignItems(ui.Center).Opacity(in)
+		if in <= 0 {
+			now.PassThrough()
 		}
-		p.Fill(ui.Rect{X: x + dx, Y: r.Y + dy, W: r.W, H: r.H}, fill2, r.H/2)
+		now.Children(func() {
+			for _, e := range a.currentPage().actions(c) {
+				_ = e
+			}
+		})
 	})
+	if t < 1 {
+		c.AnimationFrame()
+	}
 }
 
 // dropFrame is the page frame during a file drag: 投放 and its count in
@@ -1219,7 +1162,7 @@ func (a *shelf) dropFrame(c *ui.Context, paths []string, class dropClass) {
 
 // dropBar is a plain back row for the transient drop zone and OCR card.
 func (a *shelf) dropBar(c *ui.Context, name, count, hint string) {
-	ui.Row(c.Key("back-row")).Height(backRowH).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
+	ui.Row(c.Key("back-row")).Height(pageActionH).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 		panelLabel(c, nil, name, 11.5, 600).TextColor(ink)
 		if count != "" {
 			panelLabel(c, nil, count, 10, 600).TextColor(ink3)
@@ -1229,26 +1172,6 @@ func (a *shelf) dropBar(c *ui.Context, name, count, hint string) {
 			panelLabel(c, nil, hint, 10.5, 600).TextColor(ink3)
 		}
 	})
-}
-
-// pageIconButton is one page icon: ink when active, ink2 with a fill1
-// hover otherwise; the page's name is its tooltip and accessible label.
-func (a *shelf) pageIconButton(c *ui.Context, p panelPage, size, glyph float32, on bool) ui.Element {
-	name := pageLabel(c, p)
-	b := ui.ButtonBase(c.Key("page-"+string(p.id()))).Size(size, size).Radius(size / 2).Center().
-		Label(name).Tooltip(name)
-	if !on && b.Hovered() {
-		b.Background(fill1)
-	}
-	b.Children(func() {
-		g := p.icon(c, on || b.Hovered()).Size(glyph, glyph)
-		if on || b.Hovered() {
-			g.TextColor(ink)
-		} else {
-			g.TextColor(ink2)
-		}
-	})
-	return b
 }
 
 // liveActivities are the modules with something under way, in module
@@ -1670,7 +1593,7 @@ func (a *shelf) capsuleView(c *ui.Context, shellW, shellH, _ /* openK */, peekK,
 						dot.Opacity(f.accent(now, c.Preferences().ReduceMotion))
 					}
 					if g := f.glyph(); g != "" {
-						dot.Children(func() { ui.Text(c, g).FontSize(10).FontWeight(800).TextColor(ui.Hex("#000000")) })
+						dot.Children(func() { ui.Text(c, g).FontSize(10).FontWeight(800).TextColor(surface) })
 					}
 					ui.Text(c.Key("fb-text"), f.text).SingleLine().FontSize(12).FontWeight(600).
 						TextColor(ink).MaxWidth(textW)
@@ -1683,26 +1606,50 @@ func (a *shelf) capsuleView(c *ui.Context, shellW, shellH, _ /* openK */, peekK,
 	}
 }
 
-// openPage is an island page icon's click: the sheet opens on that page.
+// openPage is a page icon's click (or a card's 全部): the panel shows that
+// page. The overview is the short size; every other page grows the same
+// shell to 440 × 250. Switching between two pages at the same size is the
+// ordinary fade; crossing sizes springs the shell.
 func (a *shelf) openPage(id pageID) {
 	p := a.page(id)
 	if p == nil || !p.enabled() {
 		return
 	}
-	a.tabFrom, a.tab = id, id
-	a.tabAt = time.Time{}
-	a.tabOutK, a.tabOutShift = 1, 0
-	a.setLevel(2)
+	want := 2
+	if id == pageOverview {
+		want = 1
+	}
+	if a.currentLevel() == want {
+		if a.tab != id {
+			a.setTab(id)
+		}
+		return
+	}
+	if a.tab != id {
+		a.tabFrom, a.tab = id, id
+		a.tabAt = time.Time{}
+		a.tabOutK, a.tabOutShift = 1, 0
+	}
+	a.setLevel(want)
 }
 
-// setLevel moves between the island (1) and the sheet (2). The shell's
-// size springs to the new level; the content crossfades through levelK.
+// setLevel moves between the overview (1) and a page (2). The shell's size
+// springs to the new level; the content crossfades through levelK.
 func (a *shelf) setLevel(level int) {
 	level = min(max(level, 1), 2)
 	if a.level == level {
 		return
 	}
 	a.level = level
+	if level == 1 {
+		// Backing out to the overview: the short layer is a fixed page,
+		// so the tab follows it (the level crossfade is the transition).
+		a.tab = pageOverview
+	} else if a.tab == pageOverview {
+		// Only a page has the tall size: a caller that grows the shell
+		// (the arrangement panel's restore, a drag) lands on the tray.
+		a.tab = pageTray
+	}
 	a.tabFrom = a.tab
 	a.tabAt = time.Time{}
 	a.tabOutK, a.tabOutShift = 1, 0
@@ -1812,14 +1759,26 @@ func (a *shelf) setTab(id pageID) {
 		}
 	}
 	a.tabFrom, a.tab, a.tabOutK, a.tabOutShift = from, id, outK, outShift
+	// The tab and the shell size stay one state: a page is the tall shell,
+	// the overview the short one. A caller that names a page without
+	// switching levels (a test seam, a shortcut) gets the size that page
+	// draws in; the arrangement panel borrows the short box and is left
+	// alone.
+	if !a.snap.panel && !a.snap.drawn {
+		want := 2
+		if id == pageOverview {
+			want = 1
+		}
+		if a.level != want {
+			a.level = want
+			a.jumpLevel = a.win == nil || !a.visible
+		}
+	}
 	if cur == pageUsage && a.usage != nil { // 离开用量页即取消其后台工作
 		a.usage.stopWork()
 	}
 	if cur == pageTools { // 离开工具页即退出编辑与目录
 		a.resetToolsEdit()
-	}
-	if cur == pageHome { // 离开主页即退出编辑与目录
-		a.resetHomeEdit()
 	}
 	if a.visible {
 		a.tabAt = now

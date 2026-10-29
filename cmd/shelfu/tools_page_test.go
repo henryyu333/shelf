@@ -139,9 +139,11 @@ func TestToolsPagePicker(t *testing.T) {
 	if !view.HasText("隔空投送") {
 		t.Fatal("picker is missing catalog entries")
 	}
-	// Already-placed cards render 已添加.
-	if !view.HasText("已添加") {
-		t.Fatal("placed cards are not dimmed as 已添加")
+	// Placed cards are not listed: the catalogue only offers what is left.
+	for _, placed := range []string{"音乐", "保持唤醒", "最近文件", "剪贴板最新", "框选文字"} {
+		if view.HasText(placed) {
+			t.Fatalf("the catalogue still lists the placed card %q", placed)
+		}
 	}
 }
 
@@ -290,7 +292,7 @@ func TestToolsStillLongPressEntersEdit(t *testing.T) {
 		t.Fatal("ocr card missing")
 	}
 	view.Press(r.X+r.W/2, r.Y+r.H/2)
-	view.Advance(toolLongPress + 100*time.Millisecond)
+	view.Advance(durLongPress + 100*time.Millisecond)
 	p := a.toolsPage()
 	if p == nil || !p.editing {
 		t.Fatalf("still long press did not enter editing: %v", p)
@@ -332,6 +334,10 @@ func TestToolsSettleEndsWhenFlightNeverMoves(t *testing.T) {
 	}
 	defer s.Close()
 	a := &shelf{store: s, tab: pageTools, visible: true, dataDir: t.TempDir()}
+	a.toolsLay = &layout.Layout{Version: layout.Version, Cards: []layout.Card{
+		{ID: "ocr"}, {ID: "fit1m"}, {ID: "topdf"}, {ID: "zip"},
+		{ID: "tojpeg"}, {ID: "toword"}, {ID: "extract"}, {ID: "resize"},
+	}}
 	view := ui.NewTester(a.view, sheetW, sheetH)
 	view.SetPreferences(ui.Preferences{ReduceMotion: true})
 	r, ok := view.Find("打成 zip")
@@ -340,7 +346,7 @@ func TestToolsSettleEndsWhenFlightNeverMoves(t *testing.T) {
 	}
 	x, y := r.X+20, r.Y+20
 	view.Press(x, y)
-	view.Advance(toolLongPress + 80*time.Millisecond)
+	view.Advance(durLongPress + 80*time.Millisecond)
 	p := a.toolsPage()
 	if !p.editing {
 		t.Fatal("long press did not enter edit")
@@ -452,7 +458,7 @@ func TestToolsDropInVisibleGridCommits(t *testing.T) {
 	t.Cleanup(func() { cursorPoint = oldCursor })
 	cursorPoint = func() mygo.Point { return mygo.Point{X: 200, Y: 200} } // inside the panel
 	d := &toolPress{id: last, dragging: true, px: 20, py: py, index: 0,
-		origCell: toolCell{id: last, x: 0, y: 400}}
+		cardX: 0, cardY: 400}
 	p.toolCardDrop(d, cursorPoint())
 	after := a.toolsLayout().Cards
 	if len(a.pins) != 0 {
@@ -530,7 +536,12 @@ func TestToolsDragOutWriteFailureKeepsGrid(t *testing.T) {
 }
 
 func TestToolsExactFitGridDoesNotScroll(t *testing.T) {
-	a := &shelf{tab: pageTools, visible: true, store: mustStore(t)}
+	a := &shelf{tab: pageTools, visible: true, store: mustStore(t), dataDir: t.TempDir()}
+	// Eight 1 × 1 cards fill the two visible rows exactly.
+	a.toolsLay = &layout.Layout{Version: layout.Version, Cards: []layout.Card{
+		{ID: "ocr"}, {ID: "fit1m"}, {ID: "topdf"}, {ID: "zip"},
+		{ID: "tojpeg"}, {ID: "toword"}, {ID: "extract"}, {ID: "resize"},
+	}}
 	view := ui.NewTester(a.view, sheetW, sheetH)
 	p := a.toolsPage()
 	view.Frame()
@@ -561,12 +572,15 @@ func TestToolsEditBadgeIsVisibleAndClickableAtGridEdges(t *testing.T) {
 			if r.X < v.X || r.Y < v.Y || r.X+r.W > v.X+v.W || r.Y+r.H > v.Y+v.H {
 				t.Errorf("remove badge is clipped: badge=%+v viewport=%+v", r, v)
 			}
+			// The badge belongs to the grid's first card, whatever that is
+			// (the widgets lead the default layout now).
+			first := a.toolsLayout().Cards[0].ID
 			x, y := r.X+r.W/2, r.Y+2
 			if edge == "left" {
 				x, y = r.X+2, r.Y+r.H/2
 			}
 			view.ClickAt(x, y)
-			if slices.ContainsFunc(a.toolsLayout().Cards, func(c layout.Card) bool { return c.ID == "ocr" }) {
+			if slices.ContainsFunc(a.toolsLayout().Cards, func(c layout.Card) bool { return c.ID == first }) {
 				t.Errorf("the %s edge of the first badge cannot remove its card", edge)
 			}
 			if p.press != nil {

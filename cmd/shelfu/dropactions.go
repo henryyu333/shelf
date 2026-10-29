@@ -464,7 +464,7 @@ func (a *shelf) dropThumbStack(c *ui.Context, paths []string) {
 	ui.Row(c.Key("drop-stack")).AlignItems(ui.Center).Children(func() {
 		for i, p := range show {
 			cell := ui.Row(c.Key(p)).Size(26, 26).Radius(6).Center().Clip().
-				Border(1.5, ui.Hex("#000000"))
+				Border(1.5, surface)
 			if i > 0 {
 				cell.Margin(0, 0, 0, -8) // overlap like the design's stack
 			}

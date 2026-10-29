@@ -359,6 +359,14 @@ func TestSmokeClipListEdgeBlur(t *testing.T) {
 	// 24-row list, the reverse one returns to the top, which proves the
 	// gesture reaches this scroll view. The settled middle position the
 	// bands need is then set directly.
+	//
+	// The overlay takes the mouse only while the pointer is on the shell
+	// (a press outside it belongs to the window below), so the pointer is
+	// put on the list's own area first.
+	var frame mygo.Rectangle
+	onMain(func() { frame = a.frame })
+	warpPointerTo(t, float64(frame.X+280), float64(frame.Y+125))
+	time.Sleep(60 * time.Millisecond)
 	for _, delta := range []float64{40, -20} {
 		onMain(func() {
 			if !mac.SurfaceScroll(a.win.NativeHandle(), 280, 125, delta) {
@@ -410,7 +418,7 @@ func assertEdgeStripsBlurrier(t *testing.T, path string, a *shelf, where string,
 	}
 	b := img.Bounds()
 	scale := float64(b.Dx()) / float64(a.frame.Width)
-	contentTop := int(math.Round(float64(a.sheetTop()+bandH+backRowH+contentGap) * scale))
+	contentTop := int(math.Round(float64(a.sheetTop()+bandH+pageActionH+actionsGap) * scale))
 	x0 := int(math.Round(float64((a.frame.Width-contentW)/2+20) * scale))
 	x1 := x0 + int(math.Round(float64(contentW-40)*scale))
 	strip := int(math.Round(20 * scale))

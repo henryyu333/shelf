@@ -55,6 +55,7 @@ type toolCardDef struct {
 	title        string
 	icon         *ui.SVG
 	span         int
+	rows         int
 	variableSpan bool
 	accepts      func(class dropClass) bool
 	available    func(a *shelf) bool
@@ -72,7 +73,7 @@ var (
 	// the variable-span handle.
 	minusSymbol = symbol(`<path d="M5 12h14"/>`)
 	spanSymbol  = symbol(`<path d="M4 9h7M4 15h10M17 5v14M20 8l-3-3-3 3M20 16l-3 3-3-3"/>`)
-	awakeWarn   = ui.Hex("#FF9F0A") // 保持唤醒的橙点（设计稿 var(--warn)）
+	awakeWarn   = warning // 保持唤醒的橙点（设计稿 var(--warn)）
 )
 
 // toolCatalog is every card in picker order: actions first, then
@@ -89,11 +90,11 @@ func toolCatalog() []toolCardDef {
 		{id: "resize", kind: cardAction, title: "缩小图片", icon: shrinkSymbol, span: 1, accepts: imagesOnly, available: always},
 		{id: "zip", kind: cardAction, title: "打成 zip", icon: zipSymbol, span: 1, accepts: anyClass, available: always},
 		{id: "airdrop", kind: cardAction, title: "隔空投送", icon: airDropSymbol, span: 1, accepts: anyClass, available: always},
-		{id: "playing", kind: cardWidget, title: "音乐", icon: musicSymbol, span: 2, accepts: never, available: always},
+		{id: "playing", kind: cardWidget, title: "音乐", icon: musicSymbol, span: 2, rows: 2, accepts: never, available: always},
 		{id: "awake", kind: cardWidget, title: "保持唤醒", icon: cupSymbol, span: 1, variableSpan: true, accepts: never, available: always},
 		{id: "recent", kind: cardWidget, title: "最近文件", icon: docSymbol, span: 2, accepts: never, available: always},
 		{id: "clip", kind: cardWidget, title: "剪贴板最新", icon: clipNavSymbol, span: 2, accepts: never, available: always},
-		{id: "usage", kind: cardWidget, title: "AI 用量", icon: gaugeSymbol, span: 2, accepts: never, available: usageAvailable},
+		{id: "usage", kind: cardWidget, title: "AI 用量", icon: gaugeSymbol, span: 1, accepts: never, available: usageAvailable},
 	}
 }
 
@@ -118,6 +119,9 @@ func toolCardDefFor(id string) *toolCardDef {
 	catalog := toolCatalog()
 	for i := range catalog {
 		if catalog[i].id == id {
+			if catalog[i].rows < 1 {
+				catalog[i].rows = 1
+			}
 			return &catalog[i]
 		}
 	}
@@ -234,7 +238,7 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 		if dragging {
 			sub = a.toolCardSub(loc(c), def, class)
 		}
-		a.toolCardBody(c, card, def, sub, spec.Span)
+		a.toolCardBody(c, card, def, sub, spec.Span, spec.Height())
 	}
 	if accepts && surf != cardEdit {
 		if drop, ok := ui.DropData(card, dropCellOpts); ok {
@@ -262,7 +266,7 @@ func (a *shelf) toolCardEditBody(c *ui.Context, card ui.Element, def *toolCardDe
 // subtitle, widgets lay out per card. While files hover the panel the
 // action's subtitle becomes the dragged count (design §1: 副标题换成拖
 // 入的数量).
-func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, sub string, span int) {
+func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, sub string, span, rows int) {
 	if def.kind == cardAction {
 		card.Center().Gap(5).Children(func() {
 			ui.Icon(c, def.icon).Size(20, 20).TextColor(ink)
@@ -275,6 +279,10 @@ func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, s
 	}
 	switch def.id {
 	case "playing":
+		if rows > 1 {
+			a.toolPlayingTall(c, card)
+			return
+		}
 		a.toolPlayingBody(c, card)
 	case "awake":
 		a.toolAwakeBody(c, card, span)
@@ -635,17 +643,17 @@ func (a *shelf) awakeChip(c *ui.Context, key, label string, d time.Duration) {
 // three newest tray thumbnails on the right; each thumb drags out like
 // its tray tile (design §3).
 func (a *shelf) toolRecentBody(c *ui.Context, card ui.Element) {
-	card.Padding(0, 12, 0, 12).Justify(ui.Center).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Gap(10).FillWidth().Children(func() {
+	card.Padding(0, 10, 0, 10).Justify(ui.Center).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(8).FillWidth().Children(func() {
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				panelLabel(c, nil, loc(c).RecentFiles(), 12, 600).TextColor(ink)
 				panelLabel(c, nil, loc(c).DragOut(), 10, 0).TextColor(ink3)
 			})
-			ui.Row(c.Key("recent-thumbs")).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Row(c.Key("recent-thumbs")).Gap(4).AlignItems(ui.Center).Children(func() {
 				items := a.itemsFor(pageTray)
 				show := items[:min(3, len(items))]
 				for _, it := range show {
-					a.recentThumb(c, it)
+					a.recentThumbAt(c, it, 30)
 				}
 				if len(show) == 0 {
 					ui.Icon(c, docSymbol).Size(20, 20).TextColor(ink3)
@@ -758,6 +766,40 @@ func (a *shelf) toolUsageRing(c *ui.Context, five, week *aiusage.Window) {
 	})
 	e.Children(func() {
 		ui.Icon(c, gaugeSymbol).Size(14, 14).TextColor(ink3)
+	})
+}
+
+// toolPlayingTall is the music card in its 2 × 2 form: the cover and the
+// two lines on top, the transport centred below — the room the taller card
+// has, without the page's seek and volume rows.
+func (a *shelf) toolPlayingTall(c *ui.Context, card ui.Element) {
+	m := a.np
+	st, ok := mac.NowPlayingState{}, false
+	if m != nil {
+		st, ok = m.track()
+	}
+	if !ok {
+		card.Center().Gap(6).Children(func() {
+			ui.Icon(c, musicSymbol).Size(24, 24).TextColor(ink3)
+			panelLabel(c, nil, loc(c).NowPlaying(), 12, 600).TextColor(ink3)
+		})
+		return
+	}
+	card.Padding(12, 14, 12, 14).Justify(ui.SpaceBetween).Children(func() {
+		ui.Row(c).AlignItems(ui.Center).Gap(10).FillWidth().Children(func() {
+			m.coverArt(c, "tc-np-art", 52, 10)
+			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Justify(ui.Center).Children(func() {
+				ui.Text(c, st.Title).SingleLine().FontSize(13).FontWeight(600).TextColor(ink)
+				if meta := m.cardMeta(st); meta != "" {
+					ui.Text(c, meta).SingleLine().FontSize(11).TextColor(ink3)
+				}
+			})
+		})
+		ui.Row(c.Key("tc-np-ctl-tall")).Justify(ui.Center).AlignItems(ui.Center).Gap(22).FillWidth().Children(func() {
+			m.controlButton(c, "tc-np-prev", prevFill, loc(c).PreviousTrack(), mac.NPPrevious, 26, 15)
+			m.controlButton(c, "tc-np-toggle", toggleSymbol(st.Playing), playPauseLabel(st.Playing), mac.NPPlayPause, 34, 20)
+			m.controlButton(c, "tc-np-next", nextFill, loc(c).NextTrack(), mac.NPNext, 26, 15)
+		})
 	})
 }
 

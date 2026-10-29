@@ -328,8 +328,8 @@ func TestClipboardKeyboardFlow(t *testing.T) {
 	}
 	view.Advance(time.Second)
 	view.Frame()
-	if a.tab != pageTray || a.search != "" {
-		t.Fatal("⏎ did not settle back to the tray tab after the fade")
+	if a.tab != pageOverview || a.search != "" {
+		t.Fatal("⏎ did not settle back to the overview after the fade")
 	}
 }
 
@@ -417,14 +417,14 @@ func TestEnterCopiesImageAsPNG(t *testing.T) {
 	}
 }
 
-// hide() 的键盘模式清理：内容淡出（120 ms）后回到托盘标签并交还焦点标记。
+// hide() 的键盘模式清理：内容淡出（120 ms）后回到总览并交还焦点标记。
 func TestHideLeavesKeyboardMode(t *testing.T) {
 	a, view, _ := clipShelf(t, "x")
 	a.tab, a.search, a.focusMode, a.prevAppPID = pageClipboard, "q", true, 999999
 	a.hide(hideExplicit)
 	view.Advance(time.Second)
 	view.Frame()
-	if a.tab != pageTray || a.search != "" || a.focusMode || a.prevAppPID != 0 {
+	if a.tab != pageOverview || a.search != "" || a.focusMode || a.prevAppPID != 0 {
 		t.Fatalf("hide left keyboard state: tab=%s search=%q focus=%v", a.tab, a.search, a.focusMode)
 	}
 }

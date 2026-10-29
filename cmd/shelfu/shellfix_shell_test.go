@@ -156,7 +156,7 @@ func TestOpenUnderStillPointerTakesTheMouse(t *testing.T) {
 	cursorPoint = func() mygo.Point {
 		// The island's body, below the notch band and above its bottom
 		// corner: where its page icons sit.
-		return mygo.Point{X: a.stripCenter(), Y: a.y + islandH - 8}
+		return mygo.Point{X: a.stripCenter(), Y: a.y + overviewH - 8}
 	}
 	a.syncMousePassThrough()
 	if !a.ignoringMouse {
@@ -169,7 +169,7 @@ func TestOpenUnderStillPointerTakesTheMouse(t *testing.T) {
 	// And the transparent margin beside the island still belongs to the
 	// window underneath, before and after the opening.
 	cursorPoint = func() mygo.Point {
-		return mygo.Point{X: a.stripCenter() + islandW/2 + 8, Y: a.y + 20}
+		return mygo.Point{X: a.stripCenter() + overviewW/2 + 8, Y: a.y + 20}
 	}
 	a.syncPointerGate()
 	if !a.ignoringMouse {
@@ -185,22 +185,23 @@ func TestOpenUnderStillPointerTakesTheMouse(t *testing.T) {
 func TestLevelSwitchUnderStillPointerKeepsTheMouse(t *testing.T) {
 	a := motionShelf()
 	a.level, a.visible = 1, true
-	a.fx = shellMotion{w: islandW, h: islandH}
+	a.fx = shellMotion{w: overviewW, h: overviewH}
 	a.winH = 1
 	old := cursorPoint
 	t.Cleanup(func() { cursorPoint = old })
-	sheetLeft := a.stripCenter() - sheetW/2
-	cursorPoint = func() mygo.Point { return mygo.Point{X: sheetLeft + 8, Y: a.y + 20} }
+	// The two sizes share their width: the column the page grows into is
+	// the one below the overview's bottom edge.
+	cursorPoint = func() mygo.Point { return mygo.Point{X: a.stripCenter(), Y: a.y + overviewH + 20} }
 	a.syncMousePassThrough()
 	if !a.ignoringMouse {
-		t.Fatal("the island's transparent margin takes the mouse before the switch")
+		t.Fatal("the overview's transparent margin takes the mouse before the switch")
 	}
 	a.setLevel(2)
 	if a.ignoringMouse {
 		t.Fatal("the sheet ignores a press under a still pointer it now covers")
 	}
 	// Outside both shells the window stays click-through.
-	cursorPoint = func() mygo.Point { return mygo.Point{X: sheetLeft - 8, Y: a.y + 20} }
+	cursorPoint = func() mygo.Point { return mygo.Point{X: a.stripCenter() + sheetW/2 + 8, Y: a.y + 20} }
 	a.syncPointerGate()
 	if !a.ignoringMouse {
 		t.Fatal("the transparent margin beside the sheet takes the mouse")
@@ -236,8 +237,8 @@ func TestIslandOpeningFramesStayOnTheIslandBox(t *testing.T) {
 	if a.fx.openMoving {
 		t.Fatal("the opening spring never came to rest")
 	}
-	if f := a.desiredFrame(); f.Width != iw || f.Height != islandH {
-		t.Fatalf("settled island frame = %d×%d, want %d×%d", f.Width, f.Height, iw, islandH)
+	if f := a.desiredFrame(); f.Width != iw || f.Height != overviewH {
+		t.Fatalf("settled island frame = %d×%d, want %d×%d", f.Width, f.Height, iw, overviewH)
 	}
 }
 
@@ -273,7 +274,7 @@ func TestReopenAfterASheetCloseStartsOnTheIsland(t *testing.T) {
 	if a.fx.levelK > 0.001 {
 		t.Fatalf("the first reopened frame drew the sheet's level (levelK %.2f)", a.fx.levelK)
 	}
-	if a.fx.w > islandW+1 {
-		t.Fatalf("the first reopened frame drew a %.1fpt shell, wider than the island's %d", a.fx.w, islandW)
+	if a.fx.w > overviewW+1 {
+		t.Fatalf("the first reopened frame drew a %.1fpt shell, wider than the island's %d", a.fx.w, overviewW)
 	}
 }

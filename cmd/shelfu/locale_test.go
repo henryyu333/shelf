@@ -80,8 +80,8 @@ func englishShelf(t *testing.T) (*shelf, *ui.Tester) {
 	return a, view
 }
 
-// TestEnglishPanelPagesHaveNoChineseAndFit draws the island and every sheet
-// page in English: no label may say Chinese, and the 396 × 174 audit must
+// TestEnglishPanelPagesHaveNoChineseAndFit draws the overview and every
+// page in English: no label may say Chinese, and the 416 × 174 audit must
 // find nothing cut or wrapped.
 func TestEnglishPanelPagesHaveNoChineseAndFit(t *testing.T) {
 	a, view := englishShelf(t)
@@ -90,39 +90,37 @@ func TestEnglishPanelPagesHaveNoChineseAndFit(t *testing.T) {
 	a.visible = true
 	view.Frame()
 	view.Frame()
-	assertNoHan(t, "island", view.Texts())
-	if !view.HasText(a.appLoc().PanelCounts(1, 12)) {
-		t.Fatalf("the island does not say its counts in English; texts %v", view.Texts())
+	assertNoHan(t, "overview", view.Texts())
+	if !view.HasText(a.appLoc().OverviewTrayCount(1)) {
+		t.Fatalf("the overview does not say its tray count in English; texts %v", view.Texts())
 	}
 	if notes := drain(); len(notes) > 0 {
-		t.Errorf("island: %v", notes)
+		t.Errorf("overview: %v", notes)
 	}
 
 	a.level = 2
-	for _, id := range []pageID{pageHome, pageTray, pageClipboard, pageTools} {
+	for _, id := range []pageID{pageTray, pageClipboard, pageTools, pagePlaying} {
 		a.setTab(id)
 		view.Frame()
 		drain() // the first frame of a tab has no boxes yet
 		view.Frame()
 		assertNoHan(t, string(id), view.Texts())
-		if name := pageTitleText(a.appLoc(), a.page(id)); !view.HasText(name) {
-			t.Errorf("%s: the back row lost the English page name %q; texts %v", id, name, view.Texts())
-		}
 		assertPageFits(t, view, string(id), drain(), a.sheetTop())
 	}
 
-	// The home page's edit grid and its catalogue say English too.
-	a.setTab(pageHome)
-	p := a.homePageOf()
-	p.editing, p.picking = true, true
-	view.Frame()
-	drain() // the first frame of the state has no boxes yet
-	view.Frame()
-	assertNoHan(t, "home-picker", view.Texts())
-	if notes := drain(); len(notes) > 0 {
-		t.Errorf("home-picker: %v", notes)
+	// The tools catalogue says English too.
+	a.setTab(pageTools)
+	if p := a.toolsPage(); p != nil {
+		p.editing, p.picking = true, true
+		view.Frame()
+		drain() // the first frame of the state has no boxes yet
+		view.Frame()
+		assertNoHan(t, "tools-picker", view.Texts())
+		if notes := drain(); len(notes) > 0 {
+			t.Errorf("tools-picker: %v", notes)
+		}
+		p.editing, p.picking = false, false
 	}
-	p.editing, p.picking = false, false
 }
 
 // TestEnglishSettingsWindowHasNoChinese: every group, row, caption and

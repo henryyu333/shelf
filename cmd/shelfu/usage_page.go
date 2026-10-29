@@ -5,7 +5,7 @@ package main
 // AI 用量页（原型 variant=B 的 AI 页）：左栏 203 宽、两张 84 高的套餐额度
 // 双圈卡（外圈每周、内圈 5 小时，画「剩余」，悬停出 Synara 式明细）；
 // 右栏 187 宽、本机 token 用量（分段范围、2 × 2 指标、堆叠柱图、时间轴、
-// 图例）。整页在 396 × 174 里一屏看完，不滚动。取数调度在
+// 图例）。整页在 416 × 174 里一屏看完，不滚动。取数调度在
 // usage_module.go，这里只有绘制和格式化。
 //
 // 颜色例外：额度圈（每周 #30D158、5 小时 #FF9F0A、低余量 #FF453A）与
@@ -28,11 +28,11 @@ import (
 // Quota ring and source colours — the DESIGN.md single-accent rule's only
 // other exception besides the now-playing cover tint (DESIGN.md「AI 用量」).
 var (
-	usageWeekly  = ui.Hex("#30D158")            // 外圈：每周；费用数值同色
-	usageFive    = ui.Hex("#FF9F0A")            // 内圈：5 小时；节奏告警同色
+	usageWeekly  = success                      // 外圈：每周；费用数值同色
+	usageFive    = warning                      // 内圈：5 小时；节奏告警同色
 	usageClaude  = ui.Hex("#D97757")            // Claude Code 的来源色与标志色
 	usageCodex   = ui.Hex("#B8B8C0")            // Codex 的来源色
-	usagePopBG   = ui.Hex("#1C1C1E")            // 悬停明细底色
+	usagePopBG   = surfaceRaise                 // 悬停明细底色
 	usagePopEdge = ui.RGBA(255, 255, 255, 0.12) // 悬停明细描边
 	usageGrid    = ui.RGBA(255, 255, 255, 0.08) // 柱图网格线
 	usageBase    = ui.RGBA(255, 255, 255, 0.12) // 柱图基线
@@ -42,8 +42,8 @@ var (
 const (
 	usageCardH    = 84 // two cards + 6 gap fill the 174 content height
 	usageCardGap  = 6
-	usageLeftW    = 203 // left column: quota cards
-	usageRightW   = 187 // right column: local usage; 203+6+187 = 396
+	usageLeftW    = 213 // left column: quota cards
+	usageRightW   = 197 // right column: local usage; 213+6+197 = 416
 	usageRingSize = 50
 )
 
@@ -288,7 +288,7 @@ func (f *usageFeature) actions(c *ui.Context) []ui.Element {
 	return append(out, b)
 }
 
-// body is the fixed 396 × 174 two-column layout: quota cards on the left
+// body is the fixed 416 × 174 two-column layout: quota cards on the left
 // (203 wide, two 84-tall cards), local usage on the right (187 wide). No
 // part of it scrolls — the user reads every state at once.
 func (f *usageFeature) body(c *ui.Context, _ bool, _ bool) ui.Element {
@@ -765,7 +765,7 @@ func (f *usageFeature) shownLabel(l locales.Messages, v float64) string {
 
 // localPanel is 本机用量: header with range segments, 2 × 2 metrics, the
 // stacked chart filling the rest, axis and legend — or the scan/progress
-// card while there is no summary yet. Everything fits 187 × 174.
+// card while there is no summary yet. Everything fits 197 × 174.
 func (f *usageFeature) localPanel(c *ui.Context) {
 	card := ui.Column(c.Key("local-card")).FillWidth().FillHeight().Radius(14).Background(fill1).
 		Padding(8, 10, 7, 10).Gap(4)

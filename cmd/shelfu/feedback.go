@@ -25,11 +25,12 @@ import (
 	"shelf/locales"
 )
 
-// Status colours (DESIGN.md's palette, used only by the capsule).
+// Status colours come from theme.go (success, warning, danger) and appear
+// only inside the capsule's dot.
 var (
-	fbGreen  = ui.Hex("#30D158")
-	fbOrange = ui.Hex("#FF9F0A")
-	fbRed    = danger // #FF453A
+	fbGreen  = success
+	fbOrange = warning
+	fbRed    = danger
 )
 
 const (
@@ -43,23 +44,10 @@ const (
 	fbGap     = 7                       // dot to text
 	fbPadX    = 12                      // text to capsule edge
 	fbBody    = 22                      // capsule height below the notch band
-	fbExpand  = 380 * time.Millisecond  // the grow-in the hold is measured from
+	fbExpand  = durCapsule              // the grow-in the hold is measured from
 )
 
-// The shell's springs. The panel opens with a small overshoot (Bounce
-// 0.18) — the island's settle — while the completion capsule keeps the
-// livelier Bounce 0.28 it arrived with; collapsing is critically damped
-// and crisp; the hover shapes morph with a light bounce of their own.
-var (
-	panelOpenSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 360 * time.Millisecond, Bounce: 0.18}}
-	levelSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: 360 * time.Millisecond, Bounce: 0.18}}
-	contentSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}, Delay: 40 * time.Millisecond}
-	openSpring      = ui.Animation{Spring: ui.SpringOptions{Duration: 380 * time.Millisecond, Bounce: 0.28}}
-	closeSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: 220 * time.Millisecond, Bounce: 0}}
-	peekSpring      = ui.Animation{Spring: ui.SpringOptions{Duration: peekAnimation, Bounce: 0.15}}
-	retractSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
-	shakeSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
-)
+// The shell's springs live in theme.go with the rest of the tokens.
 
 // openOvershoot is the room the frame keeps for a spring that is still on
 // its way: the widest spring it must cover is the capsule's Bounce 0.28,

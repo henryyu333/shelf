@@ -116,12 +116,12 @@ func TestWarmLayerTakesNoPointer(t *testing.T) {
 		t.Fatalf("the wheel scrolled the unseen clipboard list to %.1f", clip.scroll.Y)
 	}
 
-	// The unseen home page's volume bar writes nothing on a release.
+	// The unseen playing page's volume bar writes nothing on a release.
 	*vol = fakeVolume{v: 0.4, ok: true}
-	warm(pageHome)
+	warm(pagePlaying)
 	bar, ok := view.Find("音量")
 	if !ok {
-		t.Fatal("the warm home page drew no volume bar")
+		t.Fatal("the warm playing page drew no volume bar")
 	}
 	view.Press(bar.X+bar.W/2, bar.Y+bar.H/2)
 	view.Move(bar.X+bar.W*3/4, bar.Y+bar.H/2)
@@ -191,14 +191,14 @@ func TestLevelChangeRetiresTheSwitchClock(t *testing.T) {
 // does not jump back to x=0.
 func TestRapidSwitchCarriesTheSettlingOffset(t *testing.T) {
 	a, _, _, _ := hitShelf(t)
-	// Put the panel 25% into a switch whose old page (home) is still in
+	// Put the panel 25% into a switch whose old page (tools) is still in
 	// its 35% fade-out: the picture is part-way through its 8pt settle at
 	// half opacity.
-	a.tab, a.tabFrom = pageTray, pageHome
+	a.tab, a.tabFrom = pageTray, pageTools
 	a.tabAt = time.Now().Add(-tabAnimation / 4)
 	a.tabOutK, a.tabOutShift = 0.5, tabShift
 	a.setTab(pageClipboard)
-	if a.tabFrom != pageHome {
+	if a.tabFrom != pageTools {
 		t.Fatalf("the interrupted fade lost its outgoing page: %s", a.tabFrom)
 	}
 	want := float64(tabShift) * (1 - 0.25/tabOutShare)

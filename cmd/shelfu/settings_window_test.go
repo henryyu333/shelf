@@ -332,6 +332,11 @@ func TestSettingsKeyboardOwnership(t *testing.T) {
 	}
 
 	// Opening remembers where the user came from and releases the keys.
+	// The frontmost lookup is a seam: a smoke run may leave this process
+	// active, which no assertion about this function should depend on.
+	oldFront := frontmostPID
+	frontmostPID = func() int { return 4242 }
+	t.Cleanup(func() { frontmostPID = oldFront })
 	opened := &shelf{escHeld: true}
 	opened.settingsTakeKeyboard()
 	if opened.settingsPrevPID == 0 || opened.escHeld {

@@ -134,8 +134,8 @@ func TestIslandShellShapes(t *testing.T) {
 	if w, h := a.capsuleSize(); w != 247 || h != islandCapsuleH {
 		t.Fatalf("capsule = %.0fx%.0f, want 247x36", w, h)
 	}
-	if w, h := a.shellSize(1, 0, 0, 0, 0); w != islandW || h != islandH {
-		t.Fatalf("level 1 = %.0fx%.0f, want %dx%d", w, h, islandW, islandH)
+	if w, h := a.shellSize(1, 0, 0, 0, 0); w != overviewW || h != overviewH {
+		t.Fatalf("level 1 = %.0fx%.0f, want %dx%d", w, h, overviewW, overviewH)
 	}
 	if w, h := a.shellSize(1, 1, 0, 0, 0); w != sheetW || h != sheetH {
 		t.Fatalf("level 2 = %.0fx%.0f, want %dx%d", w, h, sheetW, sheetH)
@@ -143,25 +143,26 @@ func TestIslandShellShapes(t *testing.T) {
 }
 
 // The island's window never reserves the notch path's ear margins: an
-// expanded 340pt island fits in 346pt (the spring's 1.5%), not 370.
+// expanded overview fits in the shell plus the spring's overshoot, not in
+// the shell plus two 12pt ears.
 func TestIslandPanelFrameHasNoEars(t *testing.T) {
 	a := islandShelf(false, settings.ShellStyleNotch)
 	a.visible, a.level = true, 1
-	a.fx.w, a.fx.h, a.fx.openMoving = islandW, islandH, true
+	a.fx.w, a.fx.h, a.fx.openMoving = overviewW, overviewH, true
 	f := a.desiredFrame()
-	if f.Width != 346 {
-		t.Fatalf("island panel frame %d wide, want 346 (no ear margins)", f.Width)
+	wantW, wantH := a.frameRoom(overviewW, overviewH+islandTopGap)
+	if f.Width != wantW {
+		t.Fatalf("island panel frame %d wide, want %d (no ear margins)", f.Width, wantW)
 	}
-	_, wantH := a.frameRoom(islandW, islandH+islandTopGap)
 	if f.Y != 0 || f.Height != wantH {
 		t.Fatalf("island panel frame %+v, want top 0 and height %d", f, wantH)
 	}
 	// The notch style keeps its ears.
 	n := islandShelf(true, settings.ShellStyleNotch)
 	n.visible, n.level = true, 1
-	n.fx.w, n.fx.h, n.fx.openMoving = islandW, islandH, true
-	if w := n.desiredFrame().Width; w != 346+2*earR {
-		t.Fatalf("notch panel frame %d wide, want %d", w, 346+2*earR)
+	n.fx.w, n.fx.h, n.fx.openMoving = overviewW, overviewH, true
+	if w := n.desiredFrame().Width; w != wantW+2*earR {
+		t.Fatalf("notch panel frame %d wide, want %d", w, wantW+2*earR)
 	}
 }
 
@@ -184,20 +185,25 @@ func TestIslandHitShapeIsARoundedRect(t *testing.T) {
 	if !a.overShellShape(mygo.Point{X: 679, Y: panelTop(a) + 5}, islandIdleW, islandIdleH, 0, 0) {
 		t.Fatal("the capsule's body must take a point just past the corner")
 	}
-	// A panel's top corners are round: at 5pt below the top edge the island
-	// path is 8pt in (radius 22), while the notch path's ear reaches 1.5pt
-	// past the flank.
+	// A panel's top corners are round: at 5pt below the top edge the
+	// island path is about 8pt in (radius 22).
 	panel := islandShelf(false, settings.ShellStyleNotch)
-	p := mygo.Point{X: 565, Y: panelTop(panel) + 5}
-	if panel.overShellShape(p, islandW, islandH, 0, 0) {
+	left := float32(panel.stripCenter()) - overviewW/2
+	p := mygo.Point{X: int(left) + 2, Y: panelTop(panel) + 5}
+	if panel.overShellShape(p, overviewW, overviewH, 0, 0) {
 		t.Fatalf("point %+v is outside the island's round top-left corner", p)
 	}
-	if !panel.overShellShape(mygo.Point{X: 574, Y: p.Y}, islandW, islandH, 0, 0) {
+	if !panel.overShellShape(mygo.Point{X: int(left) + 10, Y: p.Y}, overviewW, overviewH, 0, 0) {
 		t.Fatal("the island panel must take a point inside its corner")
 	}
+	// The notch path's ear reaches past the flank at the same height.
 	notch := islandShelf(true, settings.ShellStyleNotch)
-	if !notch.overShellShape(p, islandW, islandH, 0, 0) {
-		t.Fatalf("the notch path's ear must still take %+v", p)
+	ear := mygo.Point{X: int(left) - 2, Y: panelTop(notch) + 2}
+	if !notch.overShellShape(ear, overviewW, overviewH, 0, 0) {
+		t.Fatalf("the notch path's ear must take %+v", ear)
+	}
+	if panel.overShellShape(ear, overviewW, overviewH, 0, 0) {
+		t.Fatalf("the island path must not take %+v (no ears)", ear)
 	}
 	// The sheet's radius is 24, not the island's 22.
 	sheet := islandShelf(false, settings.ShellStyleNotch)
@@ -525,11 +531,12 @@ func TestIslandSheetShowsDownloadChip(t *testing.T) {
 	if !view.HasText("下载 a.zip") {
 		t.Fatalf("the download chip is missing from the island sheet: %v", view.Texts())
 	}
-	// On the first level the chips stay hidden by design.
+	// On the overview the context line carries the job; the band keeps
+	// only the settings button.
 	a.level = 1
 	a.visible = true
 	view.Frame()
 	if view.HasText("下载 a.zip") {
-		t.Fatal("the level-1 island shows the band chips")
+		t.Fatal("the overview shows the band chips")
 	}
 }

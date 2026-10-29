@@ -212,7 +212,7 @@ func (a *shelf) basketView(c *ui.Context) {
 	zone.Children(func() {
 		card := ui.Column(c.Key("card")).Fill().Radius(22).Center().Gap(8).Padding(10)
 		accent := c.Theme().Accent
-		card.Background(ui.Hex("#000000"))
+		card.Background(surface)
 		if a.basket.dropped || over {
 			// 拖到上方：2pt accent 描边；空闲无描边。
 			card.Border(2, accent)

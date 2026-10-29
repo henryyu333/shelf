@@ -42,7 +42,7 @@ func idleIslandView(c *ui.Context) {
 			path.LineTo(r.X, r.Y+rad)
 			path.QuadTo(r.X, r.Y, r.X+rad, r.Y)
 			path.Close()
-			p.FillPath(&path, ui.Hex("#000000"))
+			p.FillPath(&path, surface)
 		})
 }
 

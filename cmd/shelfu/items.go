@@ -74,7 +74,7 @@ func (a *shelf) itemTile(c *ui.Context, item store.Item) {
 			// 右上 16pt 黑底图钉角标：作为 tile 的子元素定位，不能放到
 			// 网格层（否则所有角标叠在网格右上角并抢走点击）。
 			ui.Row(c.Key("pin")).Absolute().Top(6).Right(10).Size(16, 16).Radius(8).Center().
-				Background(ui.Hex("#000000")).Label(l.ClipPinned()).
+				Background(surface).Label(l.ClipPinned()).
 				Children(func() {
 					ui.Icon(c, pinFill).Size(9, 9).TextColor(ink)
 				})
@@ -153,7 +153,7 @@ func formatBadge(c *ui.Context, item store.Item) {
 		return
 	}
 	ui.Row(c.Key("format")).Absolute().Left(-4).Bottom(-4).Height(14).Padding(0, 4, 0, 4).Radius(4).
-		Center().Background(ui.Hex("#1C1C1E")).Border(1, ui.Hex("#000000")).Children(func() {
+		Center().Background(surfaceRaise).Border(1, surface).Children(func() {
 		ui.Text(c, ext).SingleLine().FontSize(8.5).FontWeight(700).TextColor(ink)
 	})
 }

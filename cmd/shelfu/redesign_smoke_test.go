@@ -99,8 +99,12 @@ func expandShelf(t *testing.T, a *shelf) {
 		a.place(mygo.Screen.CursorScreenPoint())
 		a.peeking = true
 		a.peekProgress, a.peekFrom = 1, 1
+		want := a.tab // show() opens on the overview; keep the test's page
 		a.show(false)
 		a.setLevel(2)
+		if want != "" && want != pageOverview {
+			a.setTab(want)
+		}
 		a.jumpLevel = true
 		a.progress, a.animationFrom = 1, 1
 		a.animationStart = time.Time{}

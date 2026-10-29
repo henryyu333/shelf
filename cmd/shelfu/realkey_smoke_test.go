@@ -373,6 +373,9 @@ func TestSmokeUsageRefreshAnswers(t *testing.T) {
 		})
 	})
 	expandShelf(t, a)
+	onMain(func() { a.setTab(pageUsage) }) // show() opens the overview
+	// The page's own transition must settle before it may start a fetch.
+	time.Sleep(300 * time.Millisecond)
 	onMain(func() { f.tick(time.Now()) }) // Codex hangs, Claude answers expired
 	time.Sleep(500 * time.Millisecond)
 	fix2Shot(t, a, "refresh-inflight")
@@ -407,8 +410,7 @@ func TestSmokeUsageRefreshAnswers(t *testing.T) {
 	// together, and it would take the synthetic click.
 	onMain(func() {
 		if a.settingsWin != nil {
-			a.settingsWin.Close()
-			a.settingsWin = nil
+			a.settingsClosed() // the product's close: it hands the app back
 		}
 	})
 	time.Sleep(150 * time.Millisecond)
@@ -420,7 +422,9 @@ func TestSmokeUsageRefreshAnswers(t *testing.T) {
 	b := a.win.Bounds()
 	var status string
 	onMain(func() { a.status = "click-probe" })
-	clickAt(t, float64(b.X)+413, float64(b.Y)+45)
+	// The refresh button ends the page's action row: 12pt margin + 22pt,
+	// measured inside the shell (the window adds its ear margins).
+	clickAt(t, float64(b.X)+float64(b.Width-sheetW)/2+417, float64(b.Y)+45)
 	onMain(func() { status = a.status })
 	fix2Shot(t, a, "refresh-held-back")
 	t.Logf("refresh click status=%q", status)

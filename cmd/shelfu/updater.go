@@ -246,12 +246,12 @@ func (a *shelf) updateMenu() *mygo.MenuItem {
 func (a *shelf) updateStatus() string {
 	l := a.appLoc()
 	switch {
-	case a.updateInstalling:
+	case a.updateInstalling && a.update != nil:
 		if a.updateProgress > 0 {
 			return l.UpdateDownloadingPercent(a.update.Version, int(a.updateProgress*100))
 		}
 		return l.UpdateDownloading(a.update.Version)
-	case a.updateInstalled:
+	case a.updateInstalled && a.update != nil:
 		return l.UpdateInstalled(a.update.Version)
 	case a.update != nil:
 		return l.UpdateAvailable(a.update.Version)

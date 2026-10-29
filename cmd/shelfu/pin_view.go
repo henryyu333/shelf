@@ -43,13 +43,13 @@ func (it *pinItem) view(c *ui.Context) {
 	// Desktop drops belong to this zone, not the tools-page snapshot.
 	opts := transfer.DropOptions{Formats: []transfer.Format{transfer.FileList, transfer.URIList, transfer.PNG, transfer.Text}, Operations: transfer.Copy}
 	zone := ui.Column(c.Key("pin")).Fill().Radius(18).Clip()
-	zone.Background(ui.Hex("#000000")).Border(0.5, pinEdgeColor)
+	zone.Background(surface).Border(0.5, pinEdgeColor)
 	slide := zone.AnimateTo(pinRevealKey{it}, 1, pinExpandAnim)
 	_, over := ui.DataDragOver(zone, opts)
 	zone.Children(func() {
 		card := a.toolCard(c, layout.Card{ID: it.cardID, Span: it.span}, cardDesktop).Fill()
 		if !it.jiggleAt.IsZero() && !c.Preferences().ReduceMotion {
-			k := float64(c.Now().Sub(it.jiggleAt)) / float64(toolJiggleSpan)
+			k := float64(c.Now().Sub(it.jiggleAt)) / float64(toolJiggle)
 			if k < 1 {
 				card.Rotate(float32(math.Sin(k*3*math.Pi)*3*(1-k))).TransformOrigin(0.5, 0.5)
 				c.AnimationFrame()
@@ -88,7 +88,7 @@ func (it *pinItem) viewStrip(c *ui.Context) {
 	it.pinMenu(root)
 	root.Children(func() {
 		mark := ui.Column(c.Key("strip")).Fill().Radius(4).Center()
-		mark.Background(ui.Hex("#000000")).Border(0.5, pinEdgeStrip)
+		mark.Background(surface).Border(0.5, pinEdgeStrip)
 		mark.Children(func() {
 			ui.Box(c.Key("mark")).Size(2, 16).Radius(1).Background(pinStripMark)
 		})

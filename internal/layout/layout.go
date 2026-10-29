@@ -43,12 +43,20 @@ const (
 	EdgeRight Edge = "right"
 )
 
-// Card is one cell of the tool page grid: a catalog card id and its
-// column span (1 or 2).
+// Card is one entry of the tool page grid: a catalog card id, the columns
+// it spans (1 or 2) and the rows it spans (1 or 2). Action cards are 1 × 1;
+// widgets take the rectangle they had on the old home canvas.
 type Card struct {
 	ID   string `json:"id"`
 	Span int    `json:"span,omitempty"` // omitted means 1
+	Rows int    `json:"rows,omitempty"` // omitted means 1
 }
+
+// Cols is the card's column span, clamped to 1 or 2.
+func (c Card) Cols() int { return clampSpan(c.Span) }
+
+// Height is the card's row span, clamped to 1 or 2.
+func (c Card) Height() int { return clampRows(c.Rows) }
 
 // Widget is one widget placed on the home canvas: the widget id and the
 // rectangle it covers, in cells. X and Y address the top-left cell; W
@@ -79,34 +87,18 @@ type Pin struct {
 	X          int    `json:"x,omitempty"`          // left offset inside the display's visible frame
 	Y          int    `json:"y,omitempty"`          // top offset inside the display's visible frame
 	AlwaysOpen bool   `json:"alwaysOpen,omitempty"` // never folds into the edge strip
-	HomeX      int    `json:"homeX,omitempty"`      // home-canvas cell the widget returns to
-	HomeY      int    `json:"homeY,omitempty"`
-	HomeW      int    `json:"homeW,omitempty"` // home-canvas size the widget returns at; 0 = none
-	HomeH      int    `json:"homeH,omitempty"`
+	Rows       int    `json:"rows,omitempty"`       // row span the card keeps when put back on the tool page
+
+	// Legacy: the home canvas a widget pin came from (builds before the
+	// tools page took the widgets). Read and ignored; never written.
+	HomeX int `json:"homeX,omitempty"`
+	HomeY int `json:"homeY,omitempty"`
+	HomeW int `json:"homeW,omitempty"`
+	HomeH int `json:"homeH,omitempty"`
 }
 
-// SetHome records the home-canvas rect the pin goes back to; a zero
-// widget, or one off the canvas, clears it (an action card has none).
-func (p *Pin) SetHome(w Widget) {
-	if w.ID == "" || !fitsGrid(w.X, w.Y, clampCells(w.W), clampCells(w.H)) {
-		p.HomeX, p.HomeY, p.HomeW, p.HomeH = 0, 0, 0, 0
-		return
-	}
-	p.HomeX, p.HomeY = w.X, w.Y
-	p.HomeW, p.HomeH = clampCells(w.W), clampCells(w.H)
-}
-
-// HomeSlot is the home-canvas rect the pin returns to, its own id set;
-// the zero Widget when the pin recorded none.
-func (p Pin) HomeSlot() Widget {
-	if p.HomeW < 1 || p.HomeH < 1 {
-		return Widget{}
-	}
-	return Widget{ID: p.ID, X: p.HomeX, Y: p.HomeY, W: p.HomeW, H: p.HomeH}
-}
-
-// Layout is the persisted arrangement: the tool page's card list, the
-// widgets placed on the home canvas, and the pinned desktop cards.
+// Layout is the persisted arrangement: the tools page's card grid (action
+// cards and widgets together) and the pinned desktop cards.
 type Layout struct {
 	Version int      `json:"version"`
 	Cards   []Card   `json:"cards,omitempty"`
@@ -163,25 +155,22 @@ func Default() Layout {
 }
 
 // DefaultWith is Default for a build whose AI usage widget is available
-// or not: without it the clipboard widget takes the second home row
-// instead of the usage and recent widgets.
+// or not. The grid holds the widgets first (the music player's 2 × 2
+// rectangle, then 1 × 1 cards) and the action cards after them; a widget
+// whose feature is off takes no space at run time but keeps its entry.
 func DefaultWith(aiUsage bool) Layout {
 	l := Layout{
 		Version: Version,
-		Cards:   defaultCards(),
-		Home: []Widget{
-			{ID: "playing", X: 0, Y: 0, W: 2, H: 2},
-			{ID: "awake", X: 2, Y: 0, W: 1, H: 1},
+		Cards: []Card{
+			{ID: "playing", Span: 2, Rows: 2},
+			{ID: "awake", Span: 1, Rows: 1},
+			{ID: "usage", Span: 1, Rows: 1},
+			{ID: "recent", Span: 2, Rows: 1},
+			{ID: "clip", Span: 2, Rows: 1},
 		},
 	}
-	if aiUsage {
-		l.Home = append(l.Home,
-			Widget{ID: "usage", X: 3, Y: 0, W: 1, H: 1},
-			Widget{ID: "recent", X: 2, Y: 1, W: 2, H: 1},
-		)
-		return l
-	}
-	l.Home = append(l.Home, Widget{ID: "clip", X: 2, Y: 1, W: 2, H: 1})
+	_ = aiUsage
+	l.Cards = append(l.Cards, defaultCards()...)
 	return l
 }
 
@@ -225,6 +214,10 @@ func load(dir string, def func() Layout) (Layout, error) {
 		l.migrate()
 	}
 	l.normalize()
+	// Version 2 files written before the tools page took the widgets
+	// carry them under "home"; the canvas is gone, so they move into the
+	// grid in memory. The file itself is written only on the next gesture.
+	l.mergeHome()
 	return l, nil
 }
 
@@ -261,13 +254,12 @@ func Write(dir string, l Layout) error {
 }
 
 // normalize repairs the recoverable parts of a loaded file (version 2):
-// home widgets clamp to 1 or 2 cells and to the 4x2 canvas, empty ids
-// drop, later overlapping widgets drop so the first placement wins, and
-// a card id that shows up more than once — on the home canvas, in the
-// tool page grid, or among the pins — keeps only its first place, in
-// home-then-grid-then-pin order (design §6: one card, one place). Card
-// spans clamp to 1 or 2; pins for unknown edges reset to the main display
-// floating free.
+// a card id that shows up more than once — in the grid, in the legacy home
+// list, or among the pins — keeps only its first place (design §6: one
+// card, one place). Card spans clamp to 1 or 2; pins for unknown edges
+// reset to the main display floating free. The legacy home list is only an
+// input for mergeHome: it keeps the entries as they came, with empty ids
+// and duplicates dropped.
 func (l *Layout) normalize() {
 	seen := map[string]bool{}
 	home := l.Home[:0]
@@ -277,12 +269,6 @@ func (l *Layout) normalize() {
 		}
 		w.W = clampCells(w.W)
 		w.H = clampCells(w.H)
-		if !fitsGrid(w.X, w.Y, w.W, w.H) {
-			continue
-		}
-		if overlapsAny(home, nil, w.ID, w.X, w.Y, w.W, w.H) {
-			continue
-		}
 		seen[w.ID] = true
 		home = append(home, w)
 	}
@@ -293,6 +279,7 @@ func (l *Layout) normalize() {
 			continue
 		}
 		card.Span = clampSpan(card.Span)
+		card.Rows = clampRows(card.Rows)
 		seen[card.ID] = true
 		cards = append(cards, card)
 	}
@@ -307,11 +294,6 @@ func (l *Layout) normalize() {
 		default:
 			pin.Edge = ""
 		}
-		// A recorded home rect that no longer fits the canvas is dropped;
-		// 放回刘海 then falls back to the catalogue placement.
-		if slot := pin.HomeSlot(); slot.ID != "" {
-			pin.SetHome(slot)
-		}
 		seen[pin.ID] = true
 		pins = append(pins, pin)
 	}
@@ -319,35 +301,36 @@ func (l *Layout) normalize() {
 }
 
 // migrate upgrades a version 0 (pre-stamp) or 1 file in memory: a card
-// whose id is a known widget moves to the home canvas at the widget's
-// default rectangle, but only when it fits the grid and does not overlap
-// an already placed widget; otherwise it drops from the file. Every other
-// card stays on the tool page in its original order with its span clamped
-// to 1 or 2. Pins are untouched here — normalize then applies the
-// one-card-one-place rule across the three places. The file itself is not
-// rewritten.
+// whose id is a known widget keeps the rectangle the old home canvas gave
+// it, as a grid size; every other card stays in its original order with
+// its span clamped to 1 or 2. Pins are untouched here — normalize then
+// applies the one-card-one-place rule. The file itself is not rewritten.
 func (l *Layout) migrate() {
-	home := make([]Widget, 0, len(widgetCatalog))
 	cards := make([]Card, 0, len(l.Cards))
+	var widgets []Card
+	seen := map[string]bool{}
 	for _, card := range l.Cards {
-		if card.ID == "" {
+		if card.ID == "" || seen[card.ID] {
 			continue
 		}
-		w, ok := defaultWidget(card.ID)
-		if !ok {
-			cards = append(cards, Card{ID: card.ID, Span: clampSpan(card.Span)})
+		seen[card.ID] = true
+		if w, ok := defaultWidget(card.ID); ok {
+			widgets = append(widgets, Card{ID: w.ID, Span: clampSpan(w.W), Rows: clampRows(w.H)})
 			continue
 		}
-		if slices.ContainsFunc(home, func(o Widget) bool { return o.ID == w.ID }) {
-			continue
-		}
-		if !fitsGrid(w.X, w.Y, w.W, w.H) || overlapsAny(home, nil, w.ID, w.X, w.Y, w.W, w.H) {
-			continue
-		}
-		home = append(home, w)
+		cards = append(cards, Card{ID: card.ID, Span: clampSpan(card.Span)})
 	}
-	l.Home = home
-	l.Cards = cards
+	// Widgets keep the canvas' reading order, ahead of the actions.
+	slices.SortFunc(widgets, func(a, b Card) int {
+		wa, _ := defaultWidget(a.ID)
+		wb, _ := defaultWidget(b.ID)
+		if wa.Y != wb.Y {
+			return wa.Y - wb.Y
+		}
+		return wa.X - wb.X
+	})
+	l.Cards = append(widgets, cards...)
+	l.Home = nil
 	l.Version = Version
 }
 
@@ -356,170 +339,82 @@ func (l *Layout) index(id string) int {
 	return slices.IndexFunc(l.Cards, func(c Card) bool { return c.ID == id })
 }
 
+// card is the card with id, and whether the grid has it.
+func (l *Layout) card(id string) (Card, bool) {
+	if i := l.index(id); i >= 0 {
+		return l.Cards[i], true
+	}
+	return Card{}, false
+}
+
 // hasCard reports whether id is placed anywhere: on the home canvas, on
 // the tool page, or pinned to the desktop.
 func (l *Layout) hasCard(id string) bool {
 	if id == "" {
 		return false
 	}
-	if l.HomeIndex(id) >= 0 || l.index(id) >= 0 {
+	if l.index(id) >= 0 {
 		return true
 	}
 	return slices.ContainsFunc(l.Pins, func(p Pin) bool { return p.ID == id })
-}
-
-// HomeIndex is id's position in Home, or -1 when absent.
-func (l *Layout) HomeIndex(id string) int {
-	return slices.IndexFunc(l.Home, func(w Widget) bool { return w.ID == id })
-}
-
-// HomeAt returns the widget whose top-left cell is x, y.
-func (l *Layout) HomeAt(x, y int) (Widget, bool) {
-	for _, w := range l.Home {
-		if w.X == x && w.Y == y {
-			return w, true
-		}
-	}
-	return Widget{}, false
-}
-
-// OverlapsHome reports whether the rectangle x, y, w, h shares a cell
-// with an active home widget. The widget with id is ignored, so a widget
-// can ask about its own new rectangle, and so is every widget Inactive
-// names — a switched-off widget leaves its cells free.
-func (l *Layout) OverlapsHome(id string, x, y, w, h int) bool {
-	return overlapsAny(l.Home, l.inactive, id, x, y, w, h)
-}
-
-// inactive answers whether id takes no space right now.
-func (l *Layout) inactive(id string) bool {
-	return l.Inactive != nil && l.Inactive(id)
-}
-
-// dropInactiveUnder takes the switched-off widgets whose cells the
-// rectangle covers off the canvas. Those cells were free for this
-// placement — OverlapsHome skips them — so keeping their entries would put
-// two rectangles on one cell in layout.json, and the next Load (which has
-// no Inactive yet) would drop whichever came later: the widget the user
-// just placed. Removing them here sends the switched-off widget back to
-// the 小组件目录 instead.
-func (l *Layout) dropInactiveUnder(id string, x, y, w, h int) {
-	if l.Inactive == nil || id == "" {
-		return
-	}
-	kept := l.Home[:0]
-	for _, o := range l.Home {
-		if o.ID != id && l.inactive(o.ID) &&
-			x < o.X+o.W && o.X < x+w && y < o.Y+o.H && o.Y < y+h {
-			continue
-		}
-		kept = append(kept, o)
-	}
-	l.Home = kept
-}
-
-// AddWidget places w on the home canvas. It refuses — leaving the layout
-// untouched — when the id is already placed anywhere (home, tool page, or
-// desktop), the rectangle leaves the 4x2 grid, W or H is outside 1..2, or
-// the rectangle overlaps an active widget.
-func (l *Layout) AddWidget(w Widget) bool {
-	if w.ID == "" || l.hasCard(w.ID) {
-		return false
-	}
-	if w.W < 1 || w.W > 2 || w.H < 1 || w.H > 2 || !fitsGrid(w.X, w.Y, w.W, w.H) {
-		return false
-	}
-	if l.OverlapsHome(w.ID, w.X, w.Y, w.W, w.H) {
-		return false
-	}
-	l.dropInactiveUnder(w.ID, w.X, w.Y, w.W, w.H)
-	l.Home = append(l.Home, w)
-	return true
-}
-
-// AddWidgetBest places id on the home canvas at the widget's default
-// rectangle when it fits there, and otherwise at the first free cell in
-// row-major order where a w by h widget fits. It reports false when no
-// spot is free or id is already placed.
-func (l *Layout) AddWidgetBest(id string, w, h int) bool {
-	if id == "" || l.hasCard(id) {
-		return false
-	}
-	if d, ok := defaultWidget(id); ok {
-		if l.AddWidget(Widget{ID: id, X: d.X, Y: d.Y, W: w, H: h}) {
-			return true
-		}
-	}
-	for y := range GridRows {
-		for x := range GridCols {
-			if l.AddWidget(Widget{ID: id, X: x, Y: y, W: w, H: h}) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// RemoveWidget lifts id off the home canvas; other places are not
-// touched. It reports whether a widget was removed.
-func (l *Layout) RemoveWidget(id string) bool {
-	i := l.HomeIndex(id)
-	if i < 0 {
-		return false
-	}
-	l.Home = slices.Delete(l.Home, i, i+1)
-	return true
-}
-
-// MoveWidget moves id to x, y keeping its size. It reports false — the
-// layout untouched — when id is not on the home canvas, the rectangle
-// would leave the grid, it would overlap another widget, or the widget is
-// already there (a drop in place changes nothing, so nothing is saved).
-func (l *Layout) MoveWidget(id string, x, y int) bool {
-	i := l.HomeIndex(id)
-	if i < 0 {
-		return false
-	}
-	w := l.Home[i]
-	if w.X == x && w.Y == y {
-		return false
-	}
-	if !fitsGrid(x, y, w.W, w.H) || l.OverlapsHome(id, x, y, w.W, w.H) {
-		return false
-	}
-	l.Home[i].X = x
-	l.Home[i].Y = y
-	l.dropInactiveUnder(id, x, y, w.W, w.H)
-	return true
-}
-
-// SetWidgetSize resizes id to w by h cells, keeping its top-left anchor.
-// It reports false — the layout untouched — when id is not on the home
-// canvas, w or h is outside 1..2, or the rectangle would leave the grid
-// or overlap another widget.
-func (l *Layout) SetWidgetSize(id string, w, h int) bool {
-	i := l.HomeIndex(id)
-	if i < 0 || w < 1 || w > 2 || h < 1 || h > 2 {
-		return false
-	}
-	cur := l.Home[i]
-	if !fitsGrid(cur.X, cur.Y, w, h) || l.OverlapsHome(id, cur.X, cur.Y, w, h) {
-		return false
-	}
-	l.Home[i].W = w
-	l.Home[i].H = h
-	l.dropInactiveUnder(id, cur.X, cur.Y, w, h)
-	return true
 }
 
 // AddCard appends id to the end of the tool page grid with span clamped
 // to 1 or 2; it is a no-op when the card is already placed anywhere
 // (home canvas, grid, or desktop), the one-card-one-place rule.
 func (l *Layout) AddCard(id string, span int) {
+	l.AddCardSize(id, span, 1)
+}
+
+// AddCardSize places id at the end of the grid with a column and row span.
+func (l *Layout) AddCardSize(id string, span, rows int) {
 	if id == "" || l.hasCard(id) {
 		return
 	}
-	l.Cards = append(l.Cards, Card{ID: id, Span: clampSpan(span)})
+	l.Cards = append(l.Cards, Card{ID: id, Span: clampSpan(span), Rows: clampRows(rows)})
+}
+
+// SetCardSize switches id's rectangle; absent cards and out-of-range sizes
+// do nothing.
+func (l *Layout) SetCardSize(id string, span, rows int) {
+	i := l.index(id)
+	if i < 0 || span < 1 || span > 2 || rows < 1 || rows > 2 {
+		return
+	}
+	l.Cards[i].Span, l.Cards[i].Rows = span, rows
+}
+
+// mergeHome folds a pre-unification file's home-canvas widgets into the
+// grid, in their old reading order (row, then column), ahead of the action
+// cards; an id already in the grid keeps its place there.
+func (l *Layout) mergeHome() {
+	if len(l.Home) == 0 {
+		return
+	}
+	home := slices.Clone(l.Home)
+	slices.SortFunc(home, func(a, b Widget) int {
+		if a.Y != b.Y {
+			return a.Y - b.Y
+		}
+		return a.X - b.X
+	})
+	cards := make([]Card, 0, len(home)+len(l.Cards))
+	seen := make(map[string]bool, len(home)+len(l.Cards))
+	for _, w := range home {
+		if seen[w.ID] {
+			continue
+		}
+		seen[w.ID] = true
+		cards = append(cards, Card{ID: w.ID, Span: clampSpan(w.W), Rows: clampRows(w.H)})
+	}
+	for _, c := range l.Cards {
+		if seen[c.ID] {
+			continue
+		}
+		seen[c.ID] = true
+		cards = append(cards, c)
+	}
+	l.Cards, l.Home = cards, nil
 }
 
 // RemoveCard takes id off the tool page grid; a home widget or desktop
@@ -554,9 +449,9 @@ func (l *Layout) MoveCard(id string, to int) {
 	l.Cards = slices.Insert(l.Cards, to, card)
 }
 
-// AddPin places id on the desktop as pin; it is removed from the home
-// canvas and the tool page grid first (the card lives in exactly one
-// place). A card already pinned keeps its placement.
+// AddPin places id on the desktop as pin; it leaves the tools grid first
+// (a card lives in exactly one place). A card already pinned keeps its
+// placement.
 func (l *Layout) AddPin(pin Pin) {
 	if pin.ID == "" {
 		return
@@ -564,7 +459,6 @@ func (l *Layout) AddPin(pin Pin) {
 	if slices.ContainsFunc(l.Pins, func(p Pin) bool { return p.ID == pin.ID }) {
 		return
 	}
-	l.RemoveWidget(pin.ID)
 	l.RemoveCard(pin.ID)
 	switch pin.Edge {
 	case "", EdgeLeft, EdgeRight:
@@ -587,9 +481,19 @@ func (l *Layout) RemovePin(id string, putBack bool, before int) {
 	if !putBack || l.hasCard(pin.ID) {
 		return
 	}
-	card := Card{ID: pin.ID, Span: clampSpan(pin.Span)}
+	card := Card{ID: pin.ID, Span: clampSpan(pin.Span), Rows: clampRows(pin.Rows)}
 	before = max(0, min(before, len(l.Cards)))
 	l.Cards = slices.Insert(l.Cards, before, card)
+}
+
+func clampRows(rows int) int {
+	if rows < 1 {
+		return 1
+	}
+	if rows > 2 {
+		return 2
+	}
+	return rows
 }
 
 func clampSpan(span int) int {
@@ -602,28 +506,6 @@ func clampSpan(span int) int {
 // clampCells confines a widget side to the 1..2 cells a widget may span.
 func clampCells(n int) int {
 	return max(1, min(n, 2))
-}
-
-// fitsGrid reports whether the rectangle x, y, w, h lies inside the
-// GridCols by GridRows canvas and has a positive cell size.
-func fitsGrid(x, y, w, h int) bool {
-	return x >= 0 && y >= 0 && w >= 1 && h >= 1 &&
-		x+w <= GridCols && y+h <= GridRows
-}
-
-// overlapsAny reports whether the rectangle x, y, w, h shares a cell with
-// a widget in home, ignoring the widget with id and every widget skip
-// reports true for.
-func overlapsAny(home []Widget, skip func(string) bool, id string, x, y, w, h int) bool {
-	for _, o := range home {
-		if o.ID == id || (skip != nil && skip(o.ID)) {
-			continue
-		}
-		if x < o.X+o.W && o.X < x+w && y < o.Y+o.H && o.Y < y+h {
-			return true
-		}
-	}
-	return false
 }
 
 // LoadQuiet is Load with the error logged instead of returned, for the

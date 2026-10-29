@@ -117,15 +117,19 @@ func overlaySurfaceView(window id) id {
 		return 0
 	}
 	subs := send(content, "subviews")
-	if sendInt(subs, "count") == 0 {
-		return 0
-	}
-	view := send(subs, "objectAtIndex:", 0)
 	cls := id(objc.GetClass("MyGoSurfaceView"))
-	if cls == 0 || send(view, "isKindOfClass:", uintptr(cls)) == 0 {
+	if cls == 0 {
 		return 0
 	}
-	return view
+	// The surface is not necessarily first: the light appearance's
+	// backdrop material is another subview of the same content view.
+	for i, n := 0, sendInt(subs, "count"); i < n; i++ {
+		view := send(subs, "objectAtIndex:", uintptr(i))
+		if view != 0 && send(view, "isKindOfClass:", uintptr(cls)) != 0 {
+			return view
+		}
+	}
+	return 0
 }
 
 var (

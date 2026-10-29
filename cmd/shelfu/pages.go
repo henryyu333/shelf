@@ -18,13 +18,15 @@ import (
 type pageID string
 
 const (
+	pageOverview  pageID = "overview"  // 总览：点刘海直接到的一页
 	pageTray      pageID = "tray"      // 托盘：全部内容
 	pageClipboard pageID = "clipboard" // 剪贴板：只显示剪贴板收录的文字与图片
+	pagePlaying   pageID = "playing"   // 正在播放：音乐小组件的整页版
 	pageUsage     pageID = "usage"     // AI 用量（由 AI 用量切片实现并登记）
 )
 
 // panelPage is one page of the expanded sheet. Every page draws into the
-// same fixed 396 × 174 content box and scrolls inside it when it has more
+// same fixed 416 × 174 content box and scrolls inside it when it has more
 // to show; the shell never changes size for a page. live is false while
 // the page is only the outgoing picture of a fade — drawn, but never
 // taking the pointer or the keyboard; over is true while a drag hovers the
@@ -35,7 +37,7 @@ type panelPage interface {
 	label() string // tooltip and accessible name of the page icon
 	icon(c *ui.Context, active bool) ui.Element
 	enabled() bool                                       // false keeps the icon off the panel and falls the current page back to the tray
-	body(c *ui.Context, over bool, live bool) ui.Element // the fixed 396 × 174 content
+	body(c *ui.Context, over bool, live bool) ui.Element // the fixed 416 × 174 content
 	// title is the back row's plain page name. Its slot is as wide as the
 	// widest enabled page name, so the icons behind it never move.
 	title() string
@@ -61,7 +63,7 @@ func (a *shelf) ensurePages() {
 	}
 	a.pagesReady = true
 	extra := a.pages
-	a.pages = []panelPage{&homePage{host: a}, &trayPage{host: a}, &clipboardPage{host: a}, &toolsPage{host: a}}
+	a.pages = []panelPage{&overviewPage{host: a}, &trayPage{host: a}, &clipboardPage{host: a}, &toolsPage{host: a}, &playingPage{host: a}}
 	for _, p := range extra {
 		a.registerPage(p)
 	}
@@ -120,10 +122,16 @@ func (a *shelf) pageIndex(id pageID) int {
 	return -1
 }
 
-// currentPage is the page the panel shows now: a.tab's page when it is
-// registered and enabled, otherwise the tray — a page that gets switched
-// off (e.g. AI 用量's setting) never stays current.
+// currentPage is the page the panel shows now: the overview while the shell
+// is at its short size, otherwise a.tab's page when it is registered and
+// enabled, falling back to the tray — a page that gets switched off (e.g.
+// AI 用量's setting) never stays current.
 func (a *shelf) currentPage() panelPage {
+	if a.currentLevel() == 1 && !a.snap.panel && !a.snap.drawn {
+		if p := a.page(pageOverview); p != nil && p.enabled() {
+			return p
+		}
+	}
 	if p := a.page(a.tab); p != nil && p.enabled() {
 		return p
 	}
@@ -134,9 +142,18 @@ func (a *shelf) currentPage() panelPage {
 }
 
 // normalizeTab folds a stale a.tab (unset, or the id of a page that is now
-// disabled or unregistered) back to the tray. The switch is silent: no
-// fade, no outgoing page.
+// disabled or unregistered) back to the tray, and a.tab to the overview
+// while the shell is at its short size. The switch is silent: no fade, no
+// outgoing page.
 func (a *shelf) normalizeTab() {
+	// The arrangement panel borrows the short box but keeps the page
+	// underneath: it never switches pages.
+	if a.currentLevel() == 1 && !a.snap.panel && !a.snap.drawn {
+		if p := a.page(pageOverview); p != nil && p.enabled() {
+			a.tab, a.tabFrom = pageOverview, pageOverview
+			return
+		}
+	}
 	if p := a.page(a.tab); p != nil && p.enabled() {
 		return
 	}
@@ -195,16 +212,16 @@ func (p *trayPage) body(c *ui.Context, _ bool, _ bool) ui.Element {
 		return a.emptyState(c, shelfSymbol, l.PageTrayEmptyTitle(), l.PageTrayEmptyHint())
 	}
 	rows := (len(list) + gridCols - 1) / gridCols
-	listH := float32(rows*(tileH+gridGap) - gridGap)
+	listH := float32(rows*(tileH+gapGrid) - gapGrid)
 	top, bottom, viewH := scrollEdges(&p.scroll, listH)
 	band := edgeBandFor(tileH)
 	return ui.Column(c.Key("tray-stage")).FillWidth().FillHeight().Children(func() {
 		ui.Scroll(c.Key("items")).Grow(1).MinHeight(0).TrackScroll(&p.scroll).Children(func() {
 			ui.Grid(c.Key("grid")).ColumnTracks(ui.Fr(1), ui.Fr(1), ui.Fr(1), ui.Fr(1), ui.Fr(1)).
-				Gap(gridGap).FillWidth().Children(func() {
+				Gap(gapGrid).FillWidth().Children(func() {
 				// 快照：右键菜单或拖入回调可改变原切片。
 				for i, item := range list {
-					rowTop := float32(i/gridCols*(tileH+gridGap)) - p.scroll.Y
+					rowTop := float32(i/gridCols*(tileH+gapGrid)) - p.scroll.Y
 					a.fadedRow(c, item.ID, rowTop, tileH, viewH, top, bottom, band, func() {
 						a.itemTile(c, item)
 					})
@@ -408,8 +425,11 @@ func rowFade(rowTop, rowH, viewH float32, top, bottom bool, band float32) float3
 // shows.
 func (a *shelf) fadedRow(c *ui.Context, id string, rowTop, rowH, viewH float32, top, bottom bool, band float32, children func()) {
 	row := ui.Column(c.Key(id + "-fade")).Height(rowH)
+	// A row that covers the whole viewport (a 2 × 2 widget card, say) is
+	// never an edge row: it is the page, not content melting into it.
+	edgeRow := rowH < viewH*0.75
 	if a.win == nil || a.tabPhase(c.Now()) >= 1 {
-		if t := rowFade(rowTop, rowH, viewH, top, bottom, band); t > 0 {
+		if t := rowFade(rowTop, rowH, viewH, top, bottom, band); edgeRow && t > 0 {
 			row.Blur(band * edgeBlurPerPT * t)
 		}
 	}

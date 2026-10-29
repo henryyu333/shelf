@@ -100,6 +100,10 @@ type Store struct {
 	Root  string `json:"-"`
 	lock  *os.File
 
+	// fresh marks a data directory that had no history when it was opened:
+	// the first run, and only it, shows the welcome card.
+	fresh bool
+
 	// migrationBlocked stops Save when no reliable pre-migration backup
 	// could be kept. migrateBackup/migrateBytes describe the recovery
 	// copy that must still be intact before the first post-migration
@@ -116,6 +120,10 @@ type Store struct {
 // MigrationError returns why writes were disabled after a failed
 // pre-migration backup, or nil when saving is available. Fixing the
 // condition and reopening the store clears it.
+// Fresh reports whether this data directory had no history when it was
+// opened.
+func (s *Store) Fresh() bool { return s.fresh }
+
 func (s *Store) MigrationError() error {
 	if s == nil {
 		return nil
@@ -217,6 +225,7 @@ func Open(root string) (*Store, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			ok = true
+			s.fresh = true // no history yet: the welcome card's turn
 			s.cleanOrphanedConverted()
 			return s, nil
 		}

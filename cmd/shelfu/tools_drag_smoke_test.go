@@ -213,9 +213,11 @@ func TestToolsNativeDragOutStaysVisible(t *testing.T) {
 			topInset: a.topInset, notchW: a.notchW, notchH: a.notchH}
 		tr := ui.NewTester(mirror.view, frame.Width, frame.Height)
 		var ok bool
-		card, ok = tr.Find("zip")
+		// The widgets lead the grid now, so the first visible action card
+		// is 框选文字 (两列宽的状态栏旁边那一格), not the old row's 4th.
+		card, ok = tr.Find("框选文字")
 		if !ok {
-			t.Error("zip card missing from the panel layout")
+			t.Error("the ocr card is missing from the panel layout")
 		}
 	})
 	if t.Failed() {
@@ -238,7 +240,7 @@ func TestToolsNativeDragOutStaysVisible(t *testing.T) {
 			postMouse(t, float64(start.X), float64(start.Y), 2)
 		}
 	})
-	time.Sleep(toolLongPress + 250*time.Millisecond)
+	time.Sleep(durLongPress + 250*time.Millisecond)
 	var editing bool
 	onMain(func() { editing = a.toolsPage().editing })
 	if !editing {
@@ -311,7 +313,7 @@ func TestToolsNativeDragOutStaysVisible(t *testing.T) {
 	// A new long press can still drag out and commit.
 	postMouse(t, float64(start.X), float64(start.Y), 5, 1)
 	held = true
-	time.Sleep(toolLongPress + 250*time.Millisecond)
+	time.Sleep(durLongPress + 250*time.Millisecond)
 	postMouse(t, float64(end.X), float64(end.Y), 6)
 	time.Sleep(100 * time.Millisecond)
 	previewNum = 0
@@ -365,7 +367,7 @@ func TestToolsNativeDragOutStaysVisible(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(disk.Pins) != 1 || disk.Pins[0].ID != "zip" {
+	if len(disk.Pins) != 1 || disk.Pins[0].ID != "ocr" {
 		t.Fatalf("drag-out pin was not persisted: %+v", disk.Pins)
 	}
 }

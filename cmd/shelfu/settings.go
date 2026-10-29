@@ -145,7 +145,7 @@ func (a *shelf) openSettings() {
 // handle them), and the app the user came from is remembered so closing can
 // give the keyboard back.
 func (a *shelf) settingsTakeKeyboard() {
-	if pid := mac.FrontmostPID(); pid > 0 && pid != mac.OwnPID() {
+	if pid := frontmostPID(); pid > 0 && pid != mac.OwnPID() {
 		a.settingsPrevPID = pid
 	}
 	a.releaseKeys()

@@ -179,6 +179,58 @@ func (a *shelf) desiredFrame() mygo.Rectangle {
 
 // Use a single native setFrame plus a top-left pin so AppKit cannot leave
 // the overlay a menu-bar-height below the hardware notch.
+// syncMaterial places the light appearance's backdrop material on the
+// shell the window now holds: the frame was just applied, so the view
+// lands exactly under the drawn shell in the same frame.
+func (a *shelf) syncMaterial() {
+	if a.winH == 0 {
+		return
+	}
+	// A window that was destroyed and rebuilt (a test's second surface)
+	// left the material view dangling: it belongs to the old content view.
+	if a.material != nil && a.materialWin != a.winH {
+		a.material = nil
+	}
+	if !a.glassNow() {
+		if a.material != nil {
+			a.material.SetVisible(false)
+		}
+		return
+	}
+	if a.material == nil {
+		// The window's own vibrancy call installs the effect view (mygo
+		// knows how); the material then gets the shell's frame below.
+		a.win.SetVibrancy(mygo.VibrancyUnderWindow)
+		a.material = mac.NewShellMaterial(a.winH)
+		a.materialWin = a.winH
+		if a.material == nil {
+			// No material view: fall back to solid black rather than
+			// pretending a translucent fill is a blur.
+			a.win.SetVibrancy(mygo.VibrancyNone)
+			a.reduceTrans = true
+			return
+		}
+		a.material.SetVisible(false)
+	}
+	// The frame the window is about to have: view() calls this before the
+	// native resize lands, so the material is placed for the same box.
+	r := a.desiredFrame()
+	fw, fh := float64(r.Width), float64(r.Height)
+	sw, sh := float64(a.fx.w), float64(a.fx.h)
+	if sw <= 0 || sh <= 0 {
+		a.material.SetVisible(false)
+		return
+	}
+	top := float64(a.sheetTop())
+	radius := float64(a.fx.h)
+	radius = math.Min(radius/2, float64(sheetRadius))
+	if a.currentLevel() == 1 {
+		radius = math.Min(radius/2, float64(overviewRadius))
+	}
+	a.material.SetFrame((fw-sw)/2, fh-top-sh, sw, sh, radius)
+	a.material.SetVisible(true)
+}
+
 func (a *shelf) syncWindowFrame() {
 	if a.win == nil || a.settingFrame {
 		return
@@ -207,6 +259,7 @@ func (a *shelf) syncWindowFrame() {
 	defer func() { a.settingFrame = false }()
 	mac.SetWindowFrame(a.winH, r.X, r.Y, r.Width, r.Height)
 	a.frame = r
+	a.syncMaterial()
 	// The shell moved with the window, so the pointer may now be on it (a
 	// display change recentres the overlay under a still pointer) or off
 	// it. Re-ask before the frame that will draw the new position.
@@ -290,14 +343,15 @@ func (a *shelf) wingsSize() (w, h float32) {
 }
 
 // shellSize is the one interpolation the shell Path and the content layout
-// share: hardware notch → peek shape peekW×peekH (peekK) → island →
-// sheet (levelK, then openK). The caller passes the drawn values: view()
+// share: hardware notch → peek shape peekW×peekH (peekK) → overview →
+// page (levelK, then openK). The width is 440 at both levels, so a page
+// only ever grows taller. The caller passes the drawn values: view()
 // animates them per display frame and substitutes final ones in headless
 // tests.
 func (a *shelf) shellSize(openK, levelK, peekK, peekW, peekH float32) (w, h float32) {
 	baseW, baseH := a.anchorSize()
-	lvlW := float32(islandW) + (sheetW-islandW)*levelK
-	lvlH := float32(islandH) + (sheetH-islandH)*levelK
+	lvlW := float32(overviewW) + (sheetW-overviewW)*levelK
+	lvlH := float32(overviewH) + (sheetH-overviewH)*levelK
 	if a.snap.panel || a.snap.drawn {
 		// The arrangement panel is its own box; it never morphs through
 		// the sheet's size.
@@ -654,7 +708,7 @@ func (a *shelf) overShellShape(p mygo.Point, w, h, levelK, shakeX float32) bool 
 	}
 	cx := float64(a.stripCenter()) + float64(shakeX)
 	x0, x1 := cx-float64(w)/2, cx+float64(w)/2
-	corner := float64(islandRadius) + float64(sheetRadius-islandRadius)*float64(levelK)
+	corner := float64(overviewRadius) + float64(sheetRadius-overviewRadius)*float64(levelK)
 	if a.island {
 		// Four round corners, no top ears: the island's path is a rounded
 		// rectangle (islandPath's circular arcs) whose radius shrinks to
@@ -731,7 +785,7 @@ func (a *shelf) panelBox() (w, h float32) {
 	if a.currentLevel() == 2 {
 		return sheetW, sheetH
 	}
-	return islandW, islandH
+	return overviewW, overviewH
 }
 
 func (a *shelf) show(edge bool) {
@@ -753,13 +807,23 @@ func (a *shelf) show(edge bool) {
 	// over; cancel that pending reset so the fresh opening cannot be
 	// clobbered a frame later.
 	a.closeAt = time.Time{}
-	// A drag or the clipboard hotkey opens straight on the sheet; a plain
-	// toggle opens the island.
+	// A drag or the clipboard hotkey opens straight on the page it needs; a
+	// plain click on the notch opens the overview.
 	level := 1
-	if edge || a.focusMode || (a.dragging && !a.ownDrag) || a.drop.on || a.ocrSheet {
+	a.tabAt = time.Time{}
+	switch {
+	case a.focusMode || a.ocrSheet:
+		// The caller already chose the page (the clipboard search, the
+		// recording card); it keeps it.
 		level = 2
+	case edge || (a.dragging && !a.ownDrag) || a.drop.on:
+		level, a.tabFrom, a.tab = 2, pageTray, pageTray
+	default:
+		a.tabFrom, a.tab = pageOverview, pageOverview
 	}
 	a.level = level
+	a.openedAt = time.Now()
+	a.lastAct = time.Now()
 	a.jumpLevel = true
 	a.snap.drawn = a.snap.panel
 	a.visible, a.edgeOpened, a.received = true, edge, false
@@ -897,21 +961,6 @@ func (a *shelf) escape() {
 		}
 		return
 	}
-	if a.tab == pageHome {
-		if p := a.homePageOf(); p != nil && (p.editing || p.picking) {
-			// 目录中的 Esc 只退回编辑格；编辑态的 Esc 与「完成」同一条路，
-			// 连拖出的预览窗一起收起，浮窗不会留在桌面上。
-			if p.picking {
-				p.picking = false
-				if a.win != nil {
-					a.win.Invalidate()
-				}
-			} else {
-				a.resetHomeEdit()
-			}
-			return
-		}
-	}
 	if a.tab == pageTools {
 		if p := a.toolsPage(); p != nil && (p.editing || p.picking) {
 			// Esc in the 「+」 catalogue only backs out to the edit grid —
@@ -994,12 +1043,12 @@ func (a *shelf) finishClose() {
 	a.tabOutK, a.tabOutShift = 1, 0
 	a.warming = ""
 	a.level = 1
+	a.tab = pageOverview
 	// 收起即放弃权限说明卡：面板再开时它要么还在等授权（重新触发再出），
 	// 要么授权已完成（预检通过直接框选），都不该回到一张旧卡。
 	a.ocrSheet = false
 	a.resetToolsEdit() // 工具页的编辑与目录不跨收起保留
-	a.resetHomeEdit()  // 主页的编辑与目录不跨收起保留
-	if p := a.homePageOf(); p != nil {
+	if p := a.playingPageOf(); p != nil {
 		p.volLoaded = false // the output device may have changed while closed
 	}
 	a.selection.clear()

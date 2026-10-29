@@ -88,7 +88,8 @@ func main() {
 		}
 	}
 	prefs, perr := settings.Load(*dataDir)
-	a := &shelf{store: s, settings: prefs, dataDir: *dataDir, stop: make(chan struct{}), thumbnails: make(map[string]*ui.Bitmap), thumbPending: make(map[string]bool)}
+	fresh := s != nil && s.Fresh()
+	a := &shelf{store: s, settings: prefs, dataDir: *dataDir, stop: make(chan struct{}), thumbnails: make(map[string]*ui.Bitmap), thumbPending: make(map[string]bool), freshInstall: fresh}
 	// 剪贴板文字限额来自设置；小于 1 的值由 store 回落到默认 30。
 	s.SetTextLimit(prefs.ClipboardLimit)
 	if perr != nil {
@@ -303,6 +304,23 @@ func (a *shelf) ready(show bool) {
 			a.notice(a.appLoc().StartupBackupFailed(merr.Error()))
 		}
 	}
+	// The welcome and new-version cards are decided once per launch, from
+	// the data directory and the bundle version.
+	a.planOverviewCards()
+	if a.welcomePending {
+		// A first run shows the overview once, about a second in, so the
+		// new user sees where things go without being told to click.
+		time.AfterFunc(time.Second, func() {
+			mygo.RunOnMain(func() {
+				if a.welcomePending && !a.visible && !a.quitting {
+					a.show(false)
+					a.welcomeUp = true
+					a.openedAt = time.Time{}
+					a.win.Invalidate()
+				}
+			})
+		})
+	}
 	if show {
 		a.show(false)
 	} else {
@@ -323,6 +341,7 @@ func (a *shelf) ready(show bool) {
 // test builds the same window, so the ⌃⌥V focus behaviour is checked
 // against what production shows.
 func (a *shelf) newNotchWindow() {
+	a.material, a.materialWin = nil, 0
 	a.win = mygo.NewWindow(mygo.WindowOptions{
 		Title: appName, Width: sheetW, Height: sheetH,
 		Hidden: true, Frameless: true, Transparent: true, DisableShadow: true,

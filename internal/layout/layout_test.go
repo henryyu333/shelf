@@ -27,14 +27,6 @@ func pinIDs(l Layout) []string {
 	return out
 }
 
-func homeIDs(l Layout) []string {
-	out := make([]string, len(l.Home))
-	for i, w := range l.Home {
-		out[i] = w.ID
-	}
-	return out
-}
-
 // writeFile stores v as JSON in dir/layout.json and returns the bytes.
 func writeFile(t *testing.T, dir string, v any) []byte {
 	t.Helper()
@@ -57,40 +49,36 @@ func readFile(t *testing.T, dir string) []byte {
 	return data
 }
 
-func assertNoOverlap(t *testing.T, l Layout) {
-	t.Helper()
-	for i := range l.Home {
-		for j := i + 1; j < len(l.Home); j++ {
-			a, b := l.Home[i], l.Home[j]
-			if a.X < b.X+b.W && b.X < a.X+a.W && a.Y < b.Y+b.H && b.Y < a.Y+a.H {
-				t.Fatalf("home widgets %s and %s overlap: %+v", a.ID, b.ID, l.Home)
-			}
-		}
-	}
-}
-
 func TestDefault(t *testing.T) {
 	l := Default()
 	if l.Version != 2 || Version != 2 {
 		t.Fatalf("version = %d, want 2", l.Version)
 	}
-	wantCards := []string{"ocr", "fit1m", "topdf", "zip", "tojpeg", "toword", "extract", "resize"}
+	// The widgets come first (the music player is 2 × 2), the action cards
+	// after them.
+	wantCards := []string{"playing", "awake", "usage", "recent", "clip",
+		"ocr", "fit1m", "topdf", "zip", "tojpeg", "toword", "extract", "resize"}
 	if !slices.Equal(cardIDs(l), wantCards) {
 		t.Fatalf("cards = %v, want %v", cardIDs(l), wantCards)
 	}
 	for _, c := range l.Cards {
-		if c.Span != 1 {
-			t.Fatalf("card %s span = %d, want 1", c.ID, c.Span)
+		switch c.ID {
+		case "playing":
+			if c.Cols() != 2 || c.Height() != 2 {
+				t.Fatalf("playing = %dx%d, want 2x2", c.Cols(), c.Height())
+			}
+		case "recent", "clip":
+			if c.Cols() != 2 || c.Height() != 1 {
+				t.Fatalf("%s = %dx%d, want 2x1", c.ID, c.Cols(), c.Height())
+			}
+		default:
+			if c.Cols() != 1 || c.Height() != 1 {
+				t.Fatalf("%s = %dx%d, want 1x1", c.ID, c.Cols(), c.Height())
+			}
 		}
 	}
-	wantHome := []Widget{
-		{ID: "playing", X: 0, Y: 0, W: 2, H: 2},
-		{ID: "awake", X: 2, Y: 0, W: 1, H: 1},
-		{ID: "usage", X: 3, Y: 0, W: 1, H: 1},
-		{ID: "recent", X: 2, Y: 1, W: 2, H: 1},
-	}
-	if !slices.Equal(l.Home, wantHome) {
-		t.Fatalf("home = %+v, want %+v", l.Home, wantHome)
+	if len(l.Home) != 0 {
+		t.Fatalf("the default still carries a home canvas: %+v", l.Home)
 	}
 	if len(l.Pins) != 0 {
 		t.Fatalf("default has pins: %+v", l.Pins)
@@ -99,23 +87,17 @@ func TestDefault(t *testing.T) {
 
 func TestDefaultWith(t *testing.T) {
 	withAI := DefaultWith(true)
-	if !slices.Equal(withAI.Cards, Default().Cards) || !slices.Equal(withAI.Home, Default().Home) {
-		t.Fatalf("DefaultWith(true) differs from Default: %+v", withAI)
+	if !slices.Equal(cardIDs(withAI), cardIDs(Default())) {
+		t.Fatalf("DefaultWith(true) differs from Default: %v", cardIDs(withAI))
 	}
 	noAI := DefaultWith(false)
 	if noAI.Version != Version {
 		t.Fatalf("version = %d", noAI.Version)
 	}
+	// The usage widget keeps its entry whatever the setting: it takes no
+	// cell while the feature is off, and returns with it.
 	if !slices.Equal(cardIDs(noAI), cardIDs(Default())) {
 		t.Fatalf("cards = %v", cardIDs(noAI))
-	}
-	wantHome := []Widget{
-		{ID: "playing", X: 0, Y: 0, W: 2, H: 2},
-		{ID: "awake", X: 2, Y: 0, W: 1, H: 1},
-		{ID: "clip", X: 2, Y: 1, W: 2, H: 1},
-	}
-	if !slices.Equal(noAI.Home, wantHome) {
-		t.Fatalf("home = %+v, want %+v", noAI.Home, wantHome)
 	}
 }
 
@@ -128,8 +110,8 @@ func TestLoadCreatesDefault(t *testing.T) {
 	if !slices.Equal(cardIDs(l), cardIDs(Default())) {
 		t.Fatalf("cards = %v, want default %v", cardIDs(l), cardIDs(Default()))
 	}
-	if !slices.Equal(l.Home, Default().Home) {
-		t.Fatalf("home = %+v, want default %+v", l.Home, Default().Home)
+	if len(l.Home) != 0 {
+		t.Fatalf("home = %+v, want none", l.Home)
 	}
 	if _, err := os.Stat(filepath.Join(dir, FileName)); err != nil {
 		t.Fatalf("layout.json was not written: %v", err)
@@ -143,15 +125,15 @@ func TestLoadWithCreatesAvailabilityDefault(t *testing.T) {
 		if err != nil {
 			t.Fatalf("aiUsage %v: %v", aiUsage, err)
 		}
-		if !slices.Equal(l.Home, DefaultWith(aiUsage).Home) {
-			t.Fatalf("aiUsage %v: home = %+v, want %+v", aiUsage, l.Home, DefaultWith(aiUsage).Home)
+		if !slices.Equal(cardIDs(l), cardIDs(DefaultWith(aiUsage))) {
+			t.Fatalf("aiUsage %v: cards = %v", aiUsage, cardIDs(l))
 		}
 		var onDisk Layout
 		if err := json.Unmarshal(readFile(t, dir), &onDisk); err != nil {
 			t.Fatal(err)
 		}
-		if !slices.Equal(onDisk.Home, DefaultWith(aiUsage).Home) {
-			t.Fatalf("aiUsage %v: file holds %+v, want %+v", aiUsage, onDisk.Home, DefaultWith(aiUsage).Home)
+		if !slices.Equal(cardIDs(onDisk), cardIDs(DefaultWith(aiUsage))) {
+			t.Fatalf("aiUsage %v: file holds %v", aiUsage, cardIDs(onDisk))
 		}
 	}
 }
@@ -165,8 +147,8 @@ func TestLoadWithBrokenFileFallsBack(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for corrupt JSON")
 	}
-	if !slices.Equal(l.Home, DefaultWith(false).Home) {
-		t.Fatalf("home = %+v, want %+v", l.Home, DefaultWith(false).Home)
+	if !slices.Equal(cardIDs(l), cardIDs(DefaultWith(false))) {
+		t.Fatalf("cards = %v", cardIDs(l))
 	}
 }
 
@@ -189,9 +171,6 @@ func TestWriteThenLoadRoundTrips(t *testing.T) {
 	if got.Cards[slices.Index(cardIDs(got), "ocr")].Span != 2 {
 		t.Fatal("ocr span did not persist")
 	}
-	if !slices.Equal(got.Home, l.Home) {
-		t.Fatalf("home = %+v, want %+v", got.Home, l.Home)
-	}
 	if len(got.Pins) != 1 || got.Pins[0] != l.Pins[0] {
 		t.Fatalf("pins = %+v", got.Pins)
 	}
@@ -207,7 +186,7 @@ func TestLoadBadJSONKeepsFileAndDefaults(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for corrupt JSON")
 	}
-	if !slices.Equal(cardIDs(l), cardIDs(Default())) || !slices.Equal(l.Home, Default().Home) {
+	if !slices.Equal(cardIDs(l), cardIDs(Default())) {
 		t.Fatalf("got %+v, want defaults", l)
 	}
 	if data, _ := os.ReadFile(p); string(data) != "{nope" {
@@ -226,21 +205,21 @@ func TestLoadFutureVersionDefaultsAndKeepsFile(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a version error")
 	}
-	if !slices.Equal(cardIDs(l), cardIDs(Default())) || !slices.Equal(l.Home, Default().Home) {
+	if !slices.Equal(cardIDs(l), cardIDs(Default())) {
 		t.Fatalf("got %+v, want defaults", l)
 	}
 	if got := readFile(t, dir); string(got) != string(raw) {
 		t.Fatalf("future-version file changed: %s", got)
 	}
 	noAI, err := LoadWith(dir, false)
-	if err == nil || !slices.Equal(noAI.Home, DefaultWith(false).Home) {
-		t.Fatalf("LoadWith future version: home = %+v, err = %v", noAI.Home, err)
+	if err == nil || !slices.Equal(cardIDs(noAI), cardIDs(DefaultWith(false))) {
+		t.Fatalf("LoadWith future version: cards = %v, err = %v", cardIDs(noAI), err)
 	}
 }
 
 // A file written before version stamps existed (version 0) is migrated
-// like a version 1 file: known widgets move to the home canvas, actions
-// stay on the tool page, and Load does not rewrite the file.
+// like a version 1 file: known widgets keep their old rectangles as grid
+// sizes, actions stay in the grid, and Load does not rewrite the file.
 func TestLoadUnversionedFileMigrates(t *testing.T) {
 	dir := t.TempDir()
 	raw := writeFile(t, dir, map[string]any{
@@ -250,11 +229,11 @@ func TestLoadUnversionedFileMigrates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unversioned file rejected: %v", err)
 	}
-	if !slices.Equal(cardIDs(l), []string{"zip"}) || l.Cards[0].Span != 1 {
+	if !slices.Equal(cardIDs(l), []string{"clip", "zip"}) || l.Cards[1].Span != 1 {
 		t.Fatalf("unversioned cards not migrated: %+v", l.Cards)
 	}
-	if !slices.Equal(l.Home, []Widget{{ID: "clip", X: 2, Y: 1, W: 2, H: 1}}) {
-		t.Fatalf("home = %+v, want clip at its default", l.Home)
+	if c := l.Cards[0]; c.Cols() != 2 || c.Height() != 1 {
+		t.Fatalf("clip = %dx%d, want 2x1", c.Cols(), c.Height())
 	}
 	if l.Version != Version {
 		t.Fatalf("version = %d, want %d", l.Version, Version)
@@ -286,23 +265,19 @@ func TestMigrateV1ActionsWidgetsPins(t *testing.T) {
 	if l.Version != 2 {
 		t.Fatalf("version = %d, want 2", l.Version)
 	}
-	if got, want := cardIDs(l), []string{"ocr", "zip", "tojpeg"}; !slices.Equal(got, want) {
+	if got, want := cardIDs(l), []string{"playing", "awake", "clip", "ocr", "zip", "tojpeg"}; !slices.Equal(got, want) {
 		t.Fatalf("cards = %v, want %v", got, want)
 	}
+	sizes := map[string][2]int{"playing": {2, 2}, "awake": {1, 1}, "clip": {2, 1},
+		"ocr": {1, 1}, "zip": {1, 1}, "tojpeg": {1, 1}}
 	for _, c := range l.Cards {
-		if c.Span != 1 {
-			t.Fatalf("card %s span = %d, want clamped 1", c.ID, c.Span)
+		if got, want := [2]int{c.Cols(), c.Height()}, sizes[c.ID]; got != want {
+			t.Fatalf("card %s = %v, want %v", c.ID, got, want)
 		}
 	}
-	wantHome := []Widget{
-		{ID: "playing", X: 0, Y: 0, W: 2, H: 2},
-		{ID: "awake", X: 2, Y: 0, W: 1, H: 1},
-		{ID: "clip", X: 2, Y: 1, W: 2, H: 1},
+	if len(l.Home) != 0 {
+		t.Fatalf("home = %+v, want none", l.Home)
 	}
-	if !slices.Equal(l.Home, wantHome) {
-		t.Fatalf("home = %+v, want %+v", l.Home, wantHome)
-	}
-	assertNoOverlap(t, l)
 	if !slices.Equal(l.Pins, pins) {
 		t.Fatalf("pins = %+v, want %+v", l.Pins, pins)
 	}
@@ -311,46 +286,32 @@ func TestMigrateV1ActionsWidgetsPins(t *testing.T) {
 	}
 }
 
-func TestMigrateV1AllWidgetsDropsLaterOverlap(t *testing.T) {
-	orders := map[string]struct {
-		cards []Card
-		drops string
-	}{
-		"recent before clip": {
-			cards: []Card{
-				{ID: "playing"}, {ID: "awake"}, {ID: "usage"}, {ID: "recent"}, {ID: "clip"},
-			},
-			drops: "clip",
+// A version 2 file written before the tools page took the widgets still
+// carries them under "home": they join the grid in reading order, ahead of
+// the action cards, with the size their rectangle had.
+func TestLegacyHomeMergesIntoTheGrid(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, Layout{
+		Version: Version,
+		Cards:   []Card{{ID: "ocr"}, {ID: "zip"}},
+		Home: []Widget{
+			{ID: "recent", X: 2, Y: 1, W: 2, H: 1},
+			{ID: "playing", X: 0, Y: 0, W: 2, H: 2},
+			{ID: "usage", X: 3, Y: 0, W: 1, H: 1},
 		},
-		"clip before recent": {
-			cards: []Card{
-				{ID: "playing"}, {ID: "awake"}, {ID: "usage"}, {ID: "clip"}, {ID: "recent"},
-			},
-			drops: "recent",
-		},
+	})
+	l, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for name, tc := range orders {
-		t.Run(name, func(t *testing.T) {
-			dir := t.TempDir()
-			writeFile(t, dir, Layout{Version: 1, Cards: tc.cards})
-			l, err := Load(dir)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if slices.Contains(homeIDs(l), tc.drops) {
-				t.Fatalf("%s was placed: %v", tc.drops, homeIDs(l))
-			}
-			if len(l.Home) != 4 {
-				t.Fatalf("home = %+v, want four widgets", l.Home)
-			}
-			if slices.Contains(cardIDs(l), tc.drops) {
-				t.Fatalf("%s fell through to the tool page", tc.drops)
-			}
-			if !slices.Contains(homeIDs(l), "playing") {
-				t.Fatalf("playing missing: %v", homeIDs(l))
-			}
-			assertNoOverlap(t, l)
-		})
+	if got, want := cardIDs(l), []string{"playing", "usage", "recent", "ocr", "zip"}; !slices.Equal(got, want) {
+		t.Fatalf("cards = %v, want %v", got, want)
+	}
+	if c := l.Cards[0]; c.Cols() != 2 || c.Height() != 2 {
+		t.Fatalf("playing = %dx%d", c.Cols(), c.Height())
+	}
+	if len(l.Home) != 0 {
+		t.Fatalf("the merged home list survived: %+v", l.Home)
 	}
 }
 
@@ -366,35 +327,28 @@ func TestMigrateV1KeepsUnknownAndActionCards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := cardIDs(l), []string{"mystery", "ocr", "second-unknown"}; !slices.Equal(got, want) {
+	if got, want := cardIDs(l), []string{"playing", "mystery", "ocr", "second-unknown"}; !slices.Equal(got, want) {
 		t.Fatalf("cards = %v, want %v", got, want)
 	}
-	if l.Cards[0].Span != 2 || l.Cards[1].Span != 1 || l.Cards[2].Span != 1 {
-		t.Fatalf("spans = %+v, want 2, 1, 1", l.Cards)
+	if l.Cards[0].Cols() != 2 || l.Cards[0].Height() != 2 {
+		t.Fatalf("playing = %dx%d, want its 2x2 rectangle", l.Cards[0].Cols(), l.Cards[0].Height())
 	}
-	if !slices.Equal(homeIDs(l), []string{"playing"}) {
-		t.Fatalf("home = %v", homeIDs(l))
+	if l.Cards[1].Span != 2 || l.Cards[2].Span != 1 || l.Cards[3].Span != 1 {
+		t.Fatalf("spans = %+v, want 2, 2, 1, 1 (5 clamps to 1)", l.Cards)
 	}
 }
 
-func TestNormalizeHomeRepairs(t *testing.T) {
+func TestNormalizeLegacyHomeKeepsIds(t *testing.T) {
 	l := Layout{
 		Version: Version,
 		Home: []Widget{
-			{ID: "a", X: 0, Y: 0, W: 3, H: 0},  // width clamps to 2, height to 1
-			{ID: "b", X: 1, Y: 0, W: 1, H: 1},  // overlaps a: dropped
-			{ID: "", X: 2, Y: 0, W: 1, H: 1},   // empty id: dropped
-			{ID: "c", X: 3, Y: 1, W: 2, H: 1},  // x+w = 5: outside the grid
-			{ID: "d", X: -1, Y: 1, W: 1, H: 1}, // negative x: outside the grid
-			{ID: "e", X: 0, Y: 1, W: 1, H: 0},  // height clamps to 1
-			{ID: "a", X: 2, Y: 1, W: 2, H: 1},  // duplicate id: dropped
+			{ID: "a", X: 0, Y: 0, W: 3, H: 0}, // sizes clamp to 2 and 1
+			{ID: "", X: 2, Y: 0, W: 1, H: 1},  // empty id: dropped
+			{ID: "a", X: 2, Y: 1, W: 2, H: 1}, // duplicate id: dropped
 		},
 	}
 	l.normalize()
-	want := []Widget{
-		{ID: "a", X: 0, Y: 0, W: 2, H: 1},
-		{ID: "e", X: 0, Y: 1, W: 1, H: 1},
-	}
+	want := []Widget{{ID: "a", X: 0, Y: 0, W: 2, H: 1}}
 	if !slices.Equal(l.Home, want) {
 		t.Fatalf("home = %+v, want %+v", l.Home, want)
 	}
@@ -408,9 +362,6 @@ func TestNormalizeOnePlaceAcrossHomeCardsPins(t *testing.T) {
 		Pins:    []Pin{{ID: "zip"}, {ID: "clip", Edge: "diagonal"}, {ID: "awake"}},
 	}
 	l.normalize()
-	if !slices.Equal(homeIDs(l), []string{"awake"}) {
-		t.Fatalf("home = %v: home occurrence should win", homeIDs(l))
-	}
 	if got, want := cardIDs(l), []string{"zip"}; !slices.Equal(got, want) {
 		t.Fatalf("cards = %v, want %v", got, want)
 	}
@@ -456,202 +407,67 @@ func TestNormalizeClampsSpans(t *testing.T) {
 	}
 }
 
-func TestHomeLookups(t *testing.T) {
+func TestCardLookups(t *testing.T) {
 	l := Default()
-	if got := l.HomeIndex("playing"); got != 0 {
-		t.Fatalf("HomeIndex(playing) = %d, want 0", got)
+	if i := l.index("playing"); i != 0 {
+		t.Fatalf("index(playing) = %d, want 0", i)
 	}
-	if got := l.HomeIndex("clip"); got != -1 {
-		t.Fatalf("HomeIndex(clip) = %d, want -1", got)
+	if i := l.index("clip"); i != 4 {
+		t.Fatalf("index(clip) = %d, want 4", i)
 	}
-	if w, ok := l.HomeAt(0, 0); !ok || w.ID != "playing" {
-		t.Fatalf("HomeAt(0,0) = %+v, %v", w, ok)
+	if l.index("missing") != -1 {
+		t.Fatal("index found a card that is not there")
 	}
-	if w, ok := l.HomeAt(2, 0); !ok || w.ID != "awake" {
-		t.Fatalf("HomeAt(2,0) = %+v, %v", w, ok)
+	if !l.hasCard("playing") || !l.hasCard("ocr") {
+		t.Fatal("hasCard missed a placed card")
 	}
-	// (1,1) lies inside playing but is not its top-left cell.
-	if w, ok := l.HomeAt(1, 1); ok {
-		t.Fatalf("HomeAt(1,1) = %+v, want no top-left match", w)
+	l.AddPin(Pin{ID: "topdf", Span: 1})
+	if !l.hasCard("topdf") {
+		t.Fatal("hasCard missed a pinned card")
 	}
-	if _, ok := l.HomeAt(9, 9); ok {
-		t.Fatal("HomeAt(9,9) found a widget")
-	}
-	if l.OverlapsHome("playing", 0, 0, 2, 2) {
-		t.Fatal("OverlapsHome did not ignore the widget itself")
-	}
-	if !l.OverlapsHome("", 0, 0, 2, 2) {
-		t.Fatal("OverlapsHome missed playing")
-	}
-	if !l.OverlapsHome("awake", 3, 1, 1, 1) {
-		t.Fatal("OverlapsHome missed recent at (3,1)")
-	}
-	if l.OverlapsHome("awake", 2, 0, 1, 1) {
-		t.Fatal("OverlapsHome false positive on awake's own cell")
+	if l.hasCard("missing") || l.hasCard("") {
+		t.Fatal("hasCard found a card that is not there")
 	}
 }
 
-func TestAddWidgetRefusals(t *testing.T) {
+func TestAddCardSizeRefusals(t *testing.T) {
 	l := Default()
-	l.AddPin(Pin{ID: "clip"})
-	homeBefore := slices.Clone(l.Home)
 	cardsBefore := slices.Clone(l.Cards)
 	pinsBefore := slices.Clone(l.Pins)
 
-	bad := []Widget{
-		{ID: "playing", X: 2, Y: 1, W: 2, H: 1}, // on the home canvas already
-		{ID: "ocr", X: 2, Y: 1, W: 2, H: 1},     // on the tool page
-		{ID: "clip", X: 2, Y: 1, W: 2, H: 1},    // pinned
-		{ID: "", X: 2, Y: 1, W: 1, H: 1},        // empty id
-		{ID: "new", X: 3, Y: 0, W: 2, H: 1},     // leaves the grid
-		{ID: "new", X: 0, Y: 1, W: 1, H: 2},     // leaves the grid
-		{ID: "new", X: 0, Y: 0, W: 3, H: 1},     // W outside 1..2
-		{ID: "new", X: 0, Y: 0, W: 1, H: 3},     // H outside 1..2
-		{ID: "new", X: 2, Y: 0, W: 2, H: 1},     // overlaps awake and usage
+	// An id placed anywhere is not placed twice, and sizes stay 1..2.
+	l.AddCardSize("playing", 1, 1) // already in the grid
+	l.AddCardSize("", 1, 1)        // empty id
+	if !slices.Equal(l.Cards, cardsBefore) {
+		t.Fatalf("a refused AddCardSize mutated the grid: %+v", l.Cards)
 	}
-	for _, w := range bad {
-		if l.AddWidget(w) {
-			t.Fatalf("AddWidget(%+v) succeeded, want refusal", w)
-		}
+	l.AddCardSize("mystery", 9, 9)
+	c, ok := l.card("mystery")
+	if !ok {
+		t.Fatal("AddCardSize refused a new card")
 	}
-	if !slices.Equal(l.Home, homeBefore) || !slices.Equal(l.Cards, cardsBefore) || !slices.Equal(l.Pins, pinsBefore) {
-		t.Fatalf("failed AddWidget mutated the layout: %+v", l)
+	if c.Cols() != 1 || c.Height() != 2 {
+		t.Fatalf("out-of-range size kept %dx%d, want 1x2 (both clamp)", c.Cols(), c.Height())
 	}
-	l.RemoveWidget("recent")
-	if !l.AddWidget(Widget{ID: "new", X: 3, Y: 1, W: 1, H: 1}) {
-		t.Fatal("AddWidget refused the sole free cell")
-	}
-	if l.HomeIndex("new") != len(l.Home)-1 {
-		t.Fatalf("new widget not appended: %+v", l.Home)
+	if !slices.Equal(l.Pins, pinsBefore) {
+		t.Fatal("AddCardSize touched the pins")
 	}
 }
 
-func TestAddWidgetBest(t *testing.T) {
-	// Default rectangle, when free.
+func TestSetCardSize(t *testing.T) {
 	l := Default()
-	l.RemoveWidget("recent")
-	if !l.AddWidgetBest("clip", 2, 1) {
-		t.Fatal("AddWidgetBest refused clip")
+	l.SetCardSize("playing", 2, 1)
+	if c, _ := l.card("playing"); c.Cols() != 2 || c.Height() != 1 {
+		t.Fatalf("playing = %dx%d", c.Cols(), c.Height())
 	}
-	if w, ok := l.HomeAt(2, 1); !ok || w.ID != "clip" {
-		t.Fatalf("clip placed at %+v, %v; want (2,1)", w, ok)
+	l.SetCardSize("playing", 3, 1) // out of range: ignored
+	l.SetCardSize("playing", 1, 0) // zero rows: ignored
+	if c, _ := l.card("playing"); c.Cols() != 2 || c.Height() != 1 {
+		t.Fatalf("an out-of-range size applied: %+v", c)
 	}
-
-	// Fallback: the default rectangle is blocked, so the first free cell
-	// in row-major order wins.
-	l = Layout{Version: Version, Home: []Widget{
-		{ID: "awake", X: 2, Y: 0, W: 1, H: 1},
-		{ID: "block", X: 2, Y: 1, W: 2, H: 1},
-	}}
-	if !l.AddWidgetBest("clip", 2, 1) {
-		t.Fatal("AddWidgetBest did not fall back")
-	}
-	if w, ok := l.HomeAt(0, 0); !ok || w.ID != "clip" {
-		t.Fatalf("clip placed at %+v, %v; want fallback (0,0)", w, ok)
-	}
-
-	// Already placed anywhere: refused.
-	if l.AddWidgetBest("clip", 1, 1) {
-		t.Fatal("AddWidgetBest placed a duplicate")
-	}
-	l.AddPin(Pin{ID: "ocr"})
-	if l.AddWidgetBest("ocr", 1, 1) {
-		t.Fatal("AddWidgetBest placed a pinned card")
-	}
-
-	// No free cell: refused.
-	full := Layout{Version: Version}
-	for y := range GridRows {
-		for x := range GridCols {
-			if !full.AddWidget(Widget{ID: string(rune('a' + y*GridCols + x)), X: x, Y: y, W: 1, H: 1}) {
-				t.Fatalf("could not fill cell %d,%d", x, y)
-			}
-		}
-	}
-	if full.AddWidgetBest("z", 1, 1) {
-		t.Fatal("AddWidgetBest found a spot on a full canvas")
-	}
-	if full.AddWidgetBest("z", 2, 2) {
-		t.Fatal("AddWidgetBest found a 2x2 spot on a full canvas")
-	}
-}
-
-func TestMoveWidget(t *testing.T) {
-	l := Default()
-	if l.MoveWidget("missing", 0, 0) {
-		t.Fatal("MoveWidget moved an absent widget")
-	}
-	before := slices.Clone(l.Home)
-	// Playing covers awake's target and recent covers usage's.
-	if l.MoveWidget("awake", 0, 1) {
-		t.Fatal("MoveWidget allowed an overlap")
-	}
-	if l.MoveWidget("awake", 2, 1) {
-		t.Fatal("MoveWidget allowed an overlap with recent")
-	}
-	if l.MoveWidget("awake", 2, 2) {
-		t.Fatal("MoveWidget allowed a move outside the grid")
-	}
-	if !slices.Equal(l.Home, before) {
-		t.Fatalf("failed moves mutated the layout: %+v", l.Home)
-	}
-	l.RemoveWidget("recent")
-	if !l.MoveWidget("awake", 2, 1) {
-		t.Fatal("MoveWidget refused a free cell")
-	}
-	if w, ok := l.HomeAt(2, 1); !ok || w.ID != "awake" {
-		t.Fatalf("awake not at (2,1): %+v", l.Home)
-	}
-	if _, ok := l.HomeAt(2, 0); ok {
-		t.Fatal("awake's old cell still reports a widget")
-	}
-}
-
-func TestSetWidgetSize(t *testing.T) {
-	l := Default()
-	if l.SetWidgetSize("missing", 1, 1) {
-		t.Fatal("SetWidgetSize resized an absent widget")
-	}
-	if l.SetWidgetSize("usage", 2, 1) {
-		t.Fatal("SetWidgetSize allowed a size outside the grid")
-	}
-	if l.SetWidgetSize("awake", 2, 1) {
-		t.Fatal("SetWidgetSize allowed an overlap with usage")
-	}
-	if l.SetWidgetSize("awake", 1, 2) {
-		t.Fatal("SetWidgetSize allowed an overlap with recent")
-	}
-	if l.SetWidgetSize("awake", 3, 1) || l.SetWidgetSize("awake", 0, 1) {
-		t.Fatal("SetWidgetSize accepted a size outside 1..2")
-	}
-	if w := l.Home[l.HomeIndex("awake")]; w != (Widget{ID: "awake", X: 2, Y: 0, W: 1, H: 1}) {
-		t.Fatalf("failed resizes mutated awake: %+v", w)
-	}
-	l.RemoveWidget("recent")
-	if !l.SetWidgetSize("awake", 1, 2) {
-		t.Fatal("SetWidgetSize refused a fitting size")
-	}
-	if w := l.Home[l.HomeIndex("awake")]; w != (Widget{ID: "awake", X: 2, Y: 0, W: 1, H: 2}) {
-		t.Fatalf("awake = %+v, want 1x2 anchored at (2,0)", w)
-	}
-}
-
-func TestRemoveWidget(t *testing.T) {
-	l := Default()
-	if !l.RemoveWidget("awake") {
-		t.Fatal("RemoveWidget failed")
-	}
-	if l.HomeIndex("awake") != -1 {
-		t.Fatal("awake still on the home canvas")
-	}
-	if l.RemoveWidget("awake") {
-		t.Fatal("RemoveWidget reported a second removal")
-	}
-	if l.RemoveWidget("ocr") {
-		t.Fatal("RemoveWidget removed a tool page card")
-	}
-	if len(l.Cards) != len(Default().Cards) {
-		t.Fatalf("cards changed: %v", cardIDs(l))
+	l.SetCardSize("missing", 1, 1) // absent: no panic, nothing added
+	if _, ok := l.card("missing"); ok {
+		t.Fatal("SetCardSize added a card")
 	}
 }
 
@@ -668,9 +484,13 @@ func TestAddCardKeepsOnePlace(t *testing.T) {
 	}
 	l.AddPin(Pin{ID: "widgetx"})
 	l.AddCard("widgetx", 2) // pinned already: still no-op
-	l.AddCard("playing", 1) // on the home canvas: no-op
-	if slices.Contains(cardIDs(l), "widgetx") || slices.Contains(cardIDs(l), "playing") {
-		t.Fatalf("placed card joined the grid: %v", cardIDs(l))
+	if slices.Contains(cardIDs(l), "widgetx") {
+		t.Fatalf("pinned card joined the grid: %v", cardIDs(l))
+	}
+	n := len(l.Cards)
+	l.AddCard("playing", 1) // already in the grid: no-op
+	if len(l.Cards) != n {
+		t.Fatalf("duplicated card added: %v", cardIDs(l))
 	}
 }
 
@@ -705,7 +525,7 @@ func TestSetSpan(t *testing.T) {
 	l.SetSpan("missing", 2) // absent: no panic
 }
 
-func TestAddPinRemovesFromGridAndHome(t *testing.T) {
+func TestAddPinRemovesFromGrid(t *testing.T) {
 	l := Default()
 	l.AddPin(Pin{ID: "zip", Span: 1, Edge: EdgeLeft})
 	if slices.Contains(cardIDs(l), "zip") {
@@ -720,14 +540,22 @@ func TestAddPinRemovesFromGridAndHome(t *testing.T) {
 	}
 
 	l.AddPin(Pin{ID: "awake", Span: 2, Edge: EdgeRight})
-	if l.HomeIndex("awake") != -1 {
-		t.Fatalf("pinned widget stayed on the home canvas: %+v", l.Home)
-	}
 	if !slices.Contains(pinIDs(l), "awake") {
 		t.Fatalf("awake not pinned: %v", pinIDs(l))
 	}
 	if slices.Contains(cardIDs(l), "awake") {
-		t.Fatal("pinned home widget joined the tool page")
+		t.Fatal("a pinned widget stayed in the grid")
+	}
+}
+
+// A pin keeps the rows its card had: 放回刘海 returns the music player 2 × 2.
+func TestRemovePinKeepsRows(t *testing.T) {
+	l := Default()
+	l.AddPin(Pin{ID: "playing", Span: 2, Rows: 2})
+	l.RemovePin("playing", true, 0)
+	c, ok := l.card("playing")
+	if !ok || c.Cols() != 2 || c.Height() != 2 {
+		t.Fatalf("playing returned as %+v, want 2x2", c)
 	}
 }
 
@@ -771,25 +599,14 @@ func TestLoadNormalizesWithoutFailing(t *testing.T) {
 	}
 }
 
-func TestHomePersistenceRoundTrip(t *testing.T) {
+func TestGridPersistenceRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	l := Default()
-	l.RemoveWidget("recent")
-	if !l.AddWidgetBest("clip", 2, 1) {
-		t.Fatal("could not place clip")
-	}
-	if !l.RemoveWidget("usage") {
-		t.Fatal("could not remove usage")
-	}
-	if !l.MoveWidget("awake", 3, 0) {
-		t.Fatal("could not move awake")
-	}
-	if !l.AddWidgetBest("usage", 1, 1) {
-		t.Fatal("could not place usage")
-	}
-	if !l.SetWidgetSize("playing", 2, 2) {
-		t.Fatal("could not keep playing at 2x2")
-	}
+	l.RemoveCard("recent")
+	l.AddCardSize("recent", 2, 2)
+	l.MoveCard("awake", 2)
+	l.SetCardSize("playing", 1, 1)
+	l.AddPin(Pin{ID: "clip", Span: 2, Rows: 1, Edge: EdgeLeft, X: 10, Y: 60})
 	if err := Write(dir, l); err != nil {
 		t.Fatal(err)
 	}
@@ -797,13 +614,18 @@ func TestHomePersistenceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(got.Home, l.Home) {
-		t.Fatalf("home = %+v, want %+v", got.Home, l.Home)
+	if !slices.Equal(cardIDs(got), cardIDs(l)) {
+		t.Fatalf("cards = %v, want %v", cardIDs(got), cardIDs(l))
 	}
-	if got.Version != 2 {
-		t.Fatalf("version = %d", got.Version)
+	for i := range l.Cards {
+		if got.Cards[i].ID != l.Cards[i].ID || got.Cards[i].Cols() != l.Cards[i].Cols() ||
+			got.Cards[i].Height() != l.Cards[i].Height() {
+			t.Fatalf("card %d = %+v, want %+v", i, got.Cards[i], l.Cards[i])
+		}
 	}
-	assertNoOverlap(t, got)
+	if len(got.Pins) != 1 || got.Pins[0] != l.Pins[0] {
+		t.Fatalf("pins = %+v, want %+v", got.Pins, l.Pins)
+	}
 }
 
 func TestLoadQuietWith(t *testing.T) {
@@ -823,11 +645,11 @@ func TestLoadQuietWith(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(broken, FileName), []byte("{nope"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := LoadQuietWith(broken, true); !slices.Equal(got.Home, Default().Home) {
-		t.Fatalf("broken file home = %+v", got.Home)
+	if got := LoadQuietWith(broken, true); !slices.Equal(cardIDs(got), cardIDs(Default())) {
+		t.Fatalf("broken file cards = %v", cardIDs(got))
 	}
-	if got := LoadQuiet(broken); !slices.Equal(got.Home, Default().Home) {
-		t.Fatalf("LoadQuiet home = %+v", got.Home)
+	if got := LoadQuiet(broken); !slices.Equal(cardIDs(got), cardIDs(Default())) {
+		t.Fatalf("LoadQuiet cards = %v", cardIDs(got))
 	}
 }
 
@@ -848,92 +670,16 @@ func TestWriteIsAtomic(t *testing.T) {
 	}
 }
 
-// TestInactiveWidgetLeavesCellsFree is review #6 at the layout level: a
-// widget Inactive names takes no space, so moves and additions treat its
-// cells as free. Its entry stays while nothing takes those cells; a
-// placement that does take them sends it back to the catalogue (the
-// re-review: two rectangles on one cell would make the next load drop the
-// widget the user just placed).
-func TestInactiveWidgetLeavesCellsFree(t *testing.T) {
-	inactive := func(id string) bool { return id == "usage" }
-	l := Layout{Version: Version, Inactive: inactive,
-		Home: []Widget{
-			{ID: "playing", X: 0, Y: 0, W: 2, H: 2},
-			{ID: "awake", X: 2, Y: 0, W: 1, H: 1},
-			{ID: "usage", X: 3, Y: 0, W: 1, H: 1},
-		},
-	}
-	if l.OverlapsHome("awake", 3, 0, 1, 1) {
-		t.Fatal("a switched-off widget still blocks its cell")
-	}
-	// A placement that leaves its cell alone keeps the entry.
-	if !l.MoveWidget("awake", 2, 1) {
-		t.Fatal("MoveWidget refused a free cell")
-	}
-	if l.HomeIndex("usage") < 0 {
-		t.Fatal("a placement away from the switched-off cell dropped the widget")
-	}
-	// One that takes the cells hands them over.
-	if !l.AddWidget(Widget{ID: "clip", X: 3, Y: 0, W: 1, H: 1}) {
-		t.Fatal("AddWidget refused a cell under a switched-off widget")
-	}
-	if l.HomeIndex("usage") >= 0 {
-		t.Fatal("the covered switched-off widget stayed on the canvas")
-	}
-
-	// Active again: the same geometry is refused.
-	l.Inactive = nil
-	if !l.OverlapsHome("awake", 3, 0, 1, 1) {
-		t.Fatal("an active widget does not occupy its cell")
-	}
-	if l.MoveWidget("awake", 3, 0) {
-		t.Fatal("an active widget's cell took a move")
-	}
-}
-
-// TestPinHomeSlotRoundTrip is review #3's file half: the pin records the
-// canvas rect a widget came from, an old file without it still loads, and
-// an off-canvas rect is dropped rather than believed.
-func TestPinHomeSlotRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	l := Default()
-	slot := Widget{ID: "recent", X: 2, Y: 1, W: 2, H: 1}
-	var pin Pin
-	pin.ID = "recent"
-	pin.Span = 2
-	pin.SetHome(slot)
-	l.AddPin(pin)
-	if err := Write(dir, l); err != nil {
-		t.Fatal(err)
-	}
-	got, err := Load(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Pins) != 1 || got.Pins[0].HomeSlot() != slot {
-		t.Fatalf("pin home slot = %+v, want %+v", got.Pins[0].HomeSlot(), slot)
-	}
-	// An action card has none.
-	if (Pin{ID: "zip"}).HomeSlot() != (Widget{}) {
-		t.Fatal("a pin without a recorded rect reports one")
-	}
-	// Off the canvas: dropped by normalize, so 放回刘海 falls back.
-	off := Widget{ID: "recent", X: 3, Y: 0, W: 2, H: 1}
-	pin.SetHome(off)
-	if pin.HomeSlot() != (Widget{}) {
-		t.Fatalf("an off-canvas rect was kept: %+v", pin.HomeSlot())
-	}
-}
-
-// TestPinHomeSlotOmittedInOldFiles pins the version compatibility review
-// #3 asks for: a layout.json written before the fields existed loads
-// normally and is not rewritten.
-func TestPinHomeSlotOmittedInOldFiles(t *testing.T) {
+// TestLegacyHomeAndPinsLoad is the compatibility half: a version 2 file
+// written before the union (widgets under "home", pins with a canvas rect)
+// loads, merges, and is not rewritten.
+func TestLegacyHomeAndPinsLoad(t *testing.T) {
 	dir := t.TempDir()
 	old := `{
   "version": 2,
   "home": [{"id": "playing", "x": 0, "y": 0, "w": 2, "h": 2}],
-  "pins": [{"id": "recent", "span": 2, "display": "1", "x": 10, "y": 20}]
+  "cards": [{"id": "ocr", "span": 1}],
+  "pins": [{"id": "recent", "span": 2, "display": "1", "x": 10, "y": 20, "homeW": 2, "homeH": 1}]
 }`
 	file := filepath.Join(dir, FileName)
 	if err := os.WriteFile(file, []byte(old), 0o600); err != nil {
@@ -943,7 +689,16 @@ func TestPinHomeSlotOmittedInOldFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("an old file failed to load: %v", err)
 	}
-	if len(l.Pins) != 1 || l.Pins[0].HomeSlot() != (Widget{}) {
+	if got, want := cardIDs(l), []string{"playing", "ocr"}; !slices.Equal(got, want) {
+		t.Fatalf("cards = %v, want %v", got, want)
+	}
+	if c := l.Cards[0]; c.Cols() != 2 || c.Height() != 2 {
+		t.Fatalf("playing = %dx%d, want 2x2", c.Cols(), c.Height())
+	}
+	if len(l.Home) != 0 {
+		t.Fatalf("home = %+v, want none", l.Home)
+	}
+	if len(l.Pins) != 1 || l.Pins[0].ID != "recent" || l.Pins[0].Span != 2 {
 		t.Fatalf("pins = %+v", l.Pins)
 	}
 	data, err := os.ReadFile(file)
@@ -955,60 +710,26 @@ func TestPinHomeSlotOmittedInOldFiles(t *testing.T) {
 	}
 }
 
-// TestInactiveWidgetYieldsItsCell is the re-review's first item at the
-// layout level: a placement on a switched-off widget's cell takes the
-// entry off the canvas, so the file never holds two rectangles on one cell
-// — a later Load, which has no Inactive yet, would drop the widget the
-// user just placed.
-func TestInactiveWidgetYieldsItsCell(t *testing.T) {
-	inactive := func(id string) bool { return id == "usage" }
-	l := Layout{Version: Version, Inactive: inactive,
-		Home: []Widget{
-			{ID: "usage", X: 3, Y: 0, W: 1, H: 1},
-			{ID: "recent", X: 2, Y: 1, W: 1, H: 1},
-		},
-	}
-	if !l.MoveWidget("recent", 3, 0) {
-		t.Fatal("MoveWidget refused a cell under a switched-off widget")
-	}
-	if l.HomeIndex("usage") >= 0 {
-		t.Fatalf("the covered switched-off widget stayed on the canvas: %+v", l.Home)
-	}
+// TestInactiveIsRuntimeOnly: the Inactive seam is never written, so a
+// switched-off widget keeps its entry for the next launch.
+func TestInactiveIsRuntimeOnly(t *testing.T) {
 	dir := t.TempDir()
+	l := Default()
+	l.Inactive = func(id string) bool { return id == "usage" }
 	if err := Write(dir, l); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Load(dir) // no Inactive: normalize sees both as solid
+	if strings.Contains(string(readFile(t, dir)), "inactive") {
+		t.Fatal("the runtime seam was written to the file")
+	}
+	got, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w := got.HomeIndex("recent"); w < 0 {
-		t.Fatalf("the widget placed last was dropped by the next load: %+v", got.Home)
+	if _, ok := got.card("usage"); !ok {
+		t.Fatal("the switched-off widget lost its entry")
 	}
-
-	// Adding onto the cells does the same.
-	l = Layout{Version: Version, Inactive: inactive,
-		Home: []Widget{{ID: "usage", X: 3, Y: 0, W: 1, H: 1}},
-	}
-	if !l.AddWidget(Widget{ID: "clip", X: 3, Y: 0, W: 1, H: 1}) {
-		t.Fatal("AddWidget refused a cell under a switched-off widget")
-	}
-	if l.HomeIndex("usage") >= 0 {
-		t.Fatalf("the covered switched-off widget stayed after an add: %+v", l.Home)
-	}
-}
-
-// TestMoveWidgetInPlaceReportsNoChange is the re-review's third item: a
-// widget already at x, y has not changed, so the caller must not save it.
-func TestMoveWidgetInPlaceReportsNoChange(t *testing.T) {
-	l := Layout{Version: Version, Home: []Widget{{ID: "awake", X: 2, Y: 0, W: 1, H: 1}}}
-	if l.MoveWidget("awake", 2, 0) {
-		t.Fatal("moving a widget to its own cell reported a change")
-	}
-	if got := l.Home[0]; got.X != 2 || got.Y != 0 {
-		t.Fatalf("home changed: %+v", got)
-	}
-	if !l.MoveWidget("awake", 3, 0) {
-		t.Fatal("a real move reported no change")
+	if got.Inactive != nil {
+		t.Fatal("a loaded layout carries a seam")
 	}
 }

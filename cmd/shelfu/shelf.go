@@ -40,25 +40,32 @@ type shelf struct {
 	buildingView, frameQueued                                   bool // defer native resize until the current UI frame has painted
 	animationStart                                              time.Time
 	animationFrom, progress                                     float32
-	level                                                       int       // drawn level: 1 island, 2 sheet
+	level                                                       int       // drawn level: 1 overview (156), 2 page (250)
 	jumpLevel                                                   bool      // the next frame snaps the level spring (fresh open)
 	closeAt                                                     time.Time // when hide started the content fade; zero = none
 	settings                                                    settings.Settings
 	locale                                                      string // language the native surfaces say (tray, menus, dialogs); "" = source
 	modules                                                     []module
-	np                                                          *nowPlayingModule     // the peek wings read its state
-	pwr                                                         *powerModule          // battery / adapter events (live.go)
-	audio                                                       *audioModule          // headphone connect / disconnect
-	dl                                                          *downloadsModule      // browser downloads in ~/Downloads
-	live                                                        liveQueue             // transient charging / headphone / download-done events
-	conv                                                        *converter            // image conversion jobs; nil until the app starts
-	usage                                                       *usageFeature         // nil until the AI usage page registers itself
-	clip                                                        *clipboardModule      // nil until monitoring starts
-	awake                                                       *awakeModule          // nil until the app starts
-	vol                                                         volumeControl         // system output volume; nil = CoreAudio
-	pages                                                       []panelPage           // registered pages in ear order (built-ins first)
-	pagesReady                                                  bool                  // built-in pages have been registered
-	tab                                                         pageID                // current page of the expanded panel (registry in pages.go)
+	np                                                          *nowPlayingModule // the peek wings read its state
+	pwr                                                         *powerModule      // battery / adapter events (live.go)
+	audio                                                       *audioModule      // headphone connect / disconnect
+	dl                                                          *downloadsModule  // browser downloads in ~/Downloads
+	live                                                        liveQueue         // transient charging / headphone / download-done events
+	conv                                                        *converter        // image conversion jobs; nil until the app starts
+	usage                                                       *usageFeature     // nil until the AI usage page registers itself
+	clip                                                        *clipboardModule  // nil until monitoring starts
+	awake                                                       *awakeModule      // nil until the app starts
+	vol                                                         volumeControl     // system output volume; nil = CoreAudio
+	pages                                                       []panelPage       // registered pages in ear order (built-ins first)
+	pagesReady                                                  bool              // built-in pages have been registered
+	tab                                                         pageID            // current page of the expanded panel (registry in pages.go)
+	lastAct                                                     time.Time         // last time the user did anything with the shelf (the otter's sleepiness)
+	happyUntil                                                  time.Time         // the otter is happy until then
+	freshInstall                                                bool              // no state.json when this launch started: the welcome card's turn
+	uiState                                                     uiState           // welcome / new-version card marks (ui.json)
+	welcomePending, welcomeUp                                   bool
+	whatsNewPending, whatsNewUp                                 bool
+	openedAt                                                    time.Time             // when this opening began, for the cards' delay
 	tabAt                                                       time.Time             // when the tab last switched; drives the pages' crossfade
 	tabFrom                                                     pageID                // the page being left by the last switch, drawn fading out
 	tabOutK                                                     float32               // opacity the outgoing picture starts at (1, or where an interrupted switch left it)
@@ -114,7 +121,11 @@ type shelf struct {
 	fb                                                          feedback    // the notch's completion capsule (feedback.go)
 	fx                                                          shellMotion // the shell drawn last, for the window frame
 	ignoringMouse                                               bool
-	watchingPointer                                             bool // registered with the process-wide pointer gate
+	watchingPointer                                             bool               // registered with the process-wide pointer gate
+	material                                                    *mac.ShellMaterial // light appearance's backdrop material
+	materialWin                                                 uintptr            // the window that material belongs to
+	systemDark, reduceTrans                                     bool               // cached system appearance (refreshed on a slow tick)
+	appearanceAt                                                time.Time
 	thumbnails                                                  map[string]*ui.Bitmap
 	shake                                                       shakeDetector // 摇晃召唤：拖拽中左右晃动检测
 	basket                                                      basketState   // 摇晃召唤的拖放篮
@@ -169,6 +180,7 @@ func (a *shelf) startMonitoring() {
 						m.tick(now)
 					}
 					a.animate(now)
+					a.refreshAppearance(now)
 					a.monitorDrag(now)
 					// 内容高度随项目数/正在播放卡片/搜索状态变化：
 					// desiredFrame 未变时是恒等比较，不触发原生缩放。
@@ -179,6 +191,11 @@ func (a *shelf) startMonitoring() {
 					// move event and a shape that changed under a still
 					// pointer, so a press never waits for the next move.
 					a.syncPointerGate()
+					if a.win != nil && a.overShell(cursorPoint()) {
+						// The pointer is doing something on the shell: the
+						// otter does not fall asleep under the user's hand.
+						a.lastAct = now
+					}
 					a.nextWarmPage(now)
 					a.tickUpdates(now)
 					// The status's clock runs only while it is actually on
@@ -349,7 +366,16 @@ func (a *shelf) receive(data transfer.Data) error {
 	}
 	if err == nil {
 		a.received = true
-		a.toastStatus(l.StatusAdded(), time.Now().Add(3*time.Second), statusOK)
+		a.lastAct = time.Now()
+		if a.welcomeUp {
+			// The welcome card's practice is the drop itself: one real
+			// file finishes it.
+			a.dismissWelcome()
+			a.toastStatus(l.WelcomeDone(), time.Now().Add(3*time.Second), statusOK)
+		} else {
+			a.toastStatus(l.StatusAdded(), time.Now().Add(3*time.Second), statusOK)
+		}
+		a.otterHappy(time.Now())
 	}
 	a.changed(err)
 	return err
@@ -368,6 +394,7 @@ func (a *shelf) changed(err error) {
 	}
 }
 func (a *shelf) report(err error) {
+	a.lastAct = time.Now()
 	a.toastStatus(a.appLoc().StatusFailed(err.Error()), time.Time{}, statusErr)
 	log.Print(a.status)
 	if a.win != nil {
@@ -519,9 +546,6 @@ func (a *shelf) switchTab(id pageID) {
 	}
 	if a.tab == pageTools && id != pageTools {
 		a.resetToolsEdit()
-	}
-	if a.tab == pageHome && id != pageHome {
-		a.resetHomeEdit()
 	}
 	a.tab, a.tabFrom = id, id
 	a.tabAt = time.Time{}
