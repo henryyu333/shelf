@@ -380,6 +380,13 @@ func TestOwnWindowPressParksTheNotchCorridor(t *testing.T) {
 	if a.ownPress || parkedNow() {
 		t.Fatalf("the release left the corridor parked: ownPress=%v parks=%v", a.ownPress, parks)
 	}
+	// A foreign press starts a new gesture even if the 30ms poll missed
+	// the release between two quick presses.
+	a.mouseDown(true, 0, icon)
+	a.mouseDown(false, 0, icon)
+	if a.ownPress || parkedNow() {
+		t.Fatal("a new foreign press inherited the panel's parked corridor")
+	}
 	// Dragging our own file out is a real drag: the corridor must protect
 	// the top edge again the moment it starts.
 	held = true

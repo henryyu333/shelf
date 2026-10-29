@@ -444,8 +444,10 @@ func (a *shelf) mouseDown(inside bool, button int, p mygo.Point) {
 	// incoming drag: park the notch corridor for as long as the button is
 	// held (released in monitorDrag), so a small wobble on a band icon
 	// under the corridor cannot be pushed off the target.
-	if button == 0 && inside {
-		a.ownPress = true
+	// A new foreign left press also ends any previous ownership when the
+	// monitoring tick missed the intervening release.
+	if button == 0 {
+		a.ownPress = inside
 		a.syncDragGuard()
 	}
 	// A press on another screen's idle capsule moves the resident window
