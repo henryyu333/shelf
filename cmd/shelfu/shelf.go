@@ -122,8 +122,11 @@ type shelf struct {
 	dispWork                                                    mygo.Rectangle // the display's visible frame, measured by placeAt
 	islandDX, islandDY                                          int            // dragged island: offsets from the default axis and row
 	islandPress                                                 islandPress
-	islandDrag                                                  bool // the press on the closed island became a move
-	ownPress                                                    bool // a left press is held in our own window
+	islandDrag                                                  bool             // the press on the closed island became a move
+	bandBox                                                     mygo.Rectangle   // the band's drawn box (see bandBegin); bandBlank reads its size
+	bandHits                                                    []mygo.Rectangle // the band's controls, relative to its top-left
+	flip                                                        panelFlip        // a panel side change in flight after a band drag
+	ownPress                                                    bool             // a left press is held in our own window
 	dispID                                                      int64
 	idleIslands                                                 []*idleIslandWindow
 	peeking                                                     bool

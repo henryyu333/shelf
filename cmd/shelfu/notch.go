@@ -542,6 +542,12 @@ func (a *shelf) mouseDown(inside bool, button int, p mygo.Point) {
 		// on the collapsed notch band or a closing panel must not hold them.
 		if a.visible {
 			a.holdKeys()
+			// The open panel's band is a handle, but only its blank
+			// stretches: the page icons, the activity chips, the settings
+			// button and the page below keep their own presses.
+			if a.island && !a.focusMode && !a.snap.panel && !a.snap.drawn && a.bandBlank(p) {
+				a.beginPanelPress(p)
+			}
 		}
 		a.takeServiceOwnership()
 		return
@@ -1157,6 +1163,16 @@ func (a *shelf) hide(exit hideExit) {
 	if !a.visible && !a.peeking {
 		return
 	}
+	// A band drag and a side change belong to a panel that stays open: a
+	// hide (Esc, a click elsewhere, the clipboard search taking over)
+	// abandons both, so the release cannot move a folded panel.
+	if a.islandPress.active {
+		a.islandPress = islandPress{}
+		a.islandDrag = false
+		a.syncDragGuard()
+	}
+	a.finishPanelFlip()
+	a.bandBox, a.bandHits = mygo.Rectangle{}, nil
 	a.handoffStatus(time.Now())
 	// Any hide — manual or the flash's own timer — ends service ownership
 	// so a queued timer can never reclaim a panel the user reopened.

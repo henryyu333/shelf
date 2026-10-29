@@ -3,9 +3,11 @@
 package main
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/settings"
 )
@@ -13,8 +15,9 @@ import (
 // Dragging the floating island. A press on the closed shell is a tap until
 // it travels islandDragStart; past that it becomes a move and the shell
 // follows the pointer, clamped onto its display. A tap still opens the
-// panel, as it always did. Only the closed shell moves: the open panel is
-// full of controls. The place is saved once, on the release.
+// panel, as it always did. A press on the open panel's band, on its blank
+// stretches, moves the island and the panel together by the same rule. The
+// place is saved once, on the release.
 //
 // Every screen coordinate the shelf draws, hits or drops into comes from
 // two anchors — stripCenter() and the island's top edge (a.y plus the
@@ -30,14 +33,31 @@ const islandDragStart = 4 // a press that travels this far is a move, not a tap
 // runtime form of settings.IslandPos.
 type islandSpot struct{ Centre, Top int }
 
-// islandPress is one left press on the closed island: where it landed, how
-// far inside the capsule it grabbed, and whether it has become a move.
+// islandPress is one left press on the shell: where it landed, how far
+// inside the panel (or capsule) it grabbed, and whether it has become a
+// move. panel says the press started on the open panel's band; up is the
+// side the panel grew on when it did, kept for the whole gesture.
 type islandPress struct {
 	active bool
 	moved  bool
+	panel  bool // the press started on the open panel's band
+	up     bool // ...and the panel's side at that moment
 	at     mygo.Point
-	grabX  int // pointer offset inside the capsule box, 0..islandIdleW-1
-	grabY  int // ...and down from the shell's top edge
+	grabX  int // pointer offset inside the grabbed box
+	grabY  int // ...and down from its top edge
+}
+
+// panelFlip is a side change in flight, after a panel drag was released on
+// the other side of the island. from and to are the panel's top edges on
+// screen; k runs 0→1 on the panel's open spring and is read by
+// panelPlacement, so the box, its frame and its hit shape slide together.
+// start marks the first drawn frame, which seeds the spring at zero.
+type panelFlip struct {
+	active bool
+	start  bool
+	k      float32
+	from   int
+	to     int
 }
 
 // islandHoverH is how tall the closed island can draw: the idle capsule
@@ -142,6 +162,119 @@ func (a *shelf) moveIslandTo(centre, top int) {
 	a.syncWindowFrame()
 }
 
+// beginPanelPress arms a press on the open panel's band. The panel itself
+// is what follows the pointer: the grab offset is kept inside the panel's
+// box, the side it grew on is locked for the gesture, and a new press
+// settles any side change still in flight so the box cannot slide out from
+// under it.
+func (a *shelf) beginPanelPress(p mygo.Point) {
+	a.finishPanelFlip()
+	place := a.panelPlacement()
+	a.islandPress = islandPress{
+		active: true,
+		panel:  true,
+		up:     place.Up,
+		at:     p,
+		grabX:  p.X - place.X,
+		grabY:  p.Y - place.Y,
+	}
+	a.islandDrag = false
+	a.syncDragGuard()
+}
+
+// bandBlank reports whether p is on the open panel's band and on none of
+// its controls. Only that stretch starts a move: a press on a page icon,
+// a live activity chip or the settings button keeps its own click, and a
+// press below the band belongs to the page. The boxes were measured on the
+// last drawn frame; a frame that has not drawn the band yet has none, so
+// no press can be taken for blank there.
+func (a *shelf) bandBlank(p mygo.Point) bool {
+	if a.bandBox.Width <= 0 || a.bandBox.Height <= 0 {
+		return false
+	}
+	place := a.panelPlacement()
+	x, y := p.X-place.X, p.Y-place.Y
+	if x < 0 || y < 0 || x >= a.bandBox.Width || y >= a.bandBox.Height {
+		return false
+	}
+	for _, r := range a.bandHits {
+		if x >= r.X && y >= r.Y && x < r.X+r.Width && y < r.Y+r.Height {
+			return false
+		}
+	}
+	return true
+}
+
+// bandBegin starts the band's press test for this frame: the band's box
+// comes from the last drawn frame, and its controls are added as they are
+// built (bandAdd). A frame that has not drawn the band yet measures
+// nothing, so no press can be taken for blank there.
+func (a *shelf) bandBegin(box ui.Rect) {
+	a.bandHits = a.bandHits[:0]
+	a.bandBox = mygo.Rectangle{}
+	if box.W <= 0 || box.H <= 0 {
+		return
+	}
+	a.bandBox = mygo.Rectangle{
+		X:      int(math.Round(float64(box.X))),
+		Y:      int(math.Round(float64(box.Y))),
+		Width:  int(math.Round(float64(box.W))),
+		Height: int(math.Round(float64(box.H))),
+	}
+}
+
+// bandAdd keeps one control's box for the press test, relative to the
+// band's own top-left — the shell's when the panel rests. The box is the
+// previous frame's, which is the frame the pointer was over.
+func (a *shelf) bandAdd(e ui.Element) {
+	r := e.Bounds()
+	if r.W <= 0 || r.H <= 0 {
+		return
+	}
+	a.bandHits = append(a.bandHits, mygo.Rectangle{
+		X:      int(math.Round(float64(r.X))) - a.bandBox.X,
+		Y:      int(math.Round(float64(r.Y))) - a.bandBox.Y,
+		Width:  int(math.Round(float64(r.W))),
+		Height: int(math.Round(float64(r.H))),
+	})
+}
+
+// startPanelFlip sends the panel to the side its new place calls for, from
+// the side it was dragged on. Only the top edge differs between the two
+// boxes, so the flight is a slide on the panel's own spring, read back by
+// panelPlacement on every drawn frame.
+func (a *shelf) startPanelFlip(from, to panelPlacement) {
+	if from.Y == to.Y && from.Up == to.Up {
+		return
+	}
+	a.flip = panelFlip{active: true, start: true, from: from.Y, to: to.Y}
+	if a.win != nil {
+		a.win.Invalidate()
+	}
+}
+
+// finishPanelFlip settles a side change at once.
+func (a *shelf) finishPanelFlip() { a.flip = panelFlip{} }
+
+// panelFlipStep advances a side change in the frame being drawn, on the
+// same spring the panel opens with; the value is the one panelPlacement
+// reads. Reduce Motion takes the new side at once, as every other spring
+// does. The flight ends when the spring has settled.
+func (a *shelf) panelFlipStep(zone ui.Element) {
+	if !a.flip.active {
+		return
+	}
+	if a.flip.start {
+		zone.Jump("flip", 0)
+		a.flip.start = false
+	}
+	k := min(max(zone.AnimateTo("flip", 1, panelOpenSpring), 0), 1)
+	a.flip.k = k
+	if k >= 1 || zone.Settled("flip") {
+		a.flip = panelFlip{}
+	}
+}
+
 // beginIslandPress arms a press on the closed island: the panel opens on the
 // release unless the press travels first (islandDragTick). The grab point is
 // kept inside the capsule box, so a press on the wider hover/live pill still
@@ -185,6 +318,9 @@ func (a *shelf) islandDragTick(p mygo.Point, down bool) bool {
 		a.syncMousePassThrough()
 		return true
 	}
+	if press.panel {
+		return a.panelDragTick(p, down)
+	}
 	// The release frame carries the pointer's final place, so the tap/move
 	// threshold is judged there too: a press that only travels as it lifts
 	// is a move, not a tap, and a drag ends where the button came up rather
@@ -212,6 +348,54 @@ func (a *shelf) islandDragTick(p mygo.Point, down bool) bool {
 		a.saveIslandSpot()
 	} else {
 		a.show(false)
+	}
+	a.syncDragGuard()
+	a.syncMousePassThrough()
+	return true
+}
+
+// panelDragTick follows a press that started on the open panel's band. The
+// panel keeps its grab point under the pointer and stays whole inside the
+// work area; the island is derived from wherever the panel then is, on the
+// side the press started on, and saved on the release like any island
+// move. A press that never travels islandDragStart is nothing at all: the
+// panel stays open on its page, and no click is synthesised.
+func (a *shelf) panelDragTick(p mygo.Point, down bool) bool {
+	press := &a.islandPress
+	moved := press.moved ||
+		abs(p.X-press.at.X) > islandDragStart || abs(p.Y-press.at.Y) > islandDragStart
+	if down && !moved {
+		return true
+	}
+	w, h := a.panelBox()
+	up := press.up
+	spot := panelDragSpot(p.X-press.grabX, p.Y-press.grabY, up, int(w), int(h),
+		a.workArea(), a.dispBounds, a.islandTop)
+	centre, top := a.dispBounds.X+spot.Centre, a.dispBounds.Y+spot.Top
+	if down {
+		if !press.moved {
+			press.moved, a.islandDrag = true, true
+			a.syncDragGuard()
+		}
+		a.moveIslandTo(centre, top)
+		return true
+	}
+	*press = islandPress{}
+	a.islandDrag = false
+	a.ownPress = false
+	if moved {
+		a.moveIslandTo(centre, top)
+		a.saveIslandSpot()
+		// The place the release leaves may have room below the island now:
+		// the panel is then due on the other side. It slides there on the
+		// open spring, never jumping with the box it was dragged on.
+		from := panelSpotSide(a.stripCenter(), a.anchorScreenTop(), islandIdleH,
+			a.workArea(), int(w), int(h), up)
+		to := panelSpot(a.stripCenter(), a.anchorScreenTop(), islandIdleH,
+			a.workArea(), int(w), int(h))
+		if to.Up != up {
+			a.startPanelFlip(from, to)
+		}
 	}
 	a.syncDragGuard()
 	a.syncMousePassThrough()

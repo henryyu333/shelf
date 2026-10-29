@@ -64,6 +64,9 @@ func islandShell(hasNotch bool, notchH int, style settings.ShellStyle) (island b
 // one place the style becomes pixels, so switching in 设置 is immediate.
 func (a *shelf) applyShellStyle() {
 	a.island, a.islandTop = islandShell(a.hasNotch, a.notchH, a.settings.ShellStyle)
+	// A side change measured against the old shell no longer means
+	// anything: the panel takes the new display and style at once.
+	a.finishPanelFlip()
 }
 
 // setShellStyle saves the 刘海样式 choice and redraws at once: the same

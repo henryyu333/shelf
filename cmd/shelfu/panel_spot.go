@@ -33,6 +33,16 @@ type panelPlacement struct {
 // display's visible frame. The island's own box is not clamped here: the
 // caller already keeps the island whole. Pure; unit-tested.
 func panelSpot(centre, anchorTop, anchorH int, work mygo.Rectangle, w, h int) panelPlacement {
+	if w <= 0 || h <= 0 {
+		return panelPlacement{W: w, H: h}
+	}
+	return panelSpotSide(centre, anchorTop, anchorH, work, w, h, anchorTop+h > work.Y+work.Height)
+}
+
+// panelSpotSide places the panel on a named side instead of the one the
+// island has room for: a drag keeps the side it started on, and the release
+// animates to the other one. Pure; unit-tested.
+func panelSpotSide(centre, anchorTop, anchorH int, work mygo.Rectangle, w, h int, up bool) panelPlacement {
 	p := panelPlacement{W: w, H: h}
 	if w <= 0 || h <= 0 {
 		return p
@@ -45,16 +55,16 @@ func panelSpot(centre, anchorTop, anchorH int, work mygo.Rectangle, w, h int) pa
 		centre = work.X
 	}
 	p.X = centre
-	if anchorTop+h <= work.Y+work.Height {
+	if !up {
 		// Room below the island: the panel hangs from the island's top edge
 		// as it always did.
 		p.Y = anchorTop
 		return p
 	}
-	// No room below: grow upward with the bottom edge on the island's. An
-	// island in the Dock's rows sits below the visible frame, so the panel
-	// is lifted off it: the box stays whole inside the work area, bottom
-	// on the work area's edge, as the plan allows.
+	// Grow upward with the bottom edge on the island's. An island in the
+	// Dock's rows sits below the visible frame, so the panel is lifted off
+	// it: the box stays whole inside the work area, bottom on the work
+	// area's edge, as the plan allows.
 	p.Up = true
 	p.Y = anchorTop + anchorH - h
 	if p.Y+h > work.Y+work.Height {
@@ -64,6 +74,41 @@ func panelSpot(centre, anchorTop, anchorH int, work mygo.Rectangle, w, h int) pa
 		p.Y = work.Y
 	}
 	return p
+}
+
+// panelDragSpot turns the panel box a drag asks for into the island spot
+// that holds it on side up. The box is clamped whole into the work area
+// first — that is the edge the panel stops at — and the island is then
+// clamped onto its display with clampIslandSpot, exactly as a drag of the
+// closed shell does. Deriving the island from the panel (instead of the
+// other way round) is what keeps the grab point under the pointer; the
+// panel is re-derived from the clamped island afterwards, so a clamp moves
+// both together instead of sliding the box off the island it hangs from.
+// bounds and work are display-relative or screen-relative together, as the
+// caller passes them. Pure; unit-tested.
+func panelDragSpot(x, y int, up bool, w, h int, work, bounds mygo.Rectangle, defTop int) islandSpot {
+	if w <= 0 || h <= 0 {
+		return islandSpot{}
+	}
+	// Horizontally the work area is the edge. A downward panel may sit on
+	// the island's own top row, which lies above the visible frame (the
+	// default row is 7, the menu bar 25), so its top stops at the island's
+	// lowest row instead; clampIslandSpot then holds it there too. An
+	// upward panel keeps wholly inside the work area.
+	minY := bounds.Y + defTop
+	if up {
+		minY = work.Y
+	}
+	x = min(max(x, work.X), max(work.X+work.Width-w, work.X))
+	y = min(max(y, minY), max(work.Y+work.Height-h, minY))
+	top := y
+	if up {
+		top = y + h - islandIdleH
+	}
+	return clampIslandSpot(islandSpot{
+		Centre: x + w/2 - bounds.X,
+		Top:    top - bounds.Y,
+	}, bounds, defTop)
 }
 
 // frameCoverX is the width a window centred on centre needs to hold a shell
@@ -103,7 +148,16 @@ func (a *shelf) upShellBottom(openK float32) int {
 // points under the island's own bottom. The drawn shell's bottom eases up
 // onto the clamped panel's, but the island it grows out of stays on screen
 // below it, so the frame reaches under both.
-func (a *shelf) upShellFloor() int { return a.anchorScreenTop() + islandIdleH + 2 }
+func (a *shelf) upShellFloor() int {
+	floor := a.anchorScreenTop() + islandIdleH + 2
+	if a.flip.active {
+		// A side change in flight slides the shell off that bottom, toward
+		// the downward panel's; the frame reaches under the shell actually
+		// drawn.
+		floor = max(floor, a.upShellBottom(1))
+	}
+	return floor
+}
 
 // panelPlacement is the opened panel's box on screen at the current level.
 // The hardware-notch shell has no island to move, so its panel keeps the
@@ -113,7 +167,24 @@ func (a *shelf) panelPlacement() panelPlacement {
 	if !a.island {
 		return panelPlacement{X: a.stripCenter() - int(w)/2, Y: a.anchorScreenTop(), W: int(w), H: int(h)}
 	}
-	return panelSpot(a.stripCenter(), a.anchorScreenTop(), islandIdleH, a.workArea(), int(w), int(h))
+	centre, top := a.stripCenter(), a.anchorScreenTop()
+	work := a.workArea()
+	if a.flip.active {
+		// The side change in flight: the box slides between the two sides'
+		// top edges, drawn from its bottom so the frame and the hit shape
+		// follow it whole.
+		p := panelSpot(centre, top, islandIdleH, work, int(w), int(h))
+		k := float64(min(max(a.flip.k, 0), 1))
+		p.Y = a.flip.from + int(math.Round(float64(a.flip.to-a.flip.from)*k))
+		p.Up = true
+		return p
+	}
+	if a.islandPress.panel {
+		// A press on the band owns the side it started on: a panel dragged
+		// with room below must not flip under the pointer mid-gesture.
+		return panelSpotSide(centre, top, islandIdleH, work, int(w), int(h), a.islandPress.up)
+	}
+	return panelSpot(centre, top, islandIdleH, work, int(w), int(h))
 }
 
 // panelUp reports whether this island leaves no room below for its panel.

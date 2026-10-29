@@ -702,6 +702,10 @@ func (a *shelf) view(c *ui.Context) {
 	a.fx.openK, a.fx.peekK = openK, peekK
 	a.fx.openMoving = a.win != nil && (!zone.Settled("open") || !zone.Settled("level"))
 	a.fx.peek = !expanded && peeked && !closing
+	// A panel drag released on the other side of the island slides there on
+	// the panel's own spring; the box, its frame and its hit shape all read
+	// the same value in this frame.
+	a.panelFlipStep(zone)
 	// A failed job shakes the capsule, and only the capsule; the drawn
 	// offset goes into fx before the frame and the mouse gate read it, so
 	// both follow the shape in the same frame it is drawn.
@@ -891,12 +895,16 @@ func (a *shelf) bandRow(c *ui.Context) {
 	row := ui.Row(c.Key("band")).Height(bandH).FillWidth().
 		Padding(0, sheetPadX, 0, sheetPadX).AlignItems(ui.Center)
 	var tabs map[pageID]ui.Element
+	// The band's blank stretches drag the panel; its controls keep their
+	// own presses. Their boxes are kept from this frame for the next one.
+	a.bandBegin(row.Bounds())
 	row.Children(func() {
 		ui.Row(c.Key("band-left")).Grow(1).MinWidth(0).Gap(gap).AlignItems(ui.Center).Children(func() {
 			tabs = map[pageID]ui.Element{}
 			for _, p := range a.tabPages() {
 				b := a.tabIcon(c, p, size, size*0.64, p.id() == a.currentPage().id())
 				tabs[p.id()] = b
+				a.bandAdd(b)
 				if b.Clicked() && p.id() != a.tab {
 					a.openPage(p.id())
 				}
@@ -913,11 +921,13 @@ func (a *shelf) bandRow(c *ui.Context) {
 				// running job (with its cancel); the band keeps only the
 				// settings button there, as the design draws it.
 				for _, act := range a.liveActivities() {
-					act.chip(c)
+					a.bandAdd(act.chip(c))
 				}
 			}
 			l := loc(c)
-			if a.iconButton(c, "settings", gearSymbol, l.PanelSettings()).Clicked() {
+			settings := a.iconButton(c, "settings", gearSymbol, l.PanelSettings())
+			a.bandAdd(settings)
+			if settings.Clicked() {
 				a.openSettings()
 			}
 		})
