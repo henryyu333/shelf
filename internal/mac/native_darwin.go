@@ -21,6 +21,7 @@ package mac
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"runtime"
 	"slices"
@@ -667,6 +668,12 @@ func ConfigureNotchWindow(window uintptr) {
 		}
 		send(w, "setIgnoresMouseEvents:", 0)
 		registerOverlayDropTypes(w)
+		// The panel keeps the arrow while the pointer is on it even
+		// though it is never the active app: the window underneath must
+		// not leave its own I-beam or zoom cursor behind.
+		if err := installPanelCursor(w); err != nil {
+			log.Printf("面板指针: %v", err)
+		}
 	})
 }
 
