@@ -237,6 +237,11 @@ func TestDragBandKeepsShelfInTheMenuBar(t *testing.T) {
 		a.dragging, a.pointerDrag, a.dropHot, a.inBand = true, true, false, false
 		a.setPeek(true) // the drag-hint widen the band shows
 		a.syncMousePassThrough()
+		// Previous smoke tests may leave the shared window ordered out.
+		// Prove the band of this visible test window, not the installed
+		// copy beneath an absent fixture.
+		a.win.ShowInactive()
+		mac.OrderOverlayFront(a.winH)
 	})
 	time.Sleep(700 * time.Millisecond)
 
