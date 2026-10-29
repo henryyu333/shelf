@@ -1117,6 +1117,9 @@ func (a *shelf) finishClose() {
 	a.tabAt = time.Time{}
 	a.tabOutK, a.tabOutShift = 1, 0
 	a.warming = ""
+	// The window was closed: the GPU may have trimmed the atlas and the
+	// thumbnails, so the next opening warms the pages again.
+	a.warmed = nil
 	a.level = 1
 	a.tab = pageOverview
 	a.overviewDue = time.Time{} // the retired view keeps no deadline

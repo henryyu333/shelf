@@ -242,14 +242,18 @@ const (
 	earR = 12
 )
 
-// Page switch "fade through": the page being left fades out over the first
-// tabOutShare of the switch, then the new page fades in, drifting tabShift
-// points from its icon's side, all in tabAnimation (240ms). The two never
-// overlap, so their different rows (a grid, a list) don't show through each
-// other.
+// Page switch: the page being left fades out over the first tabOutShare of
+// the switch while the arriving page starts its fade-in at tabInShare,
+// drifting tabShift points in from its icon's side, all in tabAnimation
+// (240ms). The two phases overlap, so no frame of a switch shows neither
+// page (the old 35% + 65% split hit zero on both sides at 84ms). The
+// overview runs the same timeline as any page.
 const (
 	tabShift    = 8
-	tabOutShare = 0.35
+	tabOutShare = 0.5
+	// tabInShare is where the arriving page starts to rise. It sits inside
+	// the fade-out: the leaving page is still partly drawn there.
+	tabInShare = 0.35
 	// pageWarmOpacity is above the painter's 0.001 cull and far below what
 	// an eye can see: the incoming page (and a page being warmed) is drawn
 	// this faintly so its glyph atlas, pictures and text layouts are ready
@@ -261,6 +265,16 @@ const (
 // view (a live window always reads a.tabPhase). Tests install it to render
 // the fading layers and their hit behaviour; production leaves it nil.
 var pageSwitchPhase func(a *shelf, now time.Time) float32
+
+// onPageBlock reports every page block a frame draws: the switch's
+// outgoing picture, its arriving page and the warm layer. Tests count them
+// to prove a page is never drawn by two layouts at once; production leaves
+// it nil.
+var onPageBlock func(a *shelf, id pageID, live bool)
+
+// onPageSwitch runs at the start of every pageBody build: a test groups the
+// blocks reported since the last call into the frame that drew them.
+var onPageSwitch func(a *shelf)
 
 // pageMotion is how far the current page switch has run and which side the
 // new page arrives from: the pages sit left to right as their icons do, so
@@ -278,6 +292,17 @@ func (a *shelf) pageMotion(now time.Time) (t, dir float32) {
 		dir = -1
 	}
 	return t, dir
+}
+
+// switchOpacities answers the two pages' opacities at t of the switch: the
+// page being left and the page arriving. The fade-in starts before the
+// fade-out ends, so out and in are never both zero — a switch has no blank
+// frame. Pure; unit-tested.
+func switchOpacities(t float32) (out, in float32) {
+	t = min(max(t, 0), 1)
+	out = 1 - ui.EaseIn(min(t/tabOutShare, 1))
+	in = ui.EaseOut(min(max((t-tabInShare)/(1-tabInShare), 0), 1))
+	return out, in
 }
 
 // tabPhase is how far a page switch has run, 0→1 over tabAnimation; 1 when
@@ -722,10 +747,12 @@ func (a *shelf) view(c *ui.Context) {
 			a.peekView(c, shellW, shellH, openK, peekK, shake, over, peekTarget == 0)
 			return
 		}
-		// Both levels are laid out at their final size and uncovered by the
-		// growing shell, so nothing inside reflows while the panel opens or
-		// changes level. levelK crossfades the two layers while the shell
-		// springs between their sizes.
+		// The panel is laid out once, at its final size, and uncovered by
+		// the growing shell: the band and the page switch sit in one
+		// frame, so a level change never reflows them and the band is
+		// never drawn twice. levelK only sizes the shell; the content of
+		// the overview and of a page share one transition timeline (see
+		// pageBody), clipped by the shell as it grows or shrinks.
 		clip := ui.Column(c.Key("panel-clip")).Width(shellW).Height(shellH).Clip().
 			AlignItems(ui.Center).Margin(top, 0, 0, 0)
 		reduce := c.Preferences().ReduceMotion
@@ -737,44 +764,28 @@ func (a *shelf) view(c *ui.Context) {
 		if a.visible && !reduce {
 			scale = 0.96 + 0.04*contentK
 		}
-		layer := func(level int, alpha float32) {
-			if alpha <= 0.001 && level != a.currentLevel() {
-				return
-			}
-			w, h := float32(overviewW), float32(overviewH)
-			switch {
-			case level == 2:
-				w, h = sheetW, sheetH
-			case a.snap.drawn:
-				w, h = snapW, snapH
-			}
-			outer := ui.Column(c.Key(fmt.Sprintf("panel-l%d", level))).Absolute().Top(0).Left(0).Right(0).
-				Height(h).AlignItems(ui.Center).Opacity(alpha)
-			if level != a.currentLevel() {
-				// The layer fading out is only a picture: it takes no
-				// pointer and never the keyboard.
-				outer.PassThrough()
-			}
+		clip.Children(func() {
+			outer := ui.Column(c.Key("panel-frame")).Absolute().Top(0).Left(0).Right(0).
+				Height(sheetH).AlignItems(ui.Center).Opacity(reveal)
 			outer.Children(func() {
-				inner := ui.Column(c.Key("panel")).Width(w).Height(h)
+				inner := ui.Column(c.Key("panel")).Width(sheetW).Height(sheetH)
+				if a.snap.panel || a.snap.drawn {
+					// The arrangement panel is its own box inside the same
+					// shell; it never draws the page frame.
+					inner = inner.Width(snapW).Height(snapH)
+				}
 				if !reduce && scale != 1 {
 					inner.TransformOrigin(0.5, 0).Scale(scale, scale)
 				}
 				inner.Children(func() {
-					switch {
-					case level == 2:
-						a.sheetView(c, over)
-					case a.snap.drawn:
+					if a.snap.panel || a.snap.drawn {
 						a.snapView(c)
-					default:
-						a.overviewView(c, over)
+						return
 					}
+					a.bandRow(c)
+					a.tabBody(c, over)
 				})
 			})
-		}
-		clip.Children(func() {
-			layer(1, reveal*(1-levelK))
-			layer(2, reveal*levelK)
 		})
 	})
 	// The light appearance's backdrop material follows the shell's box on
@@ -797,29 +808,6 @@ func (a *shelf) view(c *ui.Context) {
 			a.show(false)
 		}
 	}
-}
-
-// sheetView is the 440 × 250 page shell: the band with the page tabs, then
-// the page frame (actions row, 416 × 174 content, bottom pad).
-func (a *shelf) sheetView(c *ui.Context, over bool) {
-	ui.Column(c.Key("sheet")).Width(sheetW).Height(sheetH).Children(func() {
-		a.bandRow(c)
-		a.tabBody(c, over)
-	})
-}
-
-// overviewView is the 440 × 156 first level: the same band, then the
-// overview's 416 × 106 body.
-func (a *shelf) overviewView(c *ui.Context, over bool) {
-	ui.Column(c.Key("overview")).Width(overviewW).Height(overviewH).Children(func() {
-		a.bandRow(c)
-		ui.Box(c.Key("overview-gap")).Height(contentGap)
-		ui.Column(c.Key("overview-body")).Width(contentW).Height(overviewBodyH).Children(func() {
-			// The overview has no toast layer: its context line is the
-			// status surface, so a pill never lands on top of it.
-			a.overviewBody(c, over)
-		})
-	})
 }
 
 // tabMetrics is the page icons' size and gap inside the band's left ear.
@@ -997,78 +985,125 @@ func (a *shelf) tabBody(c *ui.Context, over bool) {
 	})
 }
 
-// pageBody is the page's own actions row and the 416 × 174 content box: the
-// page being left fades out over the first tabOutShare, then the new page
-// eases in and settles from its icon's side (see pageMotion). The band's
-// icons stay put, so a switch never reflows them.
+// pageBody is the page switch under the band: one block per page, the page
+// being left fading out while the arriving one fades in and settles from
+// its icon's side (see pageMotion and switchOpacities). The overview is one
+// of those pages, so both directions of a level change — and page to page —
+// run the same timeline, and a page is never drawn by two layouts at once.
+// The band's icons stay put, so a switch never reflows them.
 func (a *shelf) pageBody(c *ui.Context, over bool) {
+	if onPageSwitch != nil {
+		onPageSwitch(a)
+	}
 	t, dir := a.pageMotion(c.Now())
 	if c.Preferences().ReduceMotion {
 		dir = 0 // 减少动态效果：只淡入淡出，不位移
 	}
-	a.pageActions(c, t)
-	ui.Box(c.Key("page-gap")).Height(pageActionsGap)
-	ui.Column(c.Key("page-content")).Width(contentW).Height(contentH).Clip().Children(func() {
-		// The warm layer goes first, under the visible page: its rows are
-		// drawn (their glyphs, thumbnails and layouts are the point) but
-		// every hit lands on the page above it — the frame's own box and
-		// its children come later in the hit tree, so a click, a
-		// right-click, a drag or the wheel can never reach the unseen page.
-		a.warmPage(c)
-		if t < tabOutShare && a.tabFrom != a.tab {
-			// The outgoing page is only a picture: it takes no pointer and
-			// never the keyboard. It may already be disabled; an
-			// unregistered one is skipped instead of drawn half-built.
-			if out := a.page(a.tabFrom); out != nil && out.enabled() {
-				k := a.tabOutK * (1 - ui.EaseIn(t/tabOutShare))
-				// Same layout offset as the arriving page, for the same
-				// reason: a paint transform here would put clip masks back
-				// in the transition's way.
-				old := ui.Column(c.Key("frame-out")).Absolute().Top(0).
-					Left(a.tabOutShift * (1 - t/tabOutShare)).
-					Width(contentW).Height(contentH).PassThrough().Opacity(k)
-				old.Children(func() { out.body(c, over, false) })
-			}
+	outK, inK := switchOpacities(t)
+	var out panelPage
+	if t < 1 && a.tabFrom != a.tab {
+		// The page being left is a picture: it takes no pointer and never
+		// the keyboard.
+		if p := a.page(a.tabFrom); p != nil && p.enabled() {
+			out = p
+		}
+	}
+	box := ui.Column(c.Key("page-switch")).Width(contentW).Height(pageBodyH)
+	box.Children(func() {
+		if !(a.snap.panel || a.snap.drawn) {
+			a.warmPage(c)
+		}
+		if out != nil && outK > 0.001 {
+			old := ui.Column(c.Key("frame-out")).Absolute().Top(0).Left(0).
+				Width(contentW).Height(pageBodyH).PassThrough().Opacity(outK)
+			old.Children(func() { a.pageBlock(c, out, over, false) })
 		}
 		// The arrival offset is a layout offset, not a paint transform: a
 		// transformed subtree marks every clip inside it as moving, and the
 		// GPU builder then rasterises a fresh clip mask for each scrolled
-		// box every frame — the whole transition missed frames on this
-		// machine (measured 30-48ms frames). Positioned by layout, the same
-		// 8pt settle costs nothing: the clips stay shader rectangles.
-		frame := ui.Column(c.Key("frame")).Absolute().Top(0).Left(0).
-			Width(contentW).Height(contentH)
-		if t < 1 {
-			in := ui.EaseOut(max(t-tabOutShare, 0) / (1 - tabOutShare))
-			op := in
-			if t < tabOutShare {
-				// The page still hidden behind the fade is drawn, very
-				// faintly, so its glyphs and pictures reach the GPU while
-				// the frames are cheap instead of all at once on the
-				// frame it becomes visible — that first frame used to
-				// wait a full refresh or two on the glyph atlas upload.
-				op = max(op, pageWarmOpacity*(1-t/tabOutShare))
-			}
-			frame.Opacity(op).Left(tabShift * dir * (1 - in))
-			c.AnimationFrame()
+		// box every frame (measured 30-48ms frames). Positioned by layout,
+		// the same 8pt settle costs nothing.
+		op := inK
+		if t < tabInShare {
+			// The page still hidden behind the fade is drawn, very faintly,
+			// so its glyphs and pictures reach the GPU while the frames are
+			// cheap instead of all at once on the frame it becomes visible.
+			op = max(op, pageWarmOpacity*(1-t/tabInShare))
 		}
-		frame.Children(func() { a.currentPage().body(c, over, true) })
-		if t < tabOutShare {
+		cur := a.currentPage()
+		shift := tabShift * dir * (1 - inK)
+		if cur.id() == pageOverview {
+			// The overview arrives in its final spot: it never slides. Its
+			// otter and status text are what the user watches for, and the
+			// shell's own height change is the motion of this move.
+			shift = 0
+		}
+		frame := ui.Column(c.Key("frame")).Absolute().Top(0).Left(shift).
+			Width(contentW).Height(pageBodyH).Opacity(op)
+		frame.Children(func() { a.pageBlock(c, cur, over, true) })
+		if t < tabInShare {
 			// Neither page is a target in a switch's first phase: the old
 			// one is only a picture and the new one is still invisible
 			// (pageWarmOpacity). A plain box with no handler takes the hit
 			// chain, so nothing behind it — the fading pages included — can
-			// copy, drag, open a menu or move a slider. Once the new page
-			// starts to fade in (t >= tabOutShare) it takes the pointer.
+			// copy, drag, open a menu or move a slider.
 			ui.Box(c.Key("page-shield")).Absolute().Left(0).Top(0).Right(0).Bottom(0)
 		}
+	})
+	if t < 1 {
+		c.AnimationFrame()
+	}
+}
+
+// pageBlock draws one page at its own natural height inside the shared
+// switch region: the overview's 416 × 106 body under the band's 6pt gap, or
+// a page's 22pt action row, 4pt gap and 416 × 174 content box. Each block
+// is laid out at its final size; the shell's height clips it.
+func (a *shelf) pageBlock(c *ui.Context, p panelPage, over, live bool) {
+	if onPageBlock != nil {
+		onPageBlock(a, p.id(), live)
+	}
+	if p.id() == pageOverview {
+		ui.Column(c.Key("ov-block")).Width(contentW).Height(overviewBodyH + contentGap).Children(func() {
+			ui.Box(c.Key("ov-gap")).Height(contentGap)
+			ui.Column(c.Key("ov-body")).Width(contentW).Height(overviewBodyH).Children(func() {
+				a.overviewBody(c, over)
+			})
+		})
+		return
+	}
+	ui.Column(c.Key("block")).Width(contentW).Height(pageBodyH).Children(func() {
+		a.pageActions(c, p)
+		ui.Box(c.Key("page-gap")).Height(pageActionsGap)
+		ui.Column(c.Key("page-content")).Width(contentW).Height(contentH).Clip().Children(func() {
+			p.body(c, over, live)
+		})
+	})
+}
+
+// pageActions is the 22pt row above the page content: whatever the page
+// puts at its right edge (the clipboard's search box, the tray's selection
+// hint and clear, the tools page's pencil, the usage page's refresh). It is
+// part of the page's own block, so it fades with the page — a switch never
+// pops the controls ahead of the content or makes them vanish before it.
+func (a *shelf) pageActions(c *ui.Context, p panelPage) {
+	row := ui.Row(c.Key("page-actions-row")).Height(pageActionH).FillWidth().Gap(4).
+		AlignItems(ui.Center).Justify(ui.End)
+	row.Children(func() {
+		now := ui.Row(c.Key("page-actions")).Height(pageActionH).Gap(4).AlignItems(ui.Center)
+		now.Children(func() {
+			for _, e := range p.actions(c) {
+				_ = e
+			}
+		})
 	})
 }
 
 // warmPage draws the page queued for warming (see shelf.warmPage) at an
 // opacity nobody can see: building it here, while the panel rests, pays
 // its first text layout, thumbnail texture and glyph atlas upload before
-// the user switches to it.
+// the user switches to it. It lives inside the page switch, so the
+// overview draws it too.
 func (a *shelf) warmPage(c *ui.Context) {
 	id := a.warming
 	if id == "" || a.tabPhase(c.Now()) < 1 {
@@ -1089,7 +1124,11 @@ func (a *shelf) warmPage(c *ui.Context) {
 		a.warmDone()
 		return
 	}
-	hidden := ui.Column(c.Key("warm-" + string(id))).Absolute().Left(0).Right(0).Top(0).Bottom(0).
+	// The same box the page's own content draws in: below its action row
+	// and gap, so the hidden page's rows sit exactly where the real ones
+	// will and a pointer over it still reaches the page above.
+	hidden := ui.Column(c.Key("warm-" + string(id))).Absolute().Left(0).
+		Top(pageActionH + pageActionsGap).Width(contentW).Height(contentH).
 		PassThrough().Opacity(pageWarmOpacity)
 	hidden.Children(func() { p.body(c, false, false) })
 	a.warmed[id] = true
@@ -1107,10 +1146,11 @@ func (a *shelf) warmDone() {
 }
 
 // nextWarmPage queues one page that was never drawn, for the next frame's
-// warmPage. It runs from the monitor tick while the sheet rests, so the
+// warmPage. It runs from the monitor tick while the panel rests — the
+// overview included, since a level change is now a page switch — so the
 // first switch to every page is as cheap as the ones after it.
 func (a *shelf) nextWarmPage(now time.Time) {
-	if a.win == nil || a.warming != "" || !a.visible || a.currentLevel() != 2 || a.tabPhase(now) < 1 {
+	if a.win == nil || a.warming != "" || !a.visible || a.tabPhase(now) < 1 {
 		return
 	}
 	// Never warm while the shell itself is moving: the hidden page's first
@@ -1143,34 +1183,6 @@ func (a *shelf) sheetFrame(c *ui.Context, back, body func()) {
 		ui.Box(c.Key("page-gap")).Height(pageActionsGap)
 		ui.Column(c.Key("page-content")).Width(contentW).Height(contentH).Clip().Children(body)
 	})
-}
-
-// pageActions is the 22pt row above the page content: whatever the current
-// page puts at its right edge (the clipboard's search box, the tray's
-// selection hint and clear, the tools page's pencil, the usage page's
-// refresh). It fades in with the arriving page, so a switch never pops the
-// controls ahead of the content.
-func (a *shelf) pageActions(c *ui.Context, t float32) {
-	in := float32(1)
-	if t < 1 {
-		in = ui.EaseOut(max(t-tabOutShare, 0) / (1 - tabOutShare))
-	}
-	row := ui.Row(c.Key("page-actions-row")).Height(pageActionH).FillWidth().Gap(4).
-		AlignItems(ui.Center).Justify(ui.End)
-	row.Children(func() {
-		now := ui.Row(c.Key("page-actions")).Height(pageActionH).Gap(4).AlignItems(ui.Center).Opacity(in)
-		if in <= 0 {
-			now.PassThrough()
-		}
-		now.Children(func() {
-			for _, e := range a.currentPage().actions(c) {
-				_ = e
-			}
-		})
-	})
-	if t < 1 {
-		c.AnimationFrame()
-	}
 }
 
 // dropFrame is the page frame during a file drag: 投放 and its count in
@@ -1632,8 +1644,8 @@ func (a *shelf) capsuleView(c *ui.Context, shellW, shellH, _ /* openK */, peekK,
 
 // openPage is a page icon's click (or a card's 全部): the panel shows that
 // page. The overview is the short size; every other page grows the same
-// shell to 440 × 250. Switching between two pages at the same size is the
-// ordinary fade; crossing sizes springs the shell.
+// shell to 440 × 250. Both directions run the same page switch; the shell's
+// height springs on its own, while the content clips inside it.
 func (a *shelf) openPage(id pageID) {
 	p := a.page(id)
 	if p == nil || !p.enabled() {
@@ -1649,39 +1661,44 @@ func (a *shelf) openPage(id pageID) {
 		}
 		return
 	}
-	if a.tab != id {
-		a.tabFrom, a.tab = id, id
-		a.tabAt = time.Time{}
-		a.tabOutK, a.tabOutShift = 1, 0
-	}
-	a.setLevel(want)
+	a.setLevelPage(want, id)
 }
 
-// setLevel moves between the overview (1) and a page (2). The shell's size
-// springs to the new level; the content crossfades through levelK.
+// setLevel moves between the overview (1) and the pages (2), landing on
+// the page already current — the overview at level 1, the tray out of the
+// overview at level 2. The content runs the page switch; the shell's height
+// springs to the new size.
 func (a *shelf) setLevel(level int) {
+	a.setLevelPage(level, "")
+}
+
+// setLevelPage is setLevel landing on id when the level allows it (a page
+// for level 2; the overview is the only level-1 page).
+func (a *shelf) setLevelPage(level int, id pageID) {
 	level = min(max(level, 1), 2)
-	if a.level == level {
+	next := id
+	switch {
+	case level == 1:
+		next = pageOverview
+	case next == "" || next == pageOverview:
+		if a.tab == pageOverview || a.tab == "" {
+			next = pageTray
+		} else {
+			next = a.tab
+		}
+	}
+	if p := a.page(next); p == nil || !p.enabled() {
+		next = pageTray
+		if level == 1 {
+			next = pageOverview
+		}
+	}
+	from := a.currentPage().id()
+	if a.level == level && from == next {
 		return
 	}
 	a.level = level
-	if level == 1 {
-		// Backing out to the overview: the short layer is a fixed page,
-		// so the tab follows it (the level crossfade is the transition).
-		a.tab = pageOverview
-	} else if a.tab == pageOverview {
-		// Only a page has the tall size: a caller that grows the shell
-		// (the arrangement panel's restore, a drag) lands on the tray.
-		a.tab = pageTray
-	}
-	a.tabFrom = a.tab
-	a.tabAt = time.Time{}
-	a.tabOutK, a.tabOutShift = 1, 0
-	if level == 2 {
-		// A fresh opening warms every page again: textures and the glyph
-		// atlas may have been trimmed while the panel was closed.
-		a.warmed, a.warming = nil, ""
-	}
+	a.startPageSwitch(from, next)
 	a.reveal = ""
 	a.selection.keepExisting(a.visibleItems())
 	a.syncWindowFrame()
@@ -1741,6 +1758,45 @@ func clipboardItemMatches(it store.Item, query string) bool {
 	return strings.Contains(strings.ToLower(it.Text), query)
 }
 
+// startPageSwitch starts the page timeline from the page on screen to id:
+// the leaving page is recorded for the fade-out, the arriving one becomes
+// the tab, and the clock starts while the panel is open. An interrupted
+// switch carries the picture it had reached instead of flashing the page
+// that was arriving (see setTab's old rule, now shared by every entry).
+// While the panel is closed the pair is recorded without a clock: the next
+// opening draws the target at full strength.
+func (a *shelf) startPageSwitch(from, to pageID) {
+	now := time.Now()
+	outK, outShift := float32(1), float32(0)
+	if from != to && !a.tabAt.IsZero() {
+		if ph := a.tabPhase(now); ph < 1 {
+			if ph < tabOutShare && a.tabFrom != from && a.tabFrom != to {
+				// The switch that is running is still fading a page out
+				// (its incoming one has not started): carry that page and
+				// the opacity it has reached, so the fade continues where
+				// it is instead of rising again.
+				from = a.tabFrom
+				outK = a.tabOutK * (1 - ui.EaseIn(ph/tabOutShare))
+				outShift = a.tabOutShift * (1 - ph/tabOutShare)
+			} else {
+				_, in := switchOpacities(ph)
+				outK = in
+				dir := float32(1)
+				if a.pageIndex(to) < a.pageIndex(a.tabFrom) {
+					dir = -1
+				}
+				outShift = tabShift * dir * (1 - in)
+			}
+		}
+	}
+	a.tabFrom, a.tab = from, to
+	a.tabOutK, a.tabOutShift = outK, outShift
+	a.tabAt = time.Time{}
+	if from != to && a.visible {
+		a.tabAt = now
+	}
+}
+
 // setTab switches the panel's page. The selection follows: ids the new
 // list does not show are dropped, so a ⇧-range never spans rows the user
 // cannot see. Disabled or unregistered pages cannot be switched to.
@@ -1754,35 +1810,7 @@ func (a *shelf) setTab(id pageID) {
 		a.tab = id // a.tab was stale; nothing to fade from
 		return
 	}
-	now := time.Now()
-	outK, outShift, from := float32(1), float32(0), cur
-	if !a.tabAt.IsZero() {
-		// A switch is still running: carry the picture on screen into this
-		// one, so rapid switching continues instead of flashing the page
-		// that was arriving.
-		if ph := a.tabPhase(now); ph < 1 {
-			if ph < tabOutShare && a.tabFrom != cur {
-				// The switch that is running is still fading a page out
-				// (its incoming one has not started): carry that page and
-				// the opacity it has reached, so the fade continues where
-				// it is instead of rising again.
-				from = a.tabFrom
-				outK = a.tabOutK * (1 - ui.EaseIn(ph/tabOutShare))
-				// The picture is also part-way through its 8pt settle:
-				// start this fade at the offset it has reached.
-				outShift = a.tabOutShift * (1 - ph/tabOutShare)
-			} else {
-				in := ui.EaseOut((ph - tabOutShare) / (1 - tabOutShare))
-				outK = in
-				dir := float32(1)
-				if a.pageIndex(cur) < a.pageIndex(a.tabFrom) {
-					dir = -1
-				}
-				outShift = tabShift * dir * (1 - in)
-			}
-		}
-	}
-	a.tabFrom, a.tab, a.tabOutK, a.tabOutShift = from, id, outK, outShift
+	a.startPageSwitch(cur, id)
 	// The tab and the shell size stay one state: a page is the tall shell,
 	// the overview the short one. A caller that names a page without
 	// switching levels (a test seam, a shortcut) gets the size that page
@@ -1803,9 +1831,6 @@ func (a *shelf) setTab(id pageID) {
 	}
 	if cur == pageTools { // 离开工具页即退出编辑与目录
 		a.resetToolsEdit()
-	}
-	if a.visible {
-		a.tabAt = now
 	}
 	a.reveal = ""
 	a.selection.keepExisting(a.visibleItems())

@@ -4,6 +4,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -150,7 +151,15 @@ func (a *shelf) normalizeTab() {
 	// underneath: it never switches pages.
 	if a.currentLevel() == 1 && !a.snap.panel && !a.snap.drawn {
 		if p := a.page(pageOverview); p != nil && p.enabled() {
-			a.tab, a.tabFrom = pageOverview, pageOverview
+			if a.tab != pageOverview {
+				// A stale tab (a fresh load, a page switched off): the
+				// overview is the level's page, and nothing is fading.
+				a.tab, a.tabFrom = pageOverview, pageOverview
+				a.tabAt = time.Time{}
+				a.tabOutK, a.tabOutShift = 1, 0
+			}
+			// A switch out of a page keeps its outgoing page here: the
+			// fade-out draws it while the overview arrives.
 			return
 		}
 	}

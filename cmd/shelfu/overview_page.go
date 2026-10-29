@@ -142,34 +142,21 @@ func (a *shelf) overviewMeta(c *ui.Context) {
 // overviewOtter draws the otter picture for the current state, 74pt tall,
 // horizontally centred in the left column. The picture is static: a state
 // change is a different picture, and the caption above says what happened
-// so colour and drawing never carry the message alone.
+// so colour and drawing never carry the message alone. The otter never
+// moves on its own — it arrives with the overview's fade, so a switch from
+// a page puts it on its final spot instead of sliding into it.
 func (a *shelf) overviewOtter(c *ui.Context) {
 	name := a.otterState(c.Now())
 	box := ui.Row(c.Key("ov-otter")).Width(overviewLeftW).Grow(1).Justify(ui.Center).AlignItems(ui.End)
 	box.Children(func() {
 		if b := otterImage(name); b != nil {
-			img := ui.Image(c.Key("ov-otter-art"), b).Size(overviewLeftW, overviewOtterH).Fit(ui.Contain)
-			if !reduceMotion(c) && a.otterRiseAt(c.Now()) {
-				// 点开时轻轻升起一次：位移和淡入，不缩放、不变形。
-				k := box.AnimateTo("otter-rise", 1, ui.Animation{Spring: ui.SpringOptions{Duration: 420 * time.Millisecond, Bounce: 0}})
-				img.Translate(0, (1-k)*10)
-				img.Opacity(min(k*2, 1))
-				c.AnimationFrame()
-			}
+			ui.Image(c.Key("ov-otter-art"), b).Size(overviewLeftW, overviewOtterH).Fit(ui.Contain)
 			return
 		}
 		// No picture in this build: keep the column's shape, no glyph
 		// pretending to be the mascot.
 		ui.Box(c).Height(overviewOtterH)
 	})
-}
-
-// otterRiseAt reports whether the otter is in its opening rise.
-func (a *shelf) otterRiseAt(now time.Time) bool {
-	if a.animationStart.IsZero() {
-		return false
-	}
-	return now.Sub(a.animationStart) < 700*time.Millisecond
 }
 
 // overviewRecent is the right column's top half: the 「最近放入」 title with

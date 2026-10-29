@@ -115,14 +115,17 @@ const (
 // Springs: the shell's motion is one vocabulary of overshoot.
 var (
 	panelOpenSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 360 * time.Millisecond, Bounce: 0.18}}
-	levelSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: 360 * time.Millisecond, Bounce: 0.18}}
-	contentSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}, Delay: 40 * time.Millisecond}
-	openSpring      = ui.Animation{Spring: ui.SpringOptions{Duration: durCapsule, Bounce: 0.28}}
-	closeSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: durClose, Bounce: 0}}
-	peekSpring      = ui.Animation{Spring: ui.SpringOptions{Duration: durPeek, Bounce: 0.15}}
-	retractSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
-	shakeSpring     = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
-	fadeAnimation   = ui.Animation{Duration: durFade, Ease: ui.EaseOut}
+	// levelSpring sizes the shell between the overview and a page. No
+	// bounce: the two content phases already carry the change, and an
+	// overshooting height would bounce the content's clip line.
+	levelSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
+	contentSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}, Delay: 40 * time.Millisecond}
+	openSpring    = ui.Animation{Spring: ui.SpringOptions{Duration: durCapsule, Bounce: 0.28}}
+	closeSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: durClose, Bounce: 0}}
+	peekSpring    = ui.Animation{Spring: ui.SpringOptions{Duration: durPeek, Bounce: 0.15}}
+	retractSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
+	shakeSpring   = ui.Animation{Spring: ui.SpringOptions{Duration: 300 * time.Millisecond, Bounce: 0}}
+	fadeAnimation = ui.Animation{Duration: durFade, Ease: ui.EaseOut}
 )
 
 // reduceMotion reports whether motion should collapse to fades only.
