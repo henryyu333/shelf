@@ -342,6 +342,7 @@ func TestShellStyleSwitchIsImmediateAndSaved(t *testing.T) {
 func TestSettingsShellStyleRow(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "外形与提示")
 	if !view.HasText("刘海样式") || !view.HasText("没有刘海的屏幕总是显示为灵动岛") {
 		t.Fatalf("刘海样式 row or its caption is missing: %v", view.Texts())
 	}

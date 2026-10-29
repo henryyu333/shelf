@@ -572,6 +572,7 @@ func TestUsagePerSourceSettings(t *testing.T) {
 func TestUsageSettingsSection(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "AI 用量")
 	for _, want := range []string{"AI 用量", "在刘海里显示 AI 用量", "套餐额度", "本机用量", "Codex", "Claude Code", "omp", "—", "额度显示", "已用", "剩余", "不发给其他任何地方"} {
 		if !view.HasText(want) {
 			t.Fatalf("AI 用量 group missing %q; texts=%v", want, view.Texts())
@@ -613,6 +614,7 @@ func TestUsageSettingsSection(t *testing.T) {
 func TestUsageSettingsTableLockedWhileOff(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
 	a, view := newSettingsShelf(t) // AIUsage.Enabled defaults to false
+	openSettingsPage(t, view, "AI 用量")
 	before := a.settings.AIUsage
 	clickVisible(t, view, "套餐额度 Codex")
 	clickVisible(t, view, "本机用量 Claude Code")

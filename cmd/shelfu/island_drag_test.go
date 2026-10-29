@@ -367,6 +367,7 @@ func TestResetIslandPositionRow(t *testing.T) {
 		t.Fatalf("the saved place was not applied: %+v", got)
 	}
 	view := ui.NewTester(a.settingsView, settingsWidth, settingsHeight)
+	openSettingsPage(t, view, "外形与提示")
 	if !view.HasText("恢复默认位置") {
 		t.Fatalf("恢复默认位置 is missing: %v", view.Texts())
 	}

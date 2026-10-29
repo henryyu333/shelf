@@ -190,22 +190,6 @@ func permissionShortNames(ps []systemPermission) string {
 	return strings.Join(names, l.PermListSeparator())
 }
 
-// permissionsFootText is the note under the group's card: the whole list in
-// one sentence, built from the list itself so a fourth permission could
-// never leave a stale count or a stale name behind.
-func permissionsFootText(ps []systemPermission) string {
-	l := locales.In("")
-	if len(ps) > 0 {
-		l = ps[0].l
-	}
-	sep := l.PermListSeparator()
-	parts := make([]string, len(ps))
-	for i, p := range ps {
-		parts[i] = l.PermNoteItem(p.short, p.gloss)
-	}
-	return l.PermFoot(len(ps), strings.Join(parts, sep))
-}
-
 // permissionMenuItem is the tray item that replaces the old single
 // permission entry. It counts what is missing at menu-build time, because
 // the menu is rebuilt on every right-click.
@@ -453,19 +437,6 @@ func (a *shelf) relaunchShelf() {
 	}
 	a.stopPermissionFlow()
 	relaunchQuit()
-}
-
-// settingsPermissionsSection is the 系统权限 group, first in the window: one
-// row, one switch, one list. It is never tied to settings.json, so it keeps
-// working while the file is broken — exactly like the old 刘海拖放保护 row
-// did. The heading is also the title of its one row.
-func (a *shelf) settingsPermissionsSection(c *ui.Context) {
-	l := loc(c)
-	permissions := systemPermissionSet(l)
-	missing := missingPermissions(permissions)
-	settingsSection(c, l.PermTitle(), permissionsFootText(permissions), false, func() {
-		a.settingsPermissionSwitch(c, permissions, missing)
-	})
 }
 
 // permissionCaption is the row's caption: what is left, or which step of the

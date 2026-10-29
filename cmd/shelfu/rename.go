@@ -555,35 +555,35 @@ func (r *renameUI) inputSection(c *ui.Context) {
 	settingsSection(c, title, "", false, func() {
 		switch renameMode(r.mode) {
 		case modeReplace:
-			settingsRow(c, "rn-find", l.RenameFindRow(), func() {
+			settingsRow(c, "rn-find", l.RenameFindRow(), "", func() {
 				r.field(c, "rn-find-in", &r.find, l.RenameFindPlaceholder())
 			})
 			settingsSep(c, "rn-find")
-			settingsRow(c, "rn-with", l.RenameWithRow(), func() {
+			settingsRow(c, "rn-with", l.RenameWithRow(), "", func() {
 				r.field(c, "rn-with-in", &r.replace, l.RenameWithPlaceholder())
 			})
 		case modeAdd:
-			settingsRow(c, "rn-add", l.RenameAddRow(), func() {
+			settingsRow(c, "rn-add", l.RenameAddRow(), "", func() {
 				r.field(c, "rn-add-in", &r.addText, l.RenameAddPlaceholder())
 			})
 			settingsSep(c, "rn-add")
-			settingsRow(c, "rn-addpos", l.RenamePositionRow(), func() {
+			settingsRow(c, "rn-addpos", l.RenamePositionRow(), "", func() {
 				ui.Segmented(c, &r.addSeg, l.RenameBefore(), l.RenameAfter()).Label(l.RenameAddPosLabel())
 			})
 		default: // modeFormat
-			settingsRow(c, "rn-name", l.RenameNameRow(), func() {
+			settingsRow(c, "rn-name", l.RenameNameRow(), "", func() {
 				r.field(c, "rn-name-in", &r.fmtName, l.RenameNamePlaceholder())
 			})
 			settingsSep(c, "rn-name")
-			settingsRow(c, "rn-start", l.RenameStartRow(), func() {
+			settingsRow(c, "rn-start", l.RenameStartRow(), "", func() {
 				r.field(c, "rn-start-in", &r.fmtStartText, "1")
 			})
 			settingsSep(c, "rn-start")
-			settingsRow(c, "rn-digits", l.RenameDigitsRow(), func() {
+			settingsRow(c, "rn-digits", l.RenameDigitsRow(), "", func() {
 				ui.Segmented(c, &r.digitsSeg, "1", "2", "3", "4").Label(l.RenameDigitsLabel())
 			})
 			settingsSep(c, "rn-digits")
-			settingsRow(c, "rn-pos", l.RenamePosRow(), func() {
+			settingsRow(c, "rn-pos", l.RenamePosRow(), "", func() {
 				ui.Segmented(c, &r.posSeg, l.RenameBefore(), l.RenameAfter()).Label(l.RenamePosLabel())
 			})
 		}

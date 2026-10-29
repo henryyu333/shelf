@@ -229,15 +229,7 @@ func (a *shelf) ready(show bool) {
 		defer a.tray.SetMenu(nil)
 		a.tray.PopUpMenu()
 	})
-	if err := mygo.GlobalShortcut.Register(trayShortcut, a.toggle); err != nil {
-		a.notice(a.appLoc().StartupShortcutBusy(err.Error()))
-	}
-	if err := mygo.GlobalShortcut.Register(clipboardShortcut, a.openClipboardSearch); err != nil {
-		a.notice(a.appLoc().StartupClipboardShortcutBusy(err.Error()))
-	}
-	if err := mygo.GlobalShortcut.Register(ocrShortcut, a.startScreenOCR); err != nil {
-		a.notice(a.appLoc().StartupCaptureShortcutBusy(err.Error()))
-	}
+	a.registerShortcuts()
 	a.applyClipboardHistory()
 	a.modules = append(a.modules, &retentionModule{host: a})
 	a.np = &nowPlayingModule{host: a}

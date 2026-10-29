@@ -619,18 +619,6 @@ func (msgs Messages) SettingsShortcutOCR() string {
 	return Catalog.Format(msgs.locale, "settingsShortcutOCR", nil)
 }
 
-// SettingsVersionLine says "{name} {version}"
-// in the language the app shows.
-func SettingsVersionLine(name string, version string) string {
-	return In(i18n.Locale()).SettingsVersionLine(name, version)
-}
-
-// SettingsVersionLine says "{name} {version}"
-// in the language of msgs.
-func (msgs Messages) SettingsVersionLine(name string, version string) string {
-	return Catalog.Format(msgs.locale, "settingsVersionLine", map[string]any{"name": name, "version": version})
-}
-
 // SettingsOpenDataFolder says "打开数据文件夹"
 // in the language the app shows.
 func SettingsOpenDataFolder() string { return In(i18n.Locale()).SettingsOpenDataFolder() }
@@ -771,18 +759,6 @@ func (msgs Messages) PermScreenDetail() string {
 	return Catalog.Format(msgs.locale, "permScreenDetail", nil)
 }
 
-// PermNoteItem says "{short}（{gloss}）"
-// in the language the app shows.
-func PermNoteItem(short string, gloss string) string {
-	return In(i18n.Locale()).PermNoteItem(short, gloss)
-}
-
-// PermNoteItem says "{short}（{gloss}）"
-// in the language of msgs.
-func (msgs Messages) PermNoteItem(short string, gloss string) string {
-	return Catalog.Format(msgs.locale, "permNoteItem", map[string]any{"short": short, "gloss": gloss})
-}
-
 // PermListSeparator says "、"
 // in the language the app shows.
 func PermListSeparator() string { return In(i18n.Locale()).PermListSeparator() }
@@ -791,16 +767,6 @@ func PermListSeparator() string { return In(i18n.Locale()).PermListSeparator() }
 // in the language of msgs.
 func (msgs Messages) PermListSeparator() string {
 	return Catalog.Format(msgs.locale, "permListSeparator", nil)
-}
-
-// PermFoot says "一个开关开启全部 {count, number, ::group-off} 项：{items}。macOS …"
-// in the language the app shows.
-func PermFoot(count int, items string) string { return In(i18n.Locale()).PermFoot(count, items) }
-
-// PermFoot says "一个开关开启全部 {count, number, ::group-off} 项：{items}。macOS …"
-// in the language of msgs.
-func (msgs Messages) PermFoot(count int, items string) string {
-	return Catalog.Format(msgs.locale, "permFoot", map[string]any{"count": count, "items": items})
 }
 
 // PermMissing says "还差 {count, number, ::group-off} 项：{names}"
@@ -5923,4 +5889,674 @@ func MusicEmpty() string { return In(i18n.Locale()).MusicEmpty() }
 // in the language of msgs.
 func (msgs Messages) MusicEmpty() string {
 	return Catalog.Format(msgs.locale, "musicEmpty", nil)
+}
+
+// SettingsGeneralHero says "启动、语言和更新。"
+// in the language the app shows.
+func SettingsGeneralHero() string { return In(i18n.Locale()).SettingsGeneralHero() }
+
+// SettingsGeneralHero says "启动、语言和更新。"
+// in the language of msgs.
+func (msgs Messages) SettingsGeneralHero() string {
+	return Catalog.Format(msgs.locale, "settingsGeneralHero", nil)
+}
+
+// SettingsStartupGroup says "启动"
+// in the language the app shows.
+func SettingsStartupGroup() string { return In(i18n.Locale()).SettingsStartupGroup() }
+
+// SettingsStartupGroup says "启动"
+// in the language of msgs.
+func (msgs Messages) SettingsStartupGroup() string {
+	return Catalog.Format(msgs.locale, "settingsStartupGroup", nil)
+}
+
+// SettingsUpdateGroup says "更新"
+// in the language the app shows.
+func SettingsUpdateGroup() string { return In(i18n.Locale()).SettingsUpdateGroup() }
+
+// SettingsUpdateGroup says "更新"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateGroup() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateGroup", nil)
+}
+
+// SettingsUpdateCheckRow says "检查更新"
+// in the language the app shows.
+func SettingsUpdateCheckRow() string { return In(i18n.Locale()).SettingsUpdateCheckRow() }
+
+// SettingsUpdateCheckRow says "检查更新"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateCheckRow() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateCheckRow", nil)
+}
+
+// SettingsUpdateCheckNow says "现在检查"
+// in the language the app shows.
+func SettingsUpdateCheckNow() string { return In(i18n.Locale()).SettingsUpdateCheckNow() }
+
+// SettingsUpdateCheckNow says "现在检查"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateCheckNow() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateCheckNow", nil)
+}
+
+// SettingsUpdateNever says "尚未检查"
+// in the language the app shows.
+func SettingsUpdateNever() string { return In(i18n.Locale()).SettingsUpdateNever() }
+
+// SettingsUpdateNever says "尚未检查"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateNever() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateNever", nil)
+}
+
+// SettingsUpdateLast says "上次检查：{when} · {result}"
+// in the language the app shows.
+func SettingsUpdateLast(when string, result string) string {
+	return In(i18n.Locale()).SettingsUpdateLast(when, result)
+}
+
+// SettingsUpdateLast says "上次检查：{when} · {result}"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateLast(when string, result string) string {
+	return Catalog.Format(msgs.locale, "settingsUpdateLast", map[string]any{"when": when, "result": result})
+}
+
+// SettingsUpdateToday says "今天 {time}"
+// in the language the app shows.
+func SettingsUpdateToday(time_ string) string { return In(i18n.Locale()).SettingsUpdateToday(time_) }
+
+// SettingsUpdateToday says "今天 {time}"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateToday(time_ string) string {
+	return Catalog.Format(msgs.locale, "settingsUpdateToday", map[string]any{"time": time_})
+}
+
+// SettingsUpdateYesterday says "昨天 {time}"
+// in the language the app shows.
+func SettingsUpdateYesterday(time_ string) string {
+	return In(i18n.Locale()).SettingsUpdateYesterday(time_)
+}
+
+// SettingsUpdateYesterday says "昨天 {time}"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateYesterday(time_ string) string {
+	return Catalog.Format(msgs.locale, "settingsUpdateYesterday", map[string]any{"time": time_})
+}
+
+// SettingsUpdateOn says "{date}"
+// in the language the app shows.
+func SettingsUpdateOn(date string) string { return In(i18n.Locale()).SettingsUpdateOn(date) }
+
+// SettingsUpdateOn says "{date}"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateOn(date string) string {
+	return Catalog.Format(msgs.locale, "settingsUpdateOn", map[string]any{"date": date})
+}
+
+// SettingsUpdateResultLatest says "已是最新版本"
+// in the language the app shows.
+func SettingsUpdateResultLatest() string { return In(i18n.Locale()).SettingsUpdateResultLatest() }
+
+// SettingsUpdateResultLatest says "已是最新版本"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateResultLatest() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateResultLatest", nil)
+}
+
+// SettingsUpdateResultAvailable says "发现新版本 v{version}"
+// in the language the app shows.
+func SettingsUpdateResultAvailable(version string) string {
+	return In(i18n.Locale()).SettingsUpdateResultAvailable(version)
+}
+
+// SettingsUpdateResultAvailable says "发现新版本 v{version}"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateResultAvailable(version string) string {
+	return Catalog.Format(msgs.locale, "settingsUpdateResultAvailable", map[string]any{"version": version})
+}
+
+// SettingsUpdateResultFailed says "检查失败"
+// in the language the app shows.
+func SettingsUpdateResultFailed() string { return In(i18n.Locale()).SettingsUpdateResultFailed() }
+
+// SettingsUpdateResultFailed says "检查失败"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateResultFailed() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateResultFailed", nil)
+}
+
+// SettingsUpdateResultDisabled says "此构建不能检查更新"
+// in the language the app shows.
+func SettingsUpdateResultDisabled() string { return In(i18n.Locale()).SettingsUpdateResultDisabled() }
+
+// SettingsUpdateResultDisabled says "此构建不能检查更新"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateResultDisabled() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateResultDisabled", nil)
+}
+
+// SettingsUpdateFoot says "有新版本下载好后，刘海总览里会显示「新版本已就绪 · …"
+// in the language the app shows.
+func SettingsUpdateFoot() string { return In(i18n.Locale()).SettingsUpdateFoot() }
+
+// SettingsUpdateFoot says "有新版本下载好后，刘海总览里会显示「新版本已就绪 · …"
+// in the language of msgs.
+func (msgs Messages) SettingsUpdateFoot() string {
+	return Catalog.Format(msgs.locale, "settingsUpdateFoot", nil)
+}
+
+// SettingsNotchPage says "外形与提示"
+// in the language the app shows.
+func SettingsNotchPage() string { return In(i18n.Locale()).SettingsNotchPage() }
+
+// SettingsNotchPage says "外形与提示"
+// in the language of msgs.
+func (msgs Messages) SettingsNotchPage() string {
+	return Catalog.Format(msgs.locale, "settingsNotchPage", nil)
+}
+
+// SettingsNotchHero says "ShelfU 长什么样，以及收起时刘海会告诉你什么。"
+// in the language the app shows.
+func SettingsNotchHero() string { return In(i18n.Locale()).SettingsNotchHero() }
+
+// SettingsNotchHero says "ShelfU 长什么样，以及收起时刘海会告诉你什么。"
+// in the language of msgs.
+func (msgs Messages) SettingsNotchHero() string {
+	return Catalog.Format(msgs.locale, "settingsNotchHero", nil)
+}
+
+// SettingsShapeGroup says "外形"
+// in the language the app shows.
+func SettingsShapeGroup() string { return In(i18n.Locale()).SettingsShapeGroup() }
+
+// SettingsShapeGroup says "外形"
+// in the language of msgs.
+func (msgs Messages) SettingsShapeGroup() string {
+	return Catalog.Format(msgs.locale, "settingsShapeGroup", nil)
+}
+
+// SettingsNotchFoot says "展开后的外观跟随系统：深色时纯黑，浅色时深色毛玻璃。"
+// in the language the app shows.
+func SettingsNotchFoot() string { return In(i18n.Locale()).SettingsNotchFoot() }
+
+// SettingsNotchFoot says "展开后的外观跟随系统：深色时纯黑，浅色时深色毛玻璃。"
+// in the language of msgs.
+func (msgs Messages) SettingsNotchFoot() string {
+	return Catalog.Format(msgs.locale, "settingsNotchFoot", nil)
+}
+
+// SettingsHoverGroup says "悬停刘海时"
+// in the language the app shows.
+func SettingsHoverGroup() string { return In(i18n.Locale()).SettingsHoverGroup() }
+
+// SettingsHoverGroup says "悬停刘海时"
+// in the language of msgs.
+func (msgs Messages) SettingsHoverGroup() string {
+	return Catalog.Format(msgs.locale, "settingsHoverGroup", nil)
+}
+
+// SettingsWindowGroup says "窗口"
+// in the language the app shows.
+func SettingsWindowGroup() string { return In(i18n.Locale()).SettingsWindowGroup() }
+
+// SettingsWindowGroup says "窗口"
+// in the language of msgs.
+func (msgs Messages) SettingsWindowGroup() string {
+	return Catalog.Format(msgs.locale, "settingsWindowGroup", nil)
+}
+
+// SettingsTrayHero says "拖到刘海的文件和转换结果都放在这里。"
+// in the language the app shows.
+func SettingsTrayHero() string { return In(i18n.Locale()).SettingsTrayHero() }
+
+// SettingsTrayHero says "拖到刘海的文件和转换结果都放在这里。"
+// in the language of msgs.
+func (msgs Messages) SettingsTrayHero() string {
+	return Catalog.Format(msgs.locale, "settingsTrayHero", nil)
+}
+
+// SettingsTidyGroup says "整理"
+// in the language the app shows.
+func SettingsTidyGroup() string { return In(i18n.Locale()).SettingsTidyGroup() }
+
+// SettingsTidyGroup says "整理"
+// in the language of msgs.
+func (msgs Messages) SettingsTidyGroup() string {
+	return Catalog.Format(msgs.locale, "settingsTidyGroup", nil)
+}
+
+// SettingsClipHero says "复制过的文字、链接和截图，都留在你的 Mac 上。"
+// in the language the app shows.
+func SettingsClipHero() string { return In(i18n.Locale()).SettingsClipHero() }
+
+// SettingsClipHero says "复制过的文字、链接和截图，都留在你的 Mac 上。"
+// in the language of msgs.
+func (msgs Messages) SettingsClipHero() string {
+	return Catalog.Format(msgs.locale, "settingsClipHero", nil)
+}
+
+// SettingsClipGroup says "记录"
+// in the language the app shows.
+func SettingsClipGroup() string { return In(i18n.Locale()).SettingsClipGroup() }
+
+// SettingsClipGroup says "记录"
+// in the language of msgs.
+func (msgs Messages) SettingsClipGroup() string {
+	return Catalog.Format(msgs.locale, "settingsClipGroup", nil)
+}
+
+// SettingsClipFoot says "在剪贴板条目上右键可添加。密码管理器标为隐私的内容本来就不会记录。"
+// in the language the app shows.
+func SettingsClipFoot() string { return In(i18n.Locale()).SettingsClipFoot() }
+
+// SettingsClipFoot says "在剪贴板条目上右键可添加。密码管理器标为隐私的内容本来就不会记录。"
+// in the language of msgs.
+func (msgs Messages) SettingsClipFoot() string {
+	return Catalog.Format(msgs.locale, "settingsClipFoot", nil)
+}
+
+// SettingsAIHero says "在刘海里看 Claude Code、Codex 的套餐额度和本机用量。"
+// in the language the app shows.
+func SettingsAIHero() string { return In(i18n.Locale()).SettingsAIHero() }
+
+// SettingsAIHero says "在刘海里看 Claude Code、Codex 的套餐额度和本机用量。"
+// in the language of msgs.
+func (msgs Messages) SettingsAIHero() string {
+	return Catalog.Format(msgs.locale, "settingsAIHero", nil)
+}
+
+// SettingsAIEnableGroup says "显示"
+// in the language the app shows.
+func SettingsAIEnableGroup() string { return In(i18n.Locale()).SettingsAIEnableGroup() }
+
+// SettingsAIEnableGroup says "显示"
+// in the language of msgs.
+func (msgs Messages) SettingsAIEnableGroup() string {
+	return Catalog.Format(msgs.locale, "settingsAIEnableGroup", nil)
+}
+
+// SettingsAISourcesGroup says "数据来源"
+// in the language the app shows.
+func SettingsAISourcesGroup() string { return In(i18n.Locale()).SettingsAISourcesGroup() }
+
+// SettingsAISourcesGroup says "数据来源"
+// in the language of msgs.
+func (msgs Messages) SettingsAISourcesGroup() string {
+	return Catalog.Format(msgs.locale, "settingsAISourcesGroup", nil)
+}
+
+// SettingsKeysHero says "点一下快捷键，再按新的组合键。按 Delete 清空。"
+// in the language the app shows.
+func SettingsKeysHero() string { return In(i18n.Locale()).SettingsKeysHero() }
+
+// SettingsKeysHero says "点一下快捷键，再按新的组合键。按 Delete 清空。"
+// in the language of msgs.
+func (msgs Messages) SettingsKeysHero() string {
+	return Catalog.Format(msgs.locale, "settingsKeysHero", nil)
+}
+
+// SettingsKeysGlobalGroup says "全局快捷键"
+// in the language the app shows.
+func SettingsKeysGlobalGroup() string { return In(i18n.Locale()).SettingsKeysGlobalGroup() }
+
+// SettingsKeysGlobalGroup says "全局快捷键"
+// in the language of msgs.
+func (msgs Messages) SettingsKeysGlobalGroup() string {
+	return Catalog.Format(msgs.locale, "settingsKeysGlobalGroup", nil)
+}
+
+// SettingsKeysNotchGroup says "在刘海里"
+// in the language the app shows.
+func SettingsKeysNotchGroup() string { return In(i18n.Locale()).SettingsKeysNotchGroup() }
+
+// SettingsKeysNotchGroup says "在刘海里"
+// in the language of msgs.
+func (msgs Messages) SettingsKeysNotchGroup() string {
+	return Catalog.Format(msgs.locale, "settingsKeysNotchGroup", nil)
+}
+
+// SettingsKeysFoot says "和其他应用或系统快捷键冲突时，这一行显示「已被占用」，保留原来的组合。"
+// in the language the app shows.
+func SettingsKeysFoot() string { return In(i18n.Locale()).SettingsKeysFoot() }
+
+// SettingsKeysFoot says "和其他应用或系统快捷键冲突时，这一行显示「已被占用」，保留原来的组合。"
+// in the language of msgs.
+func (msgs Messages) SettingsKeysFoot() string {
+	return Catalog.Format(msgs.locale, "settingsKeysFoot", nil)
+}
+
+// SettingsShortcutOpenTray says "打开托盘"
+// in the language the app shows.
+func SettingsShortcutOpenTray() string { return In(i18n.Locale()).SettingsShortcutOpenTray() }
+
+// SettingsShortcutOpenTray says "打开托盘"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutOpenTray() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutOpenTray", nil)
+}
+
+// SettingsShortcutTrayCaption says "默认不设置"
+// in the language the app shows.
+func SettingsShortcutTrayCaption() string { return In(i18n.Locale()).SettingsShortcutTrayCaption() }
+
+// SettingsShortcutTrayCaption says "默认不设置"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutTrayCaption() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutTrayCaption", nil)
+}
+
+// SettingsShortcutNoShortcut says "点一下设置"
+// in the language the app shows.
+func SettingsShortcutNoShortcut() string { return In(i18n.Locale()).SettingsShortcutNoShortcut() }
+
+// SettingsShortcutNoShortcut says "点一下设置"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutNoShortcut() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutNoShortcut", nil)
+}
+
+// SettingsShortcutRecording says "按下新的组合键"
+// in the language the app shows.
+func SettingsShortcutRecording() string { return In(i18n.Locale()).SettingsShortcutRecording() }
+
+// SettingsShortcutRecording says "按下新的组合键"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutRecording() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutRecording", nil)
+}
+
+// SettingsShortcutBusy says "已被占用，保留原来的组合"
+// in the language the app shows.
+func SettingsShortcutBusy() string { return In(i18n.Locale()).SettingsShortcutBusy() }
+
+// SettingsShortcutBusy says "已被占用，保留原来的组合"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutBusy() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutBusy", nil)
+}
+
+// SettingsShortcutEscRow says "返回 / 收起"
+// in the language the app shows.
+func SettingsShortcutEscRow() string { return In(i18n.Locale()).SettingsShortcutEscRow() }
+
+// SettingsShortcutEscRow says "返回 / 收起"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutEscRow() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutEscRow", nil)
+}
+
+// SettingsShortcutEscCaption says "页面 → 总览 → 收起"
+// in the language the app shows.
+func SettingsShortcutEscCaption() string { return In(i18n.Locale()).SettingsShortcutEscCaption() }
+
+// SettingsShortcutEscCaption says "页面 → 总览 → 收起"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutEscCaption() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutEscCaption", nil)
+}
+
+// SettingsShortcutSelectRow says "剪贴板里选择并复制"
+// in the language the app shows.
+func SettingsShortcutSelectRow() string { return In(i18n.Locale()).SettingsShortcutSelectRow() }
+
+// SettingsShortcutSelectRow says "剪贴板里选择并复制"
+// in the language of msgs.
+func (msgs Messages) SettingsShortcutSelectRow() string {
+	return Catalog.Format(msgs.locale, "settingsShortcutSelectRow", nil)
+}
+
+// SettingsPermHero says "都在你的 Mac 上处理，不上传。"
+// in the language the app shows.
+func SettingsPermHero() string { return In(i18n.Locale()).SettingsPermHero() }
+
+// SettingsPermHero says "都在你的 Mac 上处理，不上传。"
+// in the language of msgs.
+func (msgs Messages) SettingsPermHero() string {
+	return Catalog.Format(msgs.locale, "settingsPermHero", nil)
+}
+
+// SettingsPermNeeded says "需要 {count, number, ::group-off} 项"
+// in the language the app shows.
+func SettingsPermNeeded(count int) string { return In(i18n.Locale()).SettingsPermNeeded(count) }
+
+// SettingsPermNeeded says "需要 {count, number, ::group-off} 项"
+// in the language of msgs.
+func (msgs Messages) SettingsPermNeeded(count int) string {
+	return Catalog.Format(msgs.locale, "settingsPermNeeded", map[string]any{"count": count})
+}
+
+// SettingsPermOn says "已开启"
+// in the language the app shows.
+func SettingsPermOn() string { return In(i18n.Locale()).SettingsPermOn() }
+
+// SettingsPermOn says "已开启"
+// in the language of msgs.
+func (msgs Messages) SettingsPermOn() string {
+	return Catalog.Format(msgs.locale, "settingsPermOn", nil)
+}
+
+// SettingsPermOff says "未开启"
+// in the language the app shows.
+func SettingsPermOff() string { return In(i18n.Locale()).SettingsPermOff() }
+
+// SettingsPermOff says "未开启"
+// in the language of msgs.
+func (msgs Messages) SettingsPermOff() string {
+	return Catalog.Format(msgs.locale, "settingsPermOff", nil)
+}
+
+// SettingsPermFoot says "第一次使用，或在系统设置里关掉过开关时，在这里重新开启。"
+// in the language the app shows.
+func SettingsPermFoot() string { return In(i18n.Locale()).SettingsPermFoot() }
+
+// SettingsPermFoot says "第一次使用，或在系统设置里关掉过开关时，在这里重新开启。"
+// in the language of msgs.
+func (msgs Messages) SettingsPermFoot() string {
+	return Catalog.Format(msgs.locale, "settingsPermFoot", nil)
+}
+
+// SettingsAboutPage says "关于"
+// in the language the app shows.
+func SettingsAboutPage() string { return In(i18n.Locale()).SettingsAboutPage() }
+
+// SettingsAboutPage says "关于"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutPage() string {
+	return Catalog.Format(msgs.locale, "settingsAboutPage", nil)
+}
+
+// SettingsAboutHero says "关于 ShelfU"
+// in the language the app shows.
+func SettingsAboutHero() string { return In(i18n.Locale()).SettingsAboutHero() }
+
+// SettingsAboutHero says "关于 ShelfU"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutHero() string {
+	return Catalog.Format(msgs.locale, "settingsAboutHero", nil)
+}
+
+// SettingsAboutHeroLine says "住在 Mac 刘海里的工具。"
+// in the language the app shows.
+func SettingsAboutHeroLine() string { return In(i18n.Locale()).SettingsAboutHeroLine() }
+
+// SettingsAboutHeroLine says "住在 Mac 刘海里的工具。"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutHeroLine() string {
+	return Catalog.Format(msgs.locale, "settingsAboutHeroLine", nil)
+}
+
+// SettingsAboutVersion says "版本 {version}（{arch}）"
+// in the language the app shows.
+func SettingsAboutVersion(version string, arch string) string {
+	return In(i18n.Locale()).SettingsAboutVersion(version, arch)
+}
+
+// SettingsAboutVersion says "版本 {version}（{arch}）"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutVersion(version string, arch string) string {
+	return Catalog.Format(msgs.locale, "settingsAboutVersion", map[string]any{"version": version, "arch": arch})
+}
+
+// SettingsAboutTagline says "托盘、剪贴板、实时活动和小工具，都从刘海里长出来。"
+// in the language the app shows.
+func SettingsAboutTagline() string { return In(i18n.Locale()).SettingsAboutTagline() }
+
+// SettingsAboutTagline says "托盘、剪贴板、实时活动和小工具，都从刘海里长出来。"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutTagline() string {
+	return Catalog.Format(msgs.locale, "settingsAboutTagline", nil)
+}
+
+// SettingsAboutWhatsNew says "新功能介绍"
+// in the language the app shows.
+func SettingsAboutWhatsNew() string { return In(i18n.Locale()).SettingsAboutWhatsNew() }
+
+// SettingsAboutWhatsNew says "新功能介绍"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutWhatsNew() string {
+	return Catalog.Format(msgs.locale, "settingsAboutWhatsNew", nil)
+}
+
+// SettingsAboutPrivacyGroup says "隐私与源代码"
+// in the language the app shows.
+func SettingsAboutPrivacyGroup() string { return In(i18n.Locale()).SettingsAboutPrivacyGroup() }
+
+// SettingsAboutPrivacyGroup says "隐私与源代码"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutPrivacyGroup() string {
+	return Catalog.Format(msgs.locale, "settingsAboutPrivacyGroup", nil)
+}
+
+// SettingsAboutPrivacy says "隐私"
+// in the language the app shows.
+func SettingsAboutPrivacy() string { return In(i18n.Locale()).SettingsAboutPrivacy() }
+
+// SettingsAboutPrivacy says "隐私"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutPrivacy() string {
+	return Catalog.Format(msgs.locale, "settingsAboutPrivacy", nil)
+}
+
+// SettingsAboutPrivacyCaption says "不收集使用数据；只在检查更新时连接 GitHub"
+// in the language the app shows.
+func SettingsAboutPrivacyCaption() string { return In(i18n.Locale()).SettingsAboutPrivacyCaption() }
+
+// SettingsAboutPrivacyCaption says "不收集使用数据；只在检查更新时连接 GitHub"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutPrivacyCaption() string {
+	return Catalog.Format(msgs.locale, "settingsAboutPrivacyCaption", nil)
+}
+
+// SettingsAboutSource says "源代码"
+// in the language the app shows.
+func SettingsAboutSource() string { return In(i18n.Locale()).SettingsAboutSource() }
+
+// SettingsAboutSource says "源代码"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutSource() string {
+	return Catalog.Format(msgs.locale, "settingsAboutSource", nil)
+}
+
+// SettingsAboutSourceCaption says "github.com/henryyu333/shelfu · 代码 MIT 许可；名称和图标不在 MIT 范围内"
+// in the language the app shows.
+func SettingsAboutSourceCaption() string { return In(i18n.Locale()).SettingsAboutSourceCaption() }
+
+// SettingsAboutSourceCaption says "github.com/henryyu333/shelfu · 代码 MIT 许可；名称和图标不在 MIT 范围内"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutSourceCaption() string {
+	return Catalog.Format(msgs.locale, "settingsAboutSourceCaption", nil)
+}
+
+// SettingsAboutSourceOpen says "打开"
+// in the language the app shows.
+func SettingsAboutSourceOpen() string { return In(i18n.Locale()).SettingsAboutSourceOpen() }
+
+// SettingsAboutSourceOpen says "打开"
+// in the language of msgs.
+func (msgs Messages) SettingsAboutSourceOpen() string {
+	return Catalog.Format(msgs.locale, "settingsAboutSourceOpen", nil)
+}
+
+// SettingsGroupNotch says "刘海"
+// in the language the app shows.
+func SettingsGroupNotch() string { return In(i18n.Locale()).SettingsGroupNotch() }
+
+// SettingsGroupNotch says "刘海"
+// in the language of msgs.
+func (msgs Messages) SettingsGroupNotch() string {
+	return Catalog.Format(msgs.locale, "settingsGroupNotch", nil)
+}
+
+// SettingsGroupContent says "内容"
+// in the language the app shows.
+func SettingsGroupContent() string { return In(i18n.Locale()).SettingsGroupContent() }
+
+// SettingsGroupContent says "内容"
+// in the language of msgs.
+func (msgs Messages) SettingsGroupContent() string {
+	return Catalog.Format(msgs.locale, "settingsGroupContent", nil)
+}
+
+// SettingsGroupSystem says "系统"
+// in the language the app shows.
+func SettingsGroupSystem() string { return In(i18n.Locale()).SettingsGroupSystem() }
+
+// SettingsGroupSystem says "系统"
+// in the language of msgs.
+func (msgs Messages) SettingsGroupSystem() string {
+	return Catalog.Format(msgs.locale, "settingsGroupSystem", nil)
+}
+
+// SettingsClipLimitCaption says "超过后最旧的会被移除，置顶的保留"
+// in the language the app shows.
+func SettingsClipLimitCaption() string { return In(i18n.Locale()).SettingsClipLimitCaption() }
+
+// SettingsClipLimitCaption says "超过后最旧的会被移除，置顶的保留"
+// in the language of msgs.
+func (msgs Messages) SettingsClipLimitCaption() string {
+	return Catalog.Format(msgs.locale, "settingsClipLimitCaption", nil)
+}
+
+// SettingsRetentionCaption says "置顶的项目不会清理"
+// in the language the app shows.
+func SettingsRetentionCaption() string { return In(i18n.Locale()).SettingsRetentionCaption() }
+
+// SettingsRetentionCaption says "置顶的项目不会清理"
+// in the language of msgs.
+func (msgs Messages) SettingsRetentionCaption() string {
+	return Catalog.Format(msgs.locale, "settingsRetentionCaption", nil)
+}
+
+// SettingsNotchNav says "外形与提示"
+// in the language the app shows.
+func SettingsNotchNav() string { return In(i18n.Locale()).SettingsNotchNav() }
+
+// SettingsNotchNav says "外形与提示"
+// in the language of msgs.
+func (msgs Messages) SettingsNotchNav() string {
+	return Catalog.Format(msgs.locale, "settingsNotchNav", nil)
+}
+
+// SettingsPermStatusOn says "系统权限已全部开启"
+// in the language the app shows.
+func SettingsPermStatusOn() string { return In(i18n.Locale()).SettingsPermStatusOn() }
+
+// SettingsPermStatusOn says "系统权限已全部开启"
+// in the language of msgs.
+func (msgs Messages) SettingsPermStatusOn() string {
+	return Catalog.Format(msgs.locale, "settingsPermStatusOn", nil)
+}
+
+// SettingsPermStatusMissing says "还差 {count, number, ::group-off} 项权限"
+// in the language the app shows.
+func SettingsPermStatusMissing(count int) string {
+	return In(i18n.Locale()).SettingsPermStatusMissing(count)
+}
+
+// SettingsPermStatusMissing says "还差 {count, number, ::group-off} 项权限"
+// in the language of msgs.
+func (msgs Messages) SettingsPermStatusMissing(count int) string {
+	return Catalog.Format(msgs.locale, "settingsPermStatusMissing", map[string]any{"count": count})
 }

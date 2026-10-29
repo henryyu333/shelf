@@ -1,10 +1,14 @@
 package main
 
-import "testing"
+import (
+	"testing"
 
-// 面板底部的快捷键提示必须由 trayShortcut 常量渲染而来，
-// 不能与实际注册的快捷键不一致（README 承诺“改常量即同步提示”）。
-func TestShortcutLabelFollowsConstant(t *testing.T) {
+	"shelf/internal/settings"
+)
+
+// The shortcut hints are rendered from the accelerators settings.json holds,
+// so a hint can never disagree with the shortcut the app registers.
+func TestShortcutLabelGlyphs(t *testing.T) {
 	cases := map[string]string{
 		"Ctrl+Alt+Space":        "⌃⌥Space",
 		"Ctrl+Alt+S":            "⌃⌥S",
@@ -21,7 +25,21 @@ func TestShortcutLabelFollowsConstant(t *testing.T) {
 			t.Fatalf("shortcutLabel(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if shortcutHint != shortcutLabel(trayShortcut) {
-		t.Fatalf("shortcutHint %q does not follow trayShortcut %q", shortcutHint, trayShortcut)
+}
+
+// A fresh install's three shortcuts still render, and the fourth is unset.
+func TestDefaultShortcutsRender(t *testing.T) {
+	def := settings.Default().Shortcuts
+	for acc, want := range map[string]string{
+		def.Toggle:    "⌃⌥Space",
+		def.Clipboard: "⌃⌥V",
+		def.Capture:   "⌃⌥O",
+	} {
+		if got := shortcutLabel(acc); got != want {
+			t.Fatalf("shortcutLabel(%q) = %q, want %q", acc, got, want)
+		}
+	}
+	if def.Tray != "" {
+		t.Fatalf("the tray shortcut must default to unset, got %q", def.Tray)
 	}
 }

@@ -2,23 +2,27 @@
 
 package main
 
-// The Settings window gathers every preference the tray submenus and
-// settings.json spread over the app into one normal titled window. Its
-// controls call the same setters the menus do — applySettings is the single
-// save-and-apply path — so window and menu can never diverge; a change made
-// in one place repaints the other while it is open.
+// The Settings window: Coucou Hub's two-column layout — a pure black
+// sidebar of grouped destinations and one rounded, darker panel on the
+// right that shows a single page. Every page opens with a hero card (the
+// page's name, a line about it, the otter in that page's mood) over
+// grouped cards of rows. The window is always dark, like the notch.
+//
+// Controls call the same setters the tray menus call — applySettings is the
+// single save-and-apply path — so window and menu can never diverge; a
+// change made in one place repaints the other while it is open. Every
+// preference lives in settings.json except the login item and the system
+// permissions, which are read back from macOS.
 
 import (
 	"fmt"
 	"runtime/debug"
 	"slices"
-	"strconv"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/mac"
-	"shelf/internal/settings"
 )
 
 // Seams around app-level calls so the headless view tests exercise the real
@@ -27,6 +31,7 @@ var (
 	openAtLogin          = mygo.App.OpenAtLogin
 	setOpenAtLogin       = mygo.App.SetOpenAtLogin
 	openPath             = mygo.Shell.OpenPath
+	openExternal         = mygo.Shell.OpenExternal
 	accessibilityRequest = mac.RequestAccessibility
 	appVersionProbe      = mygo.App.Version
 	setAppLocale         = mygo.App.SetLocale
@@ -34,48 +39,95 @@ var (
 
 // settingsTheme is the one dark theme the window repaints with: ShelfU's UI
 // lives on the pure black notch shell, so Settings is always dark no matter
-// the system appearance. It carries the DESIGN.md palette: system-blue
-// accent, white-alpha surfaces and the compact metrics of the mock's
-// grouped lists (32pt switches, white-8% segment tracks).
+// the system appearance. Spacing sizes the stock widgets to the design:
+// 42×23 switches, 9pt segment tracks and 12.5pt labels.
 var settingsTheme = func() *ui.Theme {
 	t := ui.DarkTheme()
-	t.Background = ui.Hex("#1E1E1F")
-	t.Accent = ui.Hex("#0A84FF")
+	t.Background = ui.Hex("#000000")
+	t.Accent = setAccent
 	t.AccentHover = t.Accent.Mix(ui.RGB(255, 255, 255), 0.18)
 	t.AccentPressed = t.Accent.Mix(ui.RGB(0, 0, 0), 0.16)
-	t.Surface = ui.RGBA(255, 255, 255, 0.08)
-	t.SurfaceHover = ui.RGBA(255, 255, 255, 0.16)
-	t.SurfacePressed = ui.RGBA(255, 255, 255, 0.20)
-	t.Border = ui.RGBA(255, 255, 255, 0.07)
+	t.Surface = setCtl
+	t.SurfaceHover = ui.Hex("#2A2C31")
+	t.SurfacePressed = ui.Hex("#34363C")
+	t.Border = ui.RGBA(255, 255, 255, 0.04)
 	t.Text = setInk
 	t.TextMuted = setInk2
-	t.Danger = ui.Hex("#FF453A")
-	t.Success = ui.Hex("#30D158")
+	t.Danger = setRed
+	t.Success = setGreen
 	t.Focus = ui.RGBA(10, 132, 255, 0.55)
-	t.Scrollbar = ui.RGBA(255, 255, 255, 0.28)
-	t.ScrollbarWidth = 4
-	t.Radius = 7
-	// The switch sizes off Spacing: 3.5 gives the mock's ~32x19. FontSize 12
-	// is what the mock's segments and small buttons draw; every Text in the
-	// window sets its own size.
-	t.Spacing = 3.5
-	t.FontSize = 12
+	t.Scrollbar = ui.RGBA(255, 255, 255, 0.18)
+	t.ScrollbarWidth = 3
+	t.Radius = 9
+	// 42/9 makes the theme's 9-space switch 42pt wide and 23pt tall, the
+	// mock's 42×24; segments and buttons set their own metrics.
+	t.Spacing = 42.0 / 9
+	t.FontSize = 12.5
 	return t
 }()
 
-// The settings window's text and surface colors, straight from DESIGN.md's
-// token table (white-alpha inks on the #1E1E1F window).
+// The design's palette: white-alpha inks on pure black, one panel and one
+// card tone, and the system colors for state. setInk3 is white 48% — the
+// contrast HIG asks of text under 17pt on black (white 34% reaches only
+// 2.9:1).
 var (
-	setInk      = ui.Hex("#F5F5F7")
-	setInk2     = ui.RGBA(255, 255, 255, 0.56)
-	setInk3     = ui.RGBA(255, 255, 255, 0.34)
-	setCard     = ui.RGBA(255, 255, 255, 0.05)
-	setCardEdge = ui.RGBA(255, 255, 255, 0.07)
-	setRowSep   = ui.RGBA(255, 255, 255, 0.08)
+	setInk  = ui.Hex("#F5F6F8")
+	setInk2 = ui.RGBA(255, 255, 255, 0.62)
+	setInk3 = ui.RGBA(255, 255, 255, 0.48)
+	setInk4 = ui.RGBA(255, 255, 255, 0.40)
+
+	setPanel    = ui.Hex("#0E0F11")
+	setCard     = ui.Hex("#18191C")
+	setCardEdge = ui.RGBA(255, 255, 255, 0.035)
+	setSep      = ui.RGBA(255, 255, 255, 0.06)
+	setSelect   = ui.Hex("#1D1F23")
+	setCtl      = ui.Hex("#1F2024")
+	setCtlHover = ui.Hex("#2A2C31")
+	setStatus   = ui.Hex("#141518")
+
+	setAccent = ui.Hex("#0A84FF")
+	setGreen  = ui.Hex("#30D158")
+	setOrange = ui.Hex("#FF9F0A")
+	setRed    = ui.Hex("#FF453A")
+)
+
+// settingsPageID is one destination of the sidebar.
+type settingsPageID int
+
+const (
+	settingsPageGeneral settingsPageID = iota
+	settingsPageNotch
+	settingsPageTray
+	settingsPageClipboard
+	settingsPageAIUsage
+	settingsPageShortcuts
+	settingsPagePermissions
+	settingsPageAbout
+)
+
+// settingsSidebarWidth and the metrics below are the design spec's numbers.
+const (
+	settingsSidebarWidth = 212
+	settingsHeroHeight   = 118
+	settingsRowMinHeight = 50
+	settingsRowPadX      = 16
+	settingsRowPadY      = 10
 )
 
 // appGlyph fills an excluded-app row when the app has no icon on disk.
 var appGlyph = symbol(`<rect x="5" y="5" width="14" height="14" rx="3.5"/>`)
+
+// The sidebar's icons, the design's 24pt line glyphs.
+var (
+	navGear  = symbol(`<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M4.2 7.5l2.2 1.3M17.6 15.2l2.2 1.3M4.2 16.5l2.2-1.3M17.6 8.8l2.2-1.3"/>`)
+	navNotch = symbol(`<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8.5 5v2.5a1.5 1.5 0 0 0 1.5 1.5h4a1.5 1.5 0 0 0 1.5-1.5V5"/>`)
+	navTray  = symbol(`<path d="M4 9v6a5 5 0 0 0 5 5h6a5 5 0 0 0 5-5V9"/><path d="M12 3v9m-3.5-3.5L12 12l3.5-3.5"/>`)
+	navClip  = symbol(`<rect x="5" y="5" width="14" height="16" rx="3"/><path d="M9 3.5h6v3H9z"/><path d="M9 11h6M9 15h4"/>`)
+	navUsage = symbol(`<path d="M4.5 16a8 8 0 1 1 15 0"/><path d="M12 16l3.5-5"/>`)
+	navKey   = symbol(`<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M7 10h.1M11 10h.1M15 10h.1M8 14h8"/>`)
+	navHand  = symbol(`<path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z"/>`)
+	navInfo  = symbol(`<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.1"/>`)
+)
 
 // settingsIcons caches decoded app icons for the 排除的应用 rows; nil values
 // are cached too, so a bundle id that resolves to nothing is asked once.
@@ -115,18 +167,19 @@ func (a *shelf) openSettings() {
 	}
 	a.settingsTakeKeyboard()
 	a.loginOn, a.loginErr = openAtLogin(), ""
+	a.settingsRecording = shortcutNone
 	frame := settingsFrame(mygo.Screen.DisplayNearestPoint(mygo.Screen.CursorScreenPoint()).WorkArea)
 	w := mygo.NewWindow(mygo.WindowOptions{
 		Title: a.appLoc().WindowSettings(), Width: settingsWidth, Height: settingsHeight,
+		MinWidth: settingsMinWidth, MinHeight: settingsMinHeight,
 		X: frame.X, Y: frame.Y,
-		Hidden: true, BackgroundColor: "#1E1E1F",
-		// The mock's title bar centers the title, which AppKit's stock bar
-		// never does: hide it and let settingsView draw its own under the
-		// traffic lights, which TrafficLightPosition puts at the mock's
-		// insets. The title still names the window to the system.
+		Hidden: true, BackgroundColor: "#000000",
+		// The mock hides AppKit's title bar and puts the traffic lights in
+		// the sidebar: TrafficLightPosition sets their insets, and the
+		// window's own name still names it to the system.
 		TitleBarStyle:        mygo.TitleBarHidden,
-		TrafficLightPosition: &mygo.Point{X: 9, Y: 12},
-		DisableResize:        true, DisableMaximize: true, DisableFullScreen: true,
+		TrafficLightPosition: &mygo.Point{X: 18, Y: 14},
+		DisableMaximize:      true, DisableFullScreen: true,
 		Content: ui.View(a.settingsView),
 	})
 	// The title bar follows the window's own dark chrome whatever the system
@@ -157,6 +210,7 @@ func (a *shelf) settingsTakeKeyboard() {
 // window too; nothing may be re-registered or re-activated then.
 func (a *shelf) settingsClosed() {
 	a.stopPermissionFlow()
+	a.settingsRecording = shortcutNone
 	a.settingsWin = nil
 	if a.quitting {
 		return
@@ -208,7 +262,8 @@ func (a *shelf) settingsReleaseKeyboard() {
 }
 
 // repaintSettings redraws the Settings window when it is open, used after a
-// change that did not go through applySettings (login item, accessibility).
+// change that did not go through applySettings (login item, accessibility,
+// a finished update check).
 func (a *shelf) repaintSettings() {
 	if a.settingsWin != nil {
 		a.settingsWin.Invalidate()
@@ -225,69 +280,273 @@ func settingsFrame(work mygo.Rectangle) mygo.Rectangle {
 	return mygo.Rectangle{X: x, Y: y, Width: settingsWidth, Height: settingsHeight}
 }
 
-// settingsView draws the whole Settings window each frame: DESIGN.md's
-// grouped-inset-list look — a small muted heading over a card of 40pt rows
-// split by hairlines — then a footer with the version and the data-folder
-// button. While settings.json is broken a banner explains it and every
-// preference control is disabled so the file is never rewritten.
+// setSettingsPage shows one page and starts it at the top, as a sidebar
+// click does.
+func (a *shelf) setSettingsPage(page settingsPageID) {
+	if a.settingsPage == page {
+		return
+	}
+	a.settingsPage = page
+	a.settingsScroll.Y = 0
+	a.settingsRecording = shortcutNone
+	a.repaintSettings()
+}
+
+// settingsView draws the whole Settings window each frame: the sidebar, the
+// page panel, and — while a shortcut records — the key-capture layer over
+// everything. While settings.json is broken a banner on every page explains
+// it and every preference control is disabled so the file is never
+// rewritten.
 func (a *shelf) settingsView(c *ui.Context) {
 	c.SetTheme(settingsTheme)
-	c.Root().Background(ui.Hex("#1E1E1F"))
+	c.Root().Background(ui.Hex("#000000"))
+	recording := a.settingsRecording != shortcutNone
 	if a.settingsWin != nil {
 		w := a.settingsWin
-		c.OnShortcut(0, ui.KeyEscape, w.Close)
-		c.OnShortcut(ui.Cmd, ui.KeyW, w.Close)
+		// While a shortcut records, every key belongs to the recorder;
+		// closing on Esc would swallow the cancel.
+		if !recording {
+			c.OnShortcut(0, ui.KeyEscape, w.Close)
+			c.OnShortcut(ui.Cmd, ui.KeyW, w.Close)
+		}
 	}
-	ui.Column(c.Key("win")).Fill().Children(func() {
-		// The drawn title bar: traffic lights sit over it (TrafficLight-
-		// Position, or wherever c.TitleBar reports them), the title centers
-		// like the mock's, and the bar drags the window. The side padding is
-		// symmetric: padding only the controls' side would centre the title
-		// in the remaining space and shift it away from the window centre.
-		bar := c.TitleBar()
-		edge := max(bar.Left, bar.Right)
-		ui.Row(c.Key("titlebar")).Height(float32(max(bar.Height, 38))).FillWidth().
-			AlignItems(ui.Center).Justify(ui.Center).Padding(0, edge, 0, edge).
-			DragWindow().Children(func() {
-			ui.Text(c, loc(c).WindowSettings()).SingleLine().FontSize(13).FontWeight(600).TextColor(setInk2)
-		})
-		ui.Scroll(c.Key("settings")).Fill().TrackScroll(&a.settingsScroll).Children(func() {
-			ui.Column(c.Key("sections")).Padding(2, 20, 16, 20).Gap(16).FillWidth().Children(func() {
-				if a.settingsBroken {
-					ui.Column(c.Key("broken")).Padding(10, 12).Gap(4).Radius(10).
-						Background(ui.RGBA(255, 69, 58, 0.12)).
-						Border(0.5, ui.RGBA(255, 69, 58, 0.35)).Children(func() {
-						l := loc(c)
-						ui.Text(c, l.SettingsBrokenTitle()).FontSize(12).FontWeight(600).TextColor(settingsTheme.Danger)
-						ui.Text(c, l.SettingsBrokenBody()).FontSize(11).TextColor(setInk3)
-					})
-				}
-				a.settingsPermissionsSection(c)
-				a.settingsGeneralSection(c)
-				a.settingsLiveSection(c)
-				a.settingsAIUsageSection(c)
-				a.settingsClipboardSection(c)
-				a.settingsTraySection(c)
-				a.settingsShortcutsSection(c)
-				a.settingsFooter(c)
+	ui.Row(c.Key("win")).Fill().Children(func() {
+		a.settingsSidebar(c)
+		ui.Column(c.Key("panel")).Grow(1).FillHeight().Margin(10, 10, 10, 0).
+			Radius(20).Background(setPanel).Clip().Children(func() {
+			ui.Scroll(c.Key("page-scroll")).Fill().TrackScroll(&a.settingsScroll).Children(func() {
+				ui.Column(c.Key("page")).FillWidth().Padding(14, 18, 22, 18).Gap(18).Children(func() {
+					if a.settingsBroken {
+						settingsBrokenBanner(c)
+					}
+					a.settingsPageBody(c)
+				})
 			})
 		})
+		if recording {
+			a.settingsCaptureLayer(c)
+		}
 	})
 }
 
-// settingsSection renders one group: an 11pt semibold heading over a
-// rounded card (white 5% fill, 0.5pt edge) holding the group's rows.
-// disabled greys and locks the whole card. foot, when not empty, is the
-// System Settings-style note under the card, aligned with the row text.
-// title is the heading the user reads, in the window's language, and also
-// names the group's element.
-func settingsSection(c *ui.Context, title, foot string, disabled bool, fn func()) {
-	ui.Column(c.Key("sec-" + title)).FillWidth().Children(func() {
-		ui.Text(c, title).SingleLine().FontSize(11).FontWeight(600).TextColor(setInk3).Padding(0, 0, 6, 4)
-		ui.Column(c.Key("card")).Radius(10).Background(setCard).Border(0.5, setCardEdge).
-			Disabled(disabled).FillWidth().Children(fn)
+// settingsSidebar draws the pure black sidebar: the traffic lights' row, the
+// brand (a way to 关于), the grouped destinations, and the permission status
+// at the bottom.
+func (a *shelf) settingsSidebar(c *ui.Context) {
+	l := loc(c)
+	ui.Column(c.Key("side")).Width(settingsSidebarWidth).FillHeight().Background(ui.Hex("#000000")).
+		Padding(0, 12, 12, 12).Children(func() {
+		// The traffic lights are AppKit's, over this row; the row drags
+		// the window, as a title bar would.
+		ui.Box(c.Key("lights")).Height(40).FillWidth().DragWindow()
+
+		brand := ui.ButtonBase(c.Key("brand")).Height(44).FillWidth().Radius(9).
+			Padding(0, 8, 0, 8).AlignItems(ui.Center).Justify(ui.Start).Gap(8).Label(appName)
+		if brand.Hovered() {
+			brand.Background(ui.RGBA(255, 255, 255, 0.05))
+		}
+		brand.Children(func() {
+			if b := otterImage("neutral"); b != nil {
+				ui.Image(c.Key("otter"), b).Size(30, 30).Fit(ui.Contain)
+			}
+			ui.Text(c, appName).SingleLine().FontSize(17).FontWeight(700).TextColor(setInk)
+		})
+		if brand.Clicked() {
+			a.setSettingsPage(settingsPageAbout)
+		}
+		ui.Box(c.Key("brand-gap")).Height(6)
+
+		a.settingsNavItem(c, settingsPageGeneral, navGear, l.General())
+		settingsNavGroup(c, l.SettingsGroupNotch())
+		a.settingsNavItem(c, settingsPageNotch, navNotch, l.SettingsNotchNav())
+		settingsNavGroup(c, l.SettingsGroupContent())
+		a.settingsNavItem(c, settingsPageTray, navTray, l.SettingsTraySection())
+		a.settingsNavItem(c, settingsPageClipboard, navClip, l.SettingsClipboardSection())
+		a.settingsNavItem(c, settingsPageAIUsage, navUsage, l.SettingsAISection())
+		settingsNavGroup(c, l.SettingsGroupSystem())
+		a.settingsNavItem(c, settingsPageShortcuts, navKey, l.SettingsShortcutsSection())
+		a.settingsNavItem(c, settingsPagePermissions, navHand, l.PermTitle())
+		a.settingsNavItem(c, settingsPageAbout, navInfo, l.SettingsAboutPage())
+
+		ui.Box(c.Key("side-grow")).Grow(1)
+		a.settingsPermissionStatus(c)
+	})
+}
+
+// settingsNavGroup is a sidebar group label: 10.5pt, bold, letterspaced,
+// white 40%.
+func settingsNavGroup(c *ui.Context, title string) {
+	ui.Text(c, title).SingleLine().FontSize(10.5).FontWeight(700).LetterSpacing(1.2).
+		TextColor(setInk4).Padding(10, 10, 4, 10)
+}
+
+// settingsNavItem is one destination: 32pt tall, 9pt corners, the selected
+// one on #1D1F23 in white, the others white 62%.
+func (a *shelf) settingsNavItem(c *ui.Context, page settingsPageID, icon *ui.SVG, label string) {
+	on := a.settingsPage == page
+	color := setInk2
+	if on {
+		color = setInk
+	}
+	item := ui.ButtonBase(c.Key(fmt.Sprintf("nav-%d", page))).Height(32).FillWidth().Radius(9).
+		Padding(0, 10, 0, 10).AlignItems(ui.Center).Justify(ui.Start).Gap(10).Label(label)
+	if on {
+		item.Background(setSelect)
+	} else if item.Hovered() {
+		item.Background(ui.RGBA(255, 255, 255, 0.05))
+	}
+	item.Children(func() {
+		ui.Icon(c.Key("i"), icon).Size(16, 16).TextColor(color)
+		ui.Text(c, label).SingleLine().FontSize(13.5).TextColor(color)
+	})
+	if item.Clicked() {
+		a.setSettingsPage(page)
+	}
+}
+
+// settingsPermissionStatus is the sidebar's footer: a green dot when every
+// permission is on, an orange one and a count when not; it opens the 系统权限
+// page.
+func (a *shelf) settingsPermissionStatus(c *ui.Context) {
+	l := loc(c)
+	missing := len(missingSystemPermissions())
+	dot := setGreen
+	if missing > 0 {
+		dot = setOrange
+	}
+	text := l.SettingsPermStatusOn()
+	if missing > 0 {
+		text = l.SettingsPermStatusMissing(missing)
+	}
+	row := ui.ButtonBase(c.Key("perm-status")).Height(30).FillWidth().Radius(9).
+		Padding(0, 10, 0, 10).Background(setStatus).AlignItems(ui.Center).Gap(7).Label(text)
+	if row.Hovered() {
+		row.Background(ui.RGBA(255, 255, 255, 0.06))
+	}
+	row.Children(func() {
+		ui.Box(c.Key("dot")).Size(7, 7).Radius(4).Background(dot)
+		ui.Text(c, text).SingleLine().FontSize(12).TextColor(setInk2).Grow(1).MinWidth(0)
+	})
+	if row.Clicked() {
+		a.setSettingsPage(settingsPagePermissions)
+	}
+}
+
+// settingsBrokenBanner explains an unreadable settings.json above every
+// page's content: the controls below it are locked.
+func settingsBrokenBanner(c *ui.Context) {
+	l := loc(c)
+	ui.Column(c.Key("broken")).Padding(10, 12).Gap(4).Radius(12).
+		Background(ui.RGBA(255, 69, 58, 0.12)).
+		Border(0.5, ui.RGBA(255, 69, 58, 0.35)).Children(func() {
+		ui.Text(c, l.SettingsBrokenTitle()).FontSize(12).FontWeight(600).TextColor(setRed)
+		ui.Text(c, l.SettingsBrokenBody()).FontSize(11).TextColor(setInk3)
+	})
+}
+
+// settingsPageBody dispatches to the page the sidebar selected.
+func (a *shelf) settingsPageBody(c *ui.Context) {
+	switch a.settingsPage {
+	case settingsPageGeneral:
+		a.settingsGeneralPage(c)
+	case settingsPageNotch:
+		a.settingsNotchPage(c)
+	case settingsPageTray:
+		a.settingsTrayPage(c)
+	case settingsPageClipboard:
+		a.settingsClipboardPage(c)
+	case settingsPageAIUsage:
+		a.settingsAIUsagePage(c)
+	case settingsPageShortcuts:
+		a.settingsShortcutsPage(c)
+	case settingsPagePermissions:
+		a.settingsPermissionsPage(c)
+	case settingsPageAbout:
+		a.settingsAboutPage(c)
+	}
+}
+
+// settingsHero paints one page's title card: a 118pt gradient with a glow
+// and sparse stars, the page's name and a line about it on the left, and
+// the otter in the page's mood standing at the right, cut by the card's
+// bottom edge. A missing otter picture leaves the card as it is.
+func settingsHero(c *ui.Context, key, title, subtitle, mood string, from, to, glow ui.Color) {
+	box := ui.Box(c.Key("hero-" + key)).Height(settingsHeroHeight).FillWidth().Radius(16).Clip().
+		LinearGradient(ui.LinearGradient{From: from, To: to, Angle: 135})
+	box.Draw(func(p *ui.Painter, r ui.Rect) {
+		p.Clip(r, 16, func() {
+			// The glow: a radial falloff (bottom right, past the corner),
+			// built from concentric fills that accumulate to a soft light.
+			cx, cy := r.X+r.W*0.8, r.Y+r.H*1.2
+			for i := range 14 {
+				rad := float32(16 + i*11)
+				p.Fill(ui.Rect{X: cx - rad, Y: cy - rad, W: rad * 2, H: rad * 2}, glow.Alpha(0.026), rad)
+			}
+			// The sparse stars of the design, at its own places.
+			stars := [][3]float32{
+				{0.12, 0.30, 0.55}, {0.28, 0.72, 0.35}, {0.46, 0.22, 0.45},
+				{0.63, 0.64, 0.30}, {0.78, 0.28, 0.50}, {0.88, 0.80, 0.35},
+			}
+			for _, s := range stars {
+				d := float32(1.1)
+				if s[2] > 0.45 {
+					d = 1.6
+				}
+				p.Fill(ui.Rect{X: r.X + r.W*s[0], Y: r.Y + r.H*s[1], W: d, H: d}, ui.RGBA(255, 255, 255, s[2]), d/2)
+			}
+		})
+	})
+	box.Children(func() {
+		ui.Text(c, title).SingleLine().Absolute().Left(22).Top(24).
+			FontSize(26).FontWeight(700).TextColor(setInk)
+		ui.Text(c, subtitle).Absolute().Left(22).Top(64).MaxWidth(330).
+			FontSize(12.5).TextColor(setInk2)
+		if b := otterImage(mood); b != nil {
+			w, h := b.Size()
+			height := float32(96)
+			width := height * float32(w) / float32(h)
+			ui.Image(c.Key("otter"), b).Absolute().Right(22).Bottom(-6).
+				Size(width, height).Fit(ui.Contain)
+		}
+	})
+}
+
+// settingsGroup is a section of a page: the letterspaced label, the card,
+// and an optional note under it. mt is the space above the label.
+func settingsGroup(c *ui.Context, key, title, foot string, fn func()) {
+	ui.Column(c.Key("grp-" + key)).FillWidth().Gap(8).Children(func() {
+		ui.Text(c, title).SingleLine().FontSize(10.5).FontWeight(700).LetterSpacing(1.2).
+			TextColor(setInk4).Padding(0, 4, 0, 4)
+		ui.Column(c.Key("card-"+key)).Radius(14).Background(setCard).
+			Border(1, setCardEdge).FillWidth().Children(fn)
 		if foot != "" {
-			ui.Text(c, foot).FontSize(11).TextColor(setInk3).Padding(6, 12, 0, 12)
+			ui.Text(c, foot).FontSize(11.5).TextColor(setInk3).Padding(0, 6, 0, 6).MaxWidth(520)
+		}
+	})
+}
+
+// settingsSep is the 1pt hairline between two rows, inset like the row's
+// text (16pt on both sides).
+func settingsSep(c *ui.Context, key string) {
+	ui.Row(c.Key("sep-"+key)).FillWidth().Padding(0, settingsRowPadX).Children(func() {
+		ui.Box(c.Key("line")).Height(1).FillWidth().Background(setSep)
+	})
+}
+
+// settingsRowLine is one row's frame: the design's 50pt minimum, 10pt
+// vertical and 16pt horizontal padding, 14pt between text and control.
+func settingsRowLine(c *ui.Context, key string) ui.Element {
+	return ui.Row(c.Key("row-"+key)).FillWidth().MinHeight(settingsRowMinHeight).
+		AlignItems(ui.Center).Gap(14).Padding(settingsRowPadY, settingsRowPadX)
+}
+
+// settingsRowText is a row's left column: the title at 13.5pt semibold and
+// the optional caption at 11.5pt white 48%.
+func settingsRowText(c *ui.Context, label, caption string) {
+	ui.Column(c.Key("text")).Gap(2).Grow(1).MinWidth(0).Children(func() {
+		settingsLabel(c, label, 13.5, 600).TextColor(setInk)
+		if caption != "" {
+			ui.Text(c, caption).FontSize(11.5).TextColor(setInk3)
 		}
 	})
 }
@@ -318,37 +577,26 @@ func settingsLabel(c *ui.Context, text string, size float32, weight int) ui.Elem
 	return t
 }
 
-// settingsRowPadY is a row's vertical padding. A row is 40pt for one line of
-// text; a caption that wraps grows the row by its extra lines and keeps this
-// much air above and below, so a second line never presses the hairline or
-// the next row.
-const settingsRowPadY = 4
-
-// settingsSep is the 0.5pt hairline between two rows of one card.
-func settingsSep(c *ui.Context, key string) {
-	ui.Box(c.Key("sep-" + key)).Height(0.5).FillWidth().Background(setRowSep)
+// settingsToggleRow is one switch row: the label (and optional caption) on
+// the left, a macOS-style switch on the right. The row itself is the
+// toggle — a click anywhere on it flips the switch — and the inner switch
+// mirrors the same value, so the two bindings can never fight. apply
+// receives the new state only when the user actually changed it.
+func settingsToggleRow(c *ui.Context, key, label, caption string, on bool, apply func(bool)) {
+	settingsToggleRowCap(c, key, label, caption, setInk3, on, apply)
 }
 
-// settingsToggle is one switch row: the label (and optional caption) on the
-// left, a macOS-style switch on the right. The row itself is the toggle — a
-// click anywhere on it flips the switch — and the inner switch mirrors the
-// same value, so the two bindings can never fight (a click has exactly one
-// target). apply receives the new state only when the user actually changed
-// it.
-func settingsToggle(c *ui.Context, key, label string, on bool, apply func(bool)) {
-	settingsToggleCap(c, key, label, "", setInk3, on, apply)
-}
-
-// settingsToggleCap is settingsToggle with a caption under the label;
-// captionColor lets a row show an error (the login item's) in danger red.
-func settingsToggleCap(c *ui.Context, key, label, caption string, captionColor ui.Color, on bool, apply func(bool)) {
-	row := ui.ToggleBase(c.Key("toggle-"+key), &on).FillWidth().AlignItems(ui.Center).Gap(10).MinHeight(40).Padding(settingsRowPadY, 12).Label(label)
+// settingsToggleRowCap is settingsToggleRow with a caption color of its own:
+// the login item shows a failure in red there.
+func settingsToggleRowCap(c *ui.Context, key, label, caption string, captionColor ui.Color, on bool, apply func(bool)) {
+	row := ui.ToggleBase(c.Key("toggle-"+key), &on).FillWidth().AlignItems(ui.Center).
+		Gap(14).MinHeight(settingsRowMinHeight).Padding(settingsRowPadY, settingsRowPadX).Label(label)
 	var sw ui.Element
 	row.Children(func() {
-		ui.Column(c.Key("k")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-			settingsLabel(c, label, 13, 0).TextColor(setInk)
+		ui.Column(c.Key("text")).Gap(2).Grow(1).MinWidth(0).Children(func() {
+			settingsLabel(c, label, 13.5, 600).TextColor(setInk)
 			if caption != "" {
-				ui.Text(c, caption).FontSize(11).TextColor(captionColor)
+				ui.Text(c, caption).FontSize(11.5).TextColor(captionColor)
 			}
 		})
 		sw = ui.Switch(c, &on).Label(label)
@@ -358,23 +606,60 @@ func settingsToggleCap(c *ui.Context, key, label, caption string, captionColor u
 	}
 }
 
-// settingsRow is a plain label/value line inside a section, at least 40pt
-// tall with the mock's 12pt side padding.
-func settingsRow(c *ui.Context, key, label string, fn func()) {
-	settingsRowCap(c, key, label, "", fn)
-}
-
-// settingsRowCap is settingsRow with an 11pt muted caption under the label.
-func settingsRowCap(c *ui.Context, key, label, caption string, fn func()) {
-	ui.Row(c.Key("row-"+key)).AlignItems(ui.Center).Gap(10).MinHeight(40).Padding(settingsRowPadY, 12).FillWidth().Children(func() {
-		ui.Column(c.Key("k")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-			settingsLabel(c, label, 13, 0).TextColor(setInk)
-			if caption != "" {
-				ui.Text(c, caption).FontSize(11).TextColor(setInk3)
-			}
-		})
+// settingsRow adds a row whose control fn builds on the right.
+func settingsRow(c *ui.Context, key, label, caption string, fn func()) {
+	settingsRowLine(c, key).Children(func() {
+		settingsRowText(c, label, caption)
 		fn()
 	})
+}
+
+// settingsSection is the older name the 重新命名 window builds its form
+// with: a titled card whose rows can be locked as a whole.
+func settingsSection(c *ui.Context, title, foot string, disabled bool, fn func()) {
+	settingsGroup(c, title, title, foot, func() {
+		ui.Column(c.Key("rows-" + title)).FillWidth().Disabled(disabled).Children(fn)
+	})
+}
+
+// settingsGroupRows wraps a group of rows that settings.json backs: it is
+// locked (and dimmed) while the file is broken, so it is never overwritten.
+func settingsGroupRows(c *ui.Context, key, title, foot string, disabled bool, fn func()) {
+	settingsGroup(c, key, title, foot, func() {
+		ui.Column(c.Key("rows-" + key)).FillWidth().Disabled(disabled).Children(fn)
+	})
+}
+
+// settingsButton is the design's 28pt control: #1F2024 with white text, or
+// white with black text for the primary action.
+func settingsButton(c *ui.Context, key, label string, primary bool, fn func()) ui.Element {
+	b := ui.ButtonBase(c.Key("btn-"+key)).Height(28).Radius(8).Padding(0, 12, 0, 12).
+		AlignItems(ui.Center).Label(label)
+	fg := setInk
+	if primary {
+		b.Background(setInk)
+		fg = ui.RGB(0, 0, 0)
+	} else {
+		b.Background(setCtl)
+		if b.Hovered() {
+			b.Background(setCtlHover)
+		}
+	}
+	b.Children(func() {
+		t := ui.Text(c, label).SingleLine().FontSize(12.5).TextColor(fg)
+		if primary {
+			t.FontWeight(600)
+		}
+	})
+	if b.Clicked() {
+		fn()
+	}
+	return b
+}
+
+// settingsSegmented is a segmented control named after its row.
+func settingsSegmented(c *ui.Context, key, label string, selected *int, labels ...string) ui.Element {
+	return ui.Segmented(c.Key("seg-"+key), selected, labels...).Label(label)
 }
 
 // choiceSegments turns an integer preference and its usual choices into a
@@ -392,68 +677,6 @@ func choiceSegments(current int, choices []int, format func(int) string) (labels
 		labels = append(labels, format(v))
 	}
 	return labels, values, selected
-}
-
-// settingsGeneralSection: 开机时自动启动 and 自动检查更新. Only 自动检查更新
-// lives in settings.json; the login item stays editable while the file is
-// broken.
-func (a *shelf) settingsGeneralSection(c *ui.Context) {
-	l := loc(c)
-	settingsSection(c, l.General(), "", false, func() {
-		loginCap, capColor := "", setInk3
-		if a.loginErr != "" {
-			loginCap, capColor = a.loginErr, settingsTheme.Danger
-		}
-		settingsToggleCap(c, "login", l.SettingsLoginRow(), loginCap, capColor, a.loginOn, a.applyOpenAtLogin)
-		settingsSep(c, "login")
-		// 自动检查更新存 settings.json，文件损坏时随其余偏好一起锁定；
-		// 登录项不依赖该文件，保持可用。
-		ui.Column(c.Key("autocheck")).Disabled(a.settingsBroken).FillWidth().Children(func() {
-			settingsToggleCap(c, "autocheck", l.SettingsAutoCheckRow(), l.SettingsAutoCheckCaption(), setInk3,
-				a.settings.AutoCheckUpdates, a.setAutoCheckUpdates)
-		})
-		settingsSep(c, "shellstyle")
-		ui.Column(c.Key("shellstyle")).Disabled(a.settingsBroken).FillWidth().Children(func() {
-			settingsRowCap(c, "shellstyle", l.ShellStyleRow(), l.ShellStyleCaption(), func() {
-				style := 0
-				if a.settings.ShellStyle.Normalized() == settings.ShellStyleIsland {
-					style = 1
-				}
-				if sg := ui.Segmented(c, &style, l.ShellStyleNotch(), l.ShellStyleIsland()).Label(l.ShellStyleRow()); sg.Changed() {
-					next := settings.ShellStyleNotch
-					if style == 1 {
-						next = settings.ShellStyleIsland
-					}
-					a.setShellStyle(next)
-				}
-			})
-		})
-		settingsSep(c, "language")
-		ui.Column(c.Key("language")).Disabled(a.settingsBroken).FillWidth().Children(func() {
-			settingsRowCap(c, "language", l.LanguageRow(), l.LanguageCaption(), func() {
-				idx := languageIndex(a.settings.Language)
-				if sg := ui.Segmented(c, &idx, l.LanguageFollowSystem(), l.LanguageChinese(), l.LanguageEnglish()).
-					Label(l.LanguageRow()); sg.Changed() {
-					a.setLanguage(languageAt(idx))
-				}
-			})
-		})
-		if a.island {
-			settingsSep(c, "islandpos")
-			ui.Column(c.Key("islandpos")).Disabled(a.settingsBroken).FillWidth().Children(func() {
-				settingsRowCap(c, "islandpos", l.SettingsIslandPosRow(), l.SettingsIslandPosCaption(), func() {
-					if ui.Button(c, l.SettingsIslandReset()).FontSize(12).Label(l.SettingsIslandReset()).Clicked() {
-						a.resetIslandPosition()
-					}
-				})
-			})
-		}
-		settingsSep(c, "snap")
-		ui.Column(c.Key("snap")).Disabled(a.settingsBroken).FillWidth().Children(func() {
-			settingsToggleCap(c, "snap", l.SettingsSnapRow(), l.SettingsSnapCaption(), setInk3,
-				a.settings.SnapWindows, a.setSnapWindows)
-		})
-	})
 }
 
 // languageIndex maps a saved language to the segmented control's segment:
@@ -516,242 +739,9 @@ func (a *shelf) applyOpenAtLogin(on bool) {
 	a.repaintSettings()
 }
 
-// settingsLiveSection is the 实时活动 group: charging, headphones and
-// downloads, all on for a fresh install. The switches go through the same
-// applySettings path as every other preference; the modules read them on
-// each tick, so a change applies at once.
-func (a *shelf) settingsLiveSection(c *ui.Context) {
-	l := loc(c)
-	settingsSection(c, l.SettingsLiveSection(), "", a.settingsBroken, func() {
-		settingsToggle(c, "live-charging", l.SettingsLiveCharging(), a.settings.LiveActivities.Charging, func(on bool) {
-			a.setLiveActivity(func(s *settings.Settings) { s.LiveActivities.Charging = on })
-		})
-		settingsSep(c, "live-charging")
-		settingsToggle(c, "live-headphones", l.SettingsLiveHeadphones(), a.settings.LiveActivities.Headphones, func(on bool) {
-			a.setLiveActivity(func(s *settings.Settings) { s.LiveActivities.Headphones = on })
-		})
-		settingsSep(c, "live-headphones")
-		settingsToggle(c, "live-downloads", l.SettingsLiveDownloads(), a.settings.LiveActivities.Downloads, func(on bool) {
-			a.setLiveActivity(func(s *settings.Settings) { s.LiveActivities.Downloads = on })
-		})
-	})
-}
-
-// setLiveActivity saves one 实时活动 switch and repaints.
-func (a *shelf) setLiveActivity(mutate func(*settings.Settings)) {
-	next := a.settings
-	mutate(&next)
-	a.applySettings(next)
-}
-
-// settingsClipboardSection contains the retained count and excluded apps,
-// through the same setters the tray menu uses. Recording is always enabled.
-func (a *shelf) settingsClipboardSection(c *ui.Context) {
-	l := loc(c)
-	settingsSection(c, l.SettingsClipboardSection(), "", a.settingsBroken, func() {
-		limit := a.settings.ClipboardLimit
-		if limit < 1 {
-			limit = settings.Default().ClipboardLimit
-		}
-		labels, values, selected := choiceSegments(limit, clipboardLimitChoices, strconv.Itoa)
-		settingsRow(c, "limit", l.SettingsClipboardLimitRow(), func() {
-			if sg := ui.Segmented(c, &selected, labels...).Label(l.SettingsClipboardLimitRow()); sg.Changed() {
-				a.setClipboardLimit(values[selected])
-			}
-		})
-		settingsSep(c, "limit")
-		settingsRowCap(c, "excl", l.SettingsClipboardExcludedRow(), l.SettingsClipboardExcludedCaption(), func() {
-			if len(a.settings.ExcludedApps) == 0 {
-				ui.Text(c, l.SettingsClipboardExcludedNone()).SingleLine().FontSize(12).TextColor(setInk3)
-			}
-		})
-		for _, id := range a.settings.ExcludedApps {
-			bundleID := id
-			settingsSep(c, "excl-"+bundleID)
-			ui.Row(c.Key("app-"+bundleID)).AlignItems(ui.Center).Gap(10).MinHeight(40).Padding(settingsRowPadY, 12).FillWidth().Children(func() {
-				if icon := settingsAppIcon(bundleID); icon != nil {
-					ui.Image(c.Key("ic"), icon).Size(20, 20).Radius(4.5)
-				} else {
-					ui.Icon(c.Key("ic"), appGlyph).Size(20, 20).TextColor(setInk3)
-				}
-				ui.Column(c.Key("id")).Gap(1).Grow(1).MinWidth(0).Children(func() {
-					settingsLabel(c, a.appName(bundleID), 13, 0).TextColor(setInk)
-					ui.Text(c, bundleID).SingleLine().FontSize(11).TextColor(setInk3)
-				})
-				if ui.Button(c, l.SettingsClipboardRemove()).FontSize(12).
-					Label(l.SettingsClipboardRemoveLabel(bundleID)).Clicked() {
-					a.removeExcludedApp(bundleID)
-				}
-			})
-		}
-	})
-}
-
-// settingsAIUsageSection is the AI 用量 group (design/usage-fix-v2.png):
-// a single-line master switch, then a two-column table — header cells
-// 「套餐额度」「本机用量」 (64pt wide, centred, 11pt semibold ink3), then
-// one row per tool with a 16pt checkbox under each header (omp has no
-// quota cell: 「—」, not clickable). Turning the master off dims and
-// locks the whole table (~40% opaque) while the checkbox states stay.
-// The privacy note lives under the card, as System Settings does. Every
-// change still goes through applySettings.
-func (a *shelf) settingsAIUsageSection(c *ui.Context) {
-	l := loc(c)
-	// col is one of the table's two right columns: 64pt wide, centred.
-	col := func(key string, fn func()) {
-		ui.Box(c.Key("c-" + key)).Width(64).Center().TextAlign(ui.Center).Children(fn)
-	}
-	// check is one 16pt source checkbox: accent fill + white tick while
-	// on, a 1pt white-28% outline while off (mock's .ck). Its accessible
-	// label prefixes the column so same-named cells stay distinct.
-	check := func(key, label string, on bool, apply func(*settings.Settings, bool)) {
-		b := ui.CheckboxBase(c.Key("ck-"+key), &on).Size(16, 16).Radius(4).Label(label)
-		if on {
-			b.Background(settingsTheme.Accent)
-		} else {
-			b.Border(1, ui.RGBA(255, 255, 255, 0.28))
-		}
-		b.DrawOver(func(p *ui.Painter, r ui.Rect) {
-			if on {
-				var tick ui.Path
-				tick.MoveTo(r.X+r.W*0.22, r.Y+r.H*0.52).LineTo(r.X+r.W*0.42, r.Y+r.H*0.71).LineTo(r.X+r.W*0.78, r.Y+r.H*0.31)
-				p.StrokePath(&tick, 1.8, ui.RGB(255, 255, 255))
-			}
-		})
-		if b.Changed() {
-			a.setAIUsage(func(s *settings.Settings) { apply(s, on) })
-		}
-	}
-	// toolRow is one tool line: the name on the left, then the quota and
-	// local cells — check boxes, or dash for omp's nonexistent quota.
-	toolRow := func(key, name, qKey, lKey string, quota, local bool, qApply, lApply func(*settings.Settings, bool)) {
-		ui.Row(c.Key("row-"+key)).AlignItems(ui.Center).Gap(10).MinHeight(40).Padding(settingsRowPadY, 12).FillWidth().Children(func() {
-			settingsLabel(c, name, 13, 0).TextColor(setInk).Grow(1).MinWidth(0)
-			col("quota-"+key, func() {
-				if qApply == nil {
-					ui.Text(c, "—").SingleLine().FontSize(12).TextColor(setInk3)
-					return
-				}
-				check(qKey, l.SettingsAIQuotaCheck(name), quota, qApply)
-			})
-			col("local-"+key, func() {
-				check(lKey, l.SettingsAILocalCheck(name), local, lApply)
-			})
-		})
-	}
-	settingsSection(c, l.SettingsAISection(), l.SettingsAIFoot(),
-		a.settingsBroken, func() {
-			settingsToggle(c, "aiusage", l.SettingsAIEnableRow(), a.settings.AIUsage.Enabled,
-				func(on bool) { a.setAIUsage(func(s *settings.Settings) { s.AIUsage.Enabled = on }) })
-			settingsSep(c, "aiusage")
-			// Disabled alone already halves the table's opacity; ×0.8 lands
-			// on the mock's ~40% while every widget stays unclickable.
-			table := ui.Column(c.Key("aiusage-table")).Disabled(!a.settings.AIUsage.Enabled).FillWidth()
-			if !a.settings.AIUsage.Enabled {
-				table.Opacity(0.8)
-			}
-			table.Children(func() {
-				ui.Row(c.Key("aiusage-head")).AlignItems(ui.Center).Gap(10).MinHeight(26).Padding(0, 12).FillWidth().Children(func() {
-					ui.Box(c.Key("hd-pad")).Grow(1)
-					col("hd-quota", func() {
-						ui.Text(c, l.SettingsAIQuotaColumn()).SingleLine().FontSize(11).FontWeight(600).TextColor(setInk3)
-					})
-					col("hd-local", func() {
-						ui.Text(c, l.SettingsAILocalColumn()).SingleLine().FontSize(11).FontWeight(600).TextColor(setInk3)
-					})
-				})
-				settingsSep(c, "head")
-				toolRow("codex", "Codex", "q-codex", "l-codex",
-					a.settings.AIUsage.QuotaCodex, a.settings.AIUsage.LocalCodex,
-					func(s *settings.Settings, on bool) { s.AIUsage.QuotaCodex = on },
-					func(s *settings.Settings, on bool) { s.AIUsage.LocalCodex = on })
-				settingsSep(c, "codex")
-				toolRow("claude", "Claude Code", "q-claude", "l-claude",
-					a.settings.AIUsage.QuotaClaude, a.settings.AIUsage.LocalClaude,
-					func(s *settings.Settings, on bool) { s.AIUsage.QuotaClaude = on },
-					func(s *settings.Settings, on bool) { s.AIUsage.LocalClaude = on })
-				settingsSep(c, "claude")
-				toolRow("omp", "omp", "q-omp", "l-omp",
-					false, a.settings.AIUsage.LocalOmp,
-					nil,
-					func(s *settings.Settings, on bool) { s.AIUsage.LocalOmp = on })
-			})
-			settingsSep(c, "quota-show")
-			settingsRow(c, "quota-show", l.SettingsAIQuotaDisplayRow(), func() {
-				shown := 0
-				if a.settings.AIUsage.QuotaLeft {
-					shown = 1
-				}
-				sg := ui.Segmented(c, &shown, l.SettingsAIQuotaUsed(), l.SettingsAIQuotaLeft()).
-					Label(l.SettingsAIQuotaDisplayRow())
-				if !a.settings.AIUsage.Enabled {
-					sg.Disabled(true)
-				}
-				if sg.Changed() {
-					a.setAIUsage(func(s *settings.Settings) { s.AIUsage.QuotaLeft = shown == 1 })
-				}
-			})
-		})
-}
-
-// settingsTraySection: 自动清理旧内容, 拖出后从托盘移除 and 刘海显示正在
-// 播放 — the same setters as the tray's 自动清理 submenu and 正在播放 item.
-func (a *shelf) settingsTraySection(c *ui.Context) {
-	l := loc(c)
-	settingsSection(c, l.SettingsTraySection(), "", a.settingsBroken, func() {
-		days := max(0, a.settings.RetentionDays)
-		labels, values, selected := choiceSegments(days, retentionChoices, func(n int) string {
-			if n <= 0 {
-				return l.SettingsRetentionNever()
-			}
-			return l.SettingsRetentionDays(n)
-		})
-		settingsRow(c, "retention", l.SettingsRetentionRow(), func() {
-			if sg := ui.Segmented(c, &selected, labels...).Label(l.SettingsRetentionRow()); sg.Changed() {
-				a.setRetention(values[selected])
-			}
-		})
-		settingsSep(c, "retention")
-		settingsToggleCap(c, "dragout", l.SettingsDragOutRow(), l.SettingsDragOutCaption(), setInk3,
-			a.settings.RemoveAfterDrag, a.setRemoveAfterDrag)
-		settingsSep(c, "dragout")
-		settingsToggle(c, "np", l.SettingsNowPlayingRow(), a.settings.IslandNowPlaying, func(on bool) {
-			a.setNowPlaying(func(s *settings.Settings) { s.IslandNowPlaying = on })
-		})
-	})
-}
-
-// settingsShortcutsSection lists the global shortcuts read-only; they are
-// compiled in (config.go), not preferences.
-func (a *shelf) settingsShortcutsSection(c *ui.Context) {
-	l := loc(c)
-	settingsSection(c, l.SettingsShortcutsSection(), "", false, func() {
-		settingsRow(c, "sc-tray", l.SettingsShortcutTray(), func() {
-			ui.Text(c, shortcutHint).SingleLine().FontSize(13).TextColor(setInk2)
-		})
-		settingsSep(c, "sc")
-		settingsRow(c, "sc-clip", l.SettingsShortcutClipboard(), func() {
-			ui.Text(c, clipboardHint).SingleLine().FontSize(13).TextColor(setInk2)
-		})
-		settingsSep(c, "sc-ocr")
-		settingsRow(c, "sc-ocr", l.SettingsShortcutOCR(), func() {
-			ui.Text(c, ocrHint).SingleLine().FontSize(13).TextColor(setInk2)
-		})
-	})
-}
-
-// settingsFooter: the app version (from the bundle's Info.plist when
-// packaged) and the button that opens the data folder in Finder.
-func (a *shelf) settingsFooter(c *ui.Context) {
-	l := loc(c)
-	ui.Row(c.Key("footer")).AlignItems(ui.Center).Gap(10).Padding(0, 4).FillWidth().Children(func() {
-		ui.Text(c, l.SettingsVersionLine(appName, appVersion())).SingleLine().FontSize(11).TextColor(setInk3).Grow(1)
-		if ui.Button(c, l.SettingsOpenDataFolder()).FontSize(12).Clicked() {
-			if err := openPath(a.dataDir); err != nil {
-				a.report(err)
-			}
-		}
-	})
+// settingsFootnote is the muted note under a page's last card.
+func settingsFootnote(c *ui.Context, key, text string) {
+	ui.Text(c, text).FontSize(11.5).TextColor(setInk3).Padding(0, 6, 0, 6).MaxWidth(520)
 }
 
 // appVersion is the bundle version (mygo.json's version → Info.plist) when

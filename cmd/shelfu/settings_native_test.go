@@ -80,8 +80,15 @@ func TestSettingsWindowAnswersClicksAndScroll(t *testing.T) {
 	}
 
 	// Scroll: a wheel event on the Settings surface must move the tracked
-	// scroll state — the window is 520pt tall and its content is taller.
+	// scroll state. The 快捷键 page is taller than the 560pt window (the
+	// 通用 page fits, and must stay scroll-free).
 	var before, after float32
+	onMain(func() {
+		a.settingsPage = settingsPageShortcuts
+		a.settingsScroll.Y = 0
+		a.settingsWin.Invalidate()
+	})
+	time.Sleep(150 * time.Millisecond)
 	onMain(func() {
 		a.settingsWin.Invalidate()
 		before = a.settingsScroll.Y
@@ -94,7 +101,7 @@ func TestSettingsWindowAnswersClicksAndScroll(t *testing.T) {
 		a.settingsWin.Invalidate()
 		after = a.settingsScroll.Y
 	})
-	if after == before {
+	if after == before || a.settingsScroll.MaxY <= 0 {
 		t.Fatalf("scroll event moved nothing: ScrollState.Y stayed %v (MaxY=%v)", after, a.settingsScroll.MaxY)
 	}
 	t.Logf("scroll moved %v → %v (max %v)", before, after, a.settingsScroll.MaxY)
@@ -142,6 +149,7 @@ func TestSettingsClipboardAlwaysOnNative(t *testing.T) {
 	})
 	time.Sleep(300 * time.Millisecond)
 	onMain(func() {
+		a.settingsPage = settingsPageClipboard
 		a.settingsScroll.Y = min(400, a.settingsScroll.MaxY)
 		a.settingsWin.Invalidate()
 	})

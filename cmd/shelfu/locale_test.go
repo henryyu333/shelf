@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -123,33 +124,45 @@ func TestEnglishPanelPagesHaveNoChineseAndFit(t *testing.T) {
 	}
 }
 
-// TestEnglishSettingsWindowHasNoChinese: every group, row, caption and
-// control of the Settings window says English.
+// TestEnglishSettingsWindowHasNoChinese: every page of the Settings window
+// says English.
 func TestEnglishSettingsWindowHasNoChinese(t *testing.T) {
 	a, view := newSettingsShelf(t)
 	a.locale = "en"
 	view.SetLocale("en")
-	view.Frame()
-	view.Frame()
-	// The language's own name is shown in itself ("简体中文"), as macOS shows
-	// language menus: that is not a leftover translation.
-	texts := view.Texts()
-	for i, text := range texts {
-		if text == "简体中文" {
-			texts[i] = ""
-		}
-	}
-	assertNoHan(t, "settings", texts)
 	l := locales.In("en")
+	for _, nav := range []string{
+		l.General(), l.SettingsNotchNav(), l.SettingsTraySection(), l.SettingsClipboardSection(),
+		l.SettingsAISection(), l.SettingsShortcutsSection(), l.PermTitle(), l.SettingsAboutPage(),
+	} {
+		openSettingsPage(t, view, nav)
+		view.Frame()
+		// The language's own name is shown in itself ("简体中文"), as macOS
+		// shows language menus: that is not a leftover translation.
+		texts := view.Texts()
+		for i, text := range texts {
+			if text == "简体中文" {
+				texts[i] = ""
+			}
+		}
+		assertNoHan(t, "settings/"+nav, texts)
+	}
 	joined := strings.Join(view.Texts(), "\n")
 	for _, want := range []string{
-		l.General(), l.SettingsLoginRow(), l.SettingsAutoCheckRow(),
-		l.SettingsLiveSection(), l.SettingsClipboardSection(), l.SettingsAISection(),
-		l.LanguageRow(), l.LanguageFollowSystem(), l.LanguageEnglish(),
-		l.SettingsVersionLine(appName, appVersion()),
+		l.SettingsAboutPage(), l.SettingsAboutVersion(appVersion(), runtime.GOARCH),
+		l.SettingsAboutWhatsNew(), l.SettingsOpenDataFolder(),
 	} {
 		if !strings.Contains(joined, want) {
-			t.Errorf("settings: %q missing from the English window", want)
+			t.Errorf("settings: %q missing from the English About page", want)
+		}
+	}
+	openSettingsPage(t, view, l.General())
+	for _, want := range []string{
+		l.SettingsLoginRow(), l.SettingsAutoCheckRow(), l.LanguageRow(),
+		l.LanguageFollowSystem(), l.LanguageEnglish(),
+	} {
+		if !strings.Contains(strings.Join(view.Texts(), "\n"), want) {
+			t.Errorf("settings: %q missing from the English general page", want)
 		}
 	}
 }
@@ -169,43 +182,31 @@ func TestEnglishSettingsWindowLayout(t *testing.T) {
 	view.SetLocale("en")
 	l := locales.In("en")
 
-	// Both ends of the scroll, so every group is drawn at least once.
-	seen := map[string]bool{}
-	var audit func(where string)
-	audit = func(where string) {
+	// Every page, both ends of its scroll: nothing is cut, nothing leaves
+	// the window, nothing overlaps.
+	audit := func(where string) {
 		view.Frame()
 		view.Frame()
-		texts := view.Texts()
-		if where == "top" {
-			for i, text := range texts {
-				if text == "简体中文" {
-					texts[i] = ""
-				}
-			}
-			assertNoHan(t, "settings/"+where, texts)
-		}
-		for _, text := range view.Texts() {
-			seen[text] = true
-		}
 		assertSettingsLayout(t, view, where)
 	}
-
-	a.settingsScroll.Y = 0
-	audit("top")
-	// Each group is on screen at one end or the other.
-	for _, group := range []string{
-		l.General(), l.PermTitle(), l.SettingsLiveSection(), l.SettingsAISection(),
-		l.SettingsClipboardSection(), l.SettingsTraySection(), l.SettingsShortcutsSection(),
+	for _, nav := range []string{
+		l.General(), l.SettingsNotchNav(), l.SettingsTraySection(), l.SettingsClipboardSection(),
+		l.SettingsAISection(), l.SettingsShortcutsSection(), l.PermTitle(), l.SettingsAboutPage(),
 	} {
-		if !seen[group] {
-			t.Errorf("settings: the group %q was never drawn", group)
-		}
+		openSettingsPage(t, view, nav)
+		a.settingsScroll.Y = 0
+		audit("top/" + nav)
+		a.settingsScroll.Y = 1e6
+		audit("bottom/" + nav)
 	}
-	// The rows that wrap keep air above and below: the caption's box ends
-	// before the next row starts.
+
+	// A caption that wraps ends above the next row's text, never on it.
+	openSettingsPage(t, view, l.SettingsNotchNav())
+	a.settingsScroll.Y = 0
+	view.Frame()
+	view.Frame()
 	for _, pair := range [][2]string{
-		{l.ShellStyleCaption(), l.LanguageRow()},
-		{l.LanguageCaption(), l.SettingsSnapRow()},
+		{l.ShellStyleCaption(), l.SettingsIslandPosRow()},
 	} {
 		cap, ok := view.Find(pair[0])
 		if !ok {
@@ -213,26 +214,20 @@ func TestEnglishSettingsWindowLayout(t *testing.T) {
 		}
 		next, ok := view.Find(pair[1])
 		if !ok {
-			t.Fatalf("row %q missing", pair[1])
-		}
-		if cap.H <= 20 {
-			t.Errorf("%q did not wrap into two lines (height %.1f)", pair[0], cap.H)
+			continue // the island row only exists on a floating island
 		}
 		if gap := next.Y - (cap.Y + cap.H); gap < 2 {
 			t.Errorf("%q ends %.1fpt above %q: the caption presses the next row", pair[0], gap, pair[1])
 		}
 	}
 
-	a.settingsScroll.Y = 1e6
-	audit("bottom")
-
-	// A one-line row keeps its 40pt height: the padding only shows up where a
-	// caption wraps, so the Chinese layout is the one it always was.
+	// A one-line row keeps the design's 50pt height.
+	openSettingsPage(t, view, l.General())
 	a.settingsScroll.Y = 0
 	view.Frame()
 	view.Frame()
-	if r, ok := view.Find(l.SettingsLoginRow()); ok && r.H != 40 {
-		t.Errorf("a one-line row is %.1fpt tall, want 40", r.H)
+	if r, ok := view.Find(l.SettingsLoginRow()); ok && r.H != 50 {
+		t.Errorf("a one-line row is %.1fpt tall, want 50", r.H)
 	}
 	for _, note := range cut {
 		t.Errorf("settings: %s", note)

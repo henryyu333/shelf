@@ -7,12 +7,6 @@ import (
 
 const (
 	appName = "ShelfU"
-	// Carbon 全局快捷键，不需要辅助功能权限。
-	trayShortcut = "Ctrl+Alt+Space"
-	// 打开剪贴板搜索：显示托盘、切到剪贴板标签并把焦点放进搜索框。
-	clipboardShortcut = "Ctrl+Alt+V"
-	// 框选文字：框一块屏幕区域，识别出的文字直接进剪贴板。
-	ocrShortcut = "Ctrl+Alt+O"
 	// searchLabel 是搜索框在测试里定位用的标签；界面上的占位文字与无障碍名
 	// 称来自词条 panelSearch（随窗口语言变化）。
 	searchLabel = "搜索剪贴板"
@@ -41,22 +35,12 @@ const (
 	dropPillExtraW = 60 // 拖拽中：比刘海宽出的部分
 	// 面板尺寸见 panel.go 的 islandW/islandH/sheetW/sheetH；原生窗口初始
 	// 尺寸用 sheetW × sheetH，两种状态都画在同一个窗口里。
-	// 设置窗口：普通有标题窗口的尺寸（设置内容超出时内部滚动）。
-	settingsWidth  = 460
-	settingsHeight = 520
+	// 设置窗口：普通有标题窗口的尺寸与最小尺寸（右侧面板在窗口内滚动）。
+	settingsWidth     = 820
+	settingsHeight    = 560
+	settingsMinWidth  = 760
+	settingsMinHeight = 520
 )
-
-// shortcutHint is what the panel footer shows for trayShortcut; it is
-// derived from the constant so the hint can never disagree with the
-// registered shortcut.
-var shortcutHint = shortcutLabel(trayShortcut)
-
-// clipboardHint is the panel footer's label for clipboardShortcut, derived
-// from the constant the same way.
-var clipboardHint = shortcutLabel(clipboardShortcut)
-
-// ocrHint is the settings row's label for ocrShortcut, derived the same way.
-var ocrHint = shortcutLabel(ocrShortcut)
 
 // clipboardLimitChoices are the clipboard text limits offered in the
 // menu-bar menu; the setting takes any number, the menu the usual ones.
@@ -64,37 +48,11 @@ var clipboardLimitChoices = []int{30, 100, 300}
 
 // shortcutLabel renders an Electron-style accelerator ("Ctrl+Alt+Space")
 // as macOS glyphs ("⌃⌥Space"). Unknown spellings are returned unchanged
-// so the hint never claims a shortcut the app did not register.
+// so a hint never claims a shortcut the app did not register.
 func shortcutLabel(acc string) string {
-	parts := strings.Split(acc, "+")
-	glyphs := make([]string, 0, len(parts))
-	for i, raw := range parts {
-		token := strings.TrimSpace(raw)
-		if token == "" {
-			return acc
-		}
-		if i == len(parts)-1 {
-			switch {
-			case strings.EqualFold(token, "space"):
-				token = "Space"
-			case len(token) == 1:
-				token = strings.ToUpper(token)
-			}
-			glyphs = append(glyphs, token)
-			continue
-		}
-		switch strings.ToLower(token) {
-		case "cmd", "command", "super", "cmdorctrl":
-			glyphs = append(glyphs, "⌘") // 目标平台只有 macOS
-		case "ctrl", "control":
-			glyphs = append(glyphs, "⌃")
-		case "alt", "option":
-			glyphs = append(glyphs, "⌥")
-		case "shift":
-			glyphs = append(glyphs, "⇧")
-		default:
-			return acc
-		}
+	tokens, ok := shortcutTokens(acc)
+	if !ok {
+		return acc
 	}
-	return strings.Join(glyphs, "")
+	return strings.Join(tokens, "")
 }

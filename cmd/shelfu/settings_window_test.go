@@ -120,9 +120,20 @@ func rectHelper(x, y, w, h int) mygo.Rectangle {
 	return mygo.Rectangle{X: x, Y: y, Width: w, Height: h}
 }
 
+// openSettingsPage clicks a sidebar destination and settles the page's
+// first frame. The destination's label also titles the page, so the click
+// lands on the sidebar's item, which the tree draws first.
+func openSettingsPage(t *testing.T, view *ui.Tester, title string) {
+	t.Helper()
+	if err := view.Click(title); err != nil {
+		t.Fatalf("sidebar item %q: %v", title, err)
+	}
+	view.Frame()
+}
+
 // clickVisible scrolls the settings view until the element showing label is
-// inside the viewport, then clicks it: the window is 520pt tall and the
-// content scrolls, so a target may start below the fold.
+// inside the viewport, then clicks it: a page may be taller than the
+// window, so a target can start below the fold.
 func clickVisible(t *testing.T, view *ui.Tester, label string) {
 	t.Helper()
 	for range 30 {
@@ -166,17 +177,37 @@ func TestChoiceSegments(t *testing.T) {
 
 func TestSettingsViewShowsSections(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
-	_, view := newSettingsShelf(t)
-	for _, s := range []string{"通用", "剪贴板", "托盘", "快捷键", "开机时自动启动", "自动检查更新", "刘海拖放保护", "保留条数", "排除的应用", "自动清理旧内容", "刘海显示正在播放", "显示 / 收起", "剪贴板搜索", "打开数据文件夹"} {
-		if !view.HasText(s) {
-			t.Fatalf("settings view missing %q; texts=%v", s, view.Texts())
+	a, view := newSettingsShelf(t)
+	// Every preference the old single page held is still in the window,
+	// on the page where a user looks for it.
+	pages := []struct {
+		nav   string
+		texts []string
+	}{
+		{"通用", []string{"开机时自动启动", "自动检查更新", "检查更新", "现在检查"}},
+		{"外形与提示", []string{"刘海样式", "刘海显示正在播放", "充电提示", "耳机连接提示", "下载进度", "拖窗口到刘海分屏"}},
+		{"托盘", []string{"自动清理旧内容", "拖出后从托盘移除"}},
+		{"剪贴板", []string{"保留条数", "排除的应用"}},
+		{"AI 用量", []string{"在刘海里显示 AI 用量", "额度显示", "数据来源", "套餐额度", "本机用量"}},
+		{"快捷键", []string{"显示 / 收起", "剪贴板搜索", "框选文字", "打开托盘", "在刘海里"}},
+		{"系统权限", []string{"完整磁盘访问", "辅助功能", "屏幕录制"}},
+		{"关于", []string{"打开数据文件夹", "新功能介绍", "源代码", "隐私"}},
+	}
+	for _, p := range pages {
+		openSettingsPage(t, view, p.nav)
+		for _, s := range p.texts {
+			if !view.HasText(s) {
+				t.Fatalf("%s page missing %q; texts=%v", p.nav, s, view.Texts())
+			}
 		}
 	}
+	a.settingsPage = settingsPageGeneral
 }
 
 func TestSettingsViewNowPlayingToggleSaves(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "外形与提示")
 	clickVisible(t, view, "刘海显示正在播放")
 	if a.settings.IslandNowPlaying {
 		t.Fatal("now-playing toggle did not apply")
@@ -216,6 +247,7 @@ func TestSettingsViewAutoCheckToggle(t *testing.T) {
 func TestSettingsViewSegmentedApplies(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "剪贴板")
 	clickVisible(t, view, "100")
 	if a.settings.ClipboardLimit != 100 {
 		t.Fatalf("limit not applied: %d", a.settings.ClipboardLimit)
@@ -224,6 +256,7 @@ func TestSettingsViewSegmentedApplies(t *testing.T) {
 	if saved.ClipboardLimit != 100 {
 		t.Fatalf("limit not saved: %+v", saved)
 	}
+	openSettingsPage(t, view, "托盘")
 	clickVisible(t, view, "7 天")
 	saved, _ = settings.Load(a.dataDir)
 	if saved.RetentionDays != 7 {
@@ -245,7 +278,9 @@ func TestSettingsViewBrokenDisablesEditing(t *testing.T) {
 		t.Fatalf("broken banner missing; texts=%v", view.Texts())
 	}
 	// Clicks on disabled controls must change nothing and write nothing.
+	openSettingsPage(t, view, "外形与提示")
 	clickVisible(t, view, "刘海显示正在播放")
+	openSettingsPage(t, view, "剪贴板")
 	clickVisible(t, view, "100")
 	clickVisible(t, view, "移除 com.example.One")
 	if !a.settings.IslandNowPlaying || a.settings.ClipboardLimit != 30 || len(a.settings.ExcludedApps) != 1 {
@@ -261,6 +296,7 @@ func TestSettingsViewExcludedAppRemoval(t *testing.T) {
 	a, view := newSettingsShelf(t)
 	a.settings.ExcludedApps = []string{"com.example.One", "com.example.Two"}
 	view = ui.NewTester(a.settingsView, settingsWidth, settingsHeight)
+	openSettingsPage(t, view, "剪贴板")
 	if !view.HasText("com.example.Two") {
 		t.Fatal("excluded app not listed")
 	}
@@ -387,19 +423,25 @@ func TestSettingsKeyboardExit(t *testing.T) {
 // Segmented settings controls carry the same accessible name as their row.
 func TestSettingsViewControlLabels(t *testing.T) {
 	stubSettingsSeams(t, false, nil, nil)
-	a, _ := newSettingsShelf(t)
+	_, view := newSettingsShelf(t)
 	find := func(name string) int {
 		n := 0
-		for _, l := range ui.NewTester(a.settingsView, settingsWidth, settingsHeight).Texts() {
+		for _, l := range view.Texts() {
 			if l == name {
 				n++
 			}
 		}
 		return n
 	}
-	for _, name := range []string{"保留条数", "自动清理旧内容"} {
-		if n := find(name); n < 2 {
-			t.Fatalf("%q must name its segmented control too, got %d", name, n)
+	for nav, names := range map[string][]string{
+		"剪贴板": {"保留条数"},
+		"托盘":  {"自动清理旧内容"},
+	} {
+		openSettingsPage(t, view, nav)
+		for _, name := range names {
+			if n := find(name); n < 2 {
+				t.Fatalf("%q must name its segmented control too, got %d", name, n)
+			}
 		}
 	}
 }
@@ -408,9 +450,37 @@ func TestSettingsViewOpenDataFolder(t *testing.T) {
 	var opened []string
 	stubSettingsSeams(t, false, nil, &opened)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "关于")
 	clickVisible(t, view, "打开数据文件夹")
 	if len(opened) != 1 || opened[0] != a.dataDir {
 		t.Fatalf("data dir not opened: %v", opened)
+	}
+}
+
+// 关于's source row opens the public repository, and its 新功能介绍 button
+// calls the panel's entry (a no-op until the panel provides one).
+func TestSettingsViewAboutActions(t *testing.T) {
+	var opened []string
+	stubSettingsSeams(t, false, nil, nil)
+	origExternal := openExternal
+	openExternal = func(url string) error {
+		opened = append(opened, url)
+		return nil
+	}
+	origWhatsNew := showWhatsNew
+	var called int
+	showWhatsNew = func(*shelf) { called++ }
+	t.Cleanup(func() { openExternal = origExternal; showWhatsNew = origWhatsNew })
+
+	_, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "关于")
+	clickVisible(t, view, "打开")
+	if len(opened) != 1 || opened[0] != sourceURL {
+		t.Fatalf("source link opened %v, want %q", opened, sourceURL)
+	}
+	clickVisible(t, view, "新功能介绍")
+	if called != 1 {
+		t.Fatalf("新功能介绍 called the entry %d times", called)
 	}
 }
 
@@ -592,6 +662,7 @@ func TestSettingsViewLiveTogglesSave(t *testing.T) {
 	if !a.settings.LiveActivities.Charging || !a.settings.LiveActivities.Headphones || !a.settings.LiveActivities.Downloads {
 		t.Fatalf("live activities must default on: %+v", a.settings.LiveActivities)
 	}
+	openSettingsPage(t, view, "外形与提示")
 	clickVisible(t, view, "充电提示")
 	clickVisible(t, view, "耳机连接提示")
 	clickVisible(t, view, "下载进度")

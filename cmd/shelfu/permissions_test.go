@@ -19,6 +19,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"shelf/internal/settings"
+	"shelf/locales"
 )
 
 type permStubs struct {
@@ -103,11 +104,29 @@ func permissionTrayLabels(t *testing.T) []string {
 // permissionRowCaption is the row's state caption in the last frame.
 func permissionRowCaption(t *testing.T, view *ui.Tester) string {
 	t.Helper()
-	for _, want := range []string{"已全部开启（", "还差 ", "第 ", "还差最后一步"} {
-		for _, text := range view.Texts() {
-			if strings.HasPrefix(text, want) {
-				return text
-			}
+	// The caption lives on the 系统权限 page; open it when the test has not.
+	isCaption := func(s string) bool {
+		switch {
+		case strings.HasPrefix(s, "还差 "):
+			// The sidebar's status is 还差 N 项权限; the row's caption names
+			// the permissions after 项：.
+			return strings.Contains(s, "项：")
+		}
+		return strings.HasPrefix(s, "已全部开启（") || strings.HasPrefix(s, "第 ") ||
+			strings.HasPrefix(s, "还差最后一步")
+	}
+	found := false
+	for _, text := range view.Texts() {
+		if isCaption(text) {
+			found = true
+		}
+	}
+	if !found {
+		openSettingsPage(t, view, "系统权限")
+	}
+	for _, text := range view.Texts() {
+		if isCaption(text) {
+			return text
 		}
 	}
 	t.Fatalf("no permission caption in the frame; texts=%v", view.Texts())
@@ -172,39 +191,33 @@ func TestPermissionTrayItemStartsTheWalk(t *testing.T) {
 	}
 }
 
-// One row, one switch, one list: the per-permission rows and their buttons
-// are gone, and the group's note names the whole list.
-func TestSettingsPermissionsSectionIsOneRow(t *testing.T) {
+// The 系统权限 page lists every permission with its live state above the one
+// switch that walks the user through what is missing: the old window's two
+// design goals (one entry point, one place to see the state) on one page.
+func TestSettingsPermissionsPageListsEveryPermission(t *testing.T) {
 	_, _ = stubPermissions(t)
 	_, view := newSettingsShelf(t)
-	for _, gone := range []string{
-		"文件访问 · 完整磁盘访问", "刘海拖放保护 · 辅助功能", "框选文字 · 屏幕录制",
-		"全部开启…", "开启…", "✓ 已开启", "未开启", "ShelfU 需要",
-	} {
+	openSettingsPage(t, view, "系统权限")
+	for _, gone := range []string{"文件访问 · 完整磁盘访问", "全部开启…", "ShelfU 需要"} {
 		if view.HasText(gone) {
-			t.Fatalf("the per-permission UI still shows %q; texts=%v", gone, view.Texts())
+			t.Fatalf("the removed per-permission UI still shows %q; texts=%v", gone, view.Texts())
+		}
+	}
+	ps := systemPermissionSet(locales.In(""))
+	for _, p := range ps {
+		if !view.HasText(p.short) || !view.HasText(p.detail) {
+			t.Fatalf("permission %q lacks its row; texts=%v", p.id, view.Texts())
 		}
 	}
 	for _, want := range []string{
 		"系统权限",
-		"一个开关开启全部 3 项：完整磁盘访问（拖入不再弹窗）、辅助功能（刘海拖放保护）、屏幕录制（框选文字）。macOS 要求每一项都由你在系统设置里打开。",
+		"需要 3 项",
+		"未开启",
 		"还差 3 项：完整磁盘访问、辅助功能、屏幕录制",
 	} {
 		if !view.HasText(want) {
-			t.Fatalf("the one-row group lacks %q; texts=%v", want, view.Texts())
+			t.Fatalf("the page lacks %q; texts=%v", want, view.Texts())
 		}
-	}
-	// 系统权限 is the heading and the row's title; the switch and its row
-	// carry the same accessible name. What matters is that the group has
-	// exactly one state caption and no per-permission row.
-	captions := 0
-	for _, text := range view.Texts() {
-		if strings.HasPrefix(text, "还差 ") || strings.HasPrefix(text, "已全部开启（") || strings.HasPrefix(text, "第 ") {
-			captions++
-		}
-	}
-	if captions != 1 {
-		t.Fatalf("expected one permission caption, got %d; texts=%v", captions, view.Texts())
 	}
 }
 
@@ -440,6 +453,7 @@ func TestPermissionFlowStops(t *testing.T) {
 func TestPermissionSwitchOffWhileWaitingStops(t *testing.T) {
 	st, clk := stubPermissions(t)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "系统权限")
 	if err := view.Click(permissionRowCaption(t, view)); err != nil {
 		t.Fatal(err)
 	}
@@ -461,6 +475,7 @@ func TestPermissionSwitchOffWhileWaitingStops(t *testing.T) {
 func TestSettingsCloseStopsPermissionFlow(t *testing.T) {
 	st, clk := stubPermissions(t)
 	a, view := newSettingsShelf(t)
+	openSettingsPage(t, view, "系统权限")
 	if err := view.Click(permissionRowCaption(t, view)); err != nil {
 		t.Fatal(err)
 	}
@@ -503,6 +518,7 @@ func TestPermissionsSectionWorksWhileSettingsBroken(t *testing.T) {
 	a := &shelf{dataDir: dir, settings: settings.Default(), settingsBroken: true,
 		thumbnails: map[string]*ui.Bitmap{}, thumbPending: map[string]bool{}, appNames: map[string]string{}}
 	view := ui.NewTester(a.settingsView, settingsWidth, settingsHeight)
+	openSettingsPage(t, view, "系统权限")
 	if !view.HasText("settings.json 无法读取") || !view.HasText("还差 3 项") {
 		t.Fatalf("the permission group is not usable while settings are broken; texts=%v", view.Texts())
 	}
@@ -531,9 +547,6 @@ func TestSystemPermissionsList(t *testing.T) {
 	}
 	if !slices.Equal(shorts, []string{"完整磁盘访问", "辅助功能", "屏幕录制"}) {
 		t.Fatalf("short names = %v", shorts)
-	}
-	if got := permissionsFootText(ps); got != "一个开关开启全部 3 项：完整磁盘访问（拖入不再弹窗）、辅助功能（刘海拖放保护）、屏幕录制（框选文字）。macOS 要求每一项都由你在系统设置里打开。" {
-		t.Fatalf("foot text = %q", got)
 	}
 	if p, ok := permissionByID(fullDiskPermissionID); !ok || p.short != "完整磁盘访问" {
 		t.Fatalf("permissionByID(fulldisk) = %+v, %v", p, ok)

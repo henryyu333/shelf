@@ -52,6 +52,18 @@ var (
 	updateInstallTimeout = 10 * time.Minute
 )
 
+// updateCheckResult is how the last update check went, as the Settings
+// window's 检查更新 row reports it.
+type updateCheckResult int
+
+const (
+	updateResultNone updateCheckResult = iota
+	updateResultLatest
+	updateResultAvailable
+	updateResultFailed
+	updateResultDisabled
+)
+
 // nextAutoCheck returns when the next automatic check is due after one ran
 // at now: a day after a successful check, sooner after a failure so a
 // transient network problem does not mute updates for a day. Pure;
@@ -114,7 +126,17 @@ func (a *shelf) checkedUpdate(user bool, up *mygo.Update, err error) {
 	a.updateChecking = false
 	// A check is a check: a manual one counts toward the daily schedule too.
 	a.updateNext = nextAutoCheck(time.Now(), err == nil)
+	// The 通用 page's 检查更新 row says when the last check ran and how it
+	// went; the state lives for this launch, like the schedule does.
+	a.updateLastCheck = time.Now()
+	a.updateLastResult = updateResultLatest
+	a.updateLastVersion = ""
+	defer a.repaintSettings()
 	if err != nil {
+		a.updateLastResult = updateResultFailed
+		if errors.Is(err, mygo.ErrUpdatesDisabled) {
+			a.updateLastResult = updateResultDisabled
+		}
 		log.Printf("ShelfU: 检查更新失败：%v", err)
 		if user {
 			l := a.appLoc()
@@ -136,6 +158,8 @@ func (a *shelf) checkedUpdate(user bool, up *mygo.Update, err error) {
 		}
 		return
 	}
+	a.updateLastResult = updateResultAvailable
+	a.updateLastVersion = up.Version
 	// An install in flight or a version already swapped in keeps its state.
 	if a.updateInstalling || (a.updateInstalled && a.update != nil && a.update.Version == up.Version) {
 		return
