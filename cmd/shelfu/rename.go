@@ -518,7 +518,7 @@ func (a *shelf) renameView(c *ui.Context) {
 		ui.Row(c.Key("titlebar")).Height(float32(max(bar.Height, 38))).FillWidth().
 			AlignItems(ui.Center).Justify(ui.Center).Padding(0, bar.Right, 0, bar.Left).
 			DragWindow().Children(func() {
-			ui.Text(c, renameTitleIn(l, len(r.items))).SingleLine().FontSize(13).FontWeight(600).TextColor(setInk2)
+			ui.Text(c, renameTitleIn(l, len(r.items))).SingleLine().FontSize(13).FontWeight(600).TextColor(ink2)
 		})
 		if r.done != nil {
 			r.doneView(c)
@@ -594,7 +594,7 @@ func (r *renameUI) inputSection(c *ui.Context) {
 // Enter applies the rename and Escape closes the window, the same keys
 // the buttons answer — an input keeps them to itself otherwise.
 func (r *renameUI) field(c *ui.Context, key string, value *string, placeholder string) {
-	in := ui.TextInputBase(c.Key(key), value).Width(180).FontSize(13).TextColor(setInk).
+	in := ui.TextInputBase(c.Key(key), value).Width(180).FontSize(13).TextColor(ink).
 		Placeholder(placeholder).Label(placeholder)
 	if !r.booted && (renameMode(r.mode) == modeReplace && key == "rn-find-in" ||
 		renameMode(r.mode) == modeAdd && key == "rn-add-in" ||
@@ -626,7 +626,7 @@ func (r *renameUI) previewSection(c *ui.Context) {
 	// format mode's four rows never push 改名 below the window: the list
 	// scrolls inside its card instead.
 	ui.Column(c.Key("sec-preview")).FillWidth().Grow(1).MinHeight(0).Children(func() {
-		ui.Text(c, l.RenamePreview()).SingleLine().FontSize(11).FontWeight(600).TextColor(setInk3).Padding(0, 0, 6, 4)
+		ui.Text(c, l.RenamePreview()).SingleLine().FontSize(11).FontWeight(600).TextColor(ink3).Padding(0, 0, 6, 4)
 		ui.Column(c.Key("card-preview")).Radius(10).Background(setCard).Border(0.5, setCardEdge).
 			FillWidth().Grow(1).MinHeight(0).Children(func() {
 			ui.Scroll(c.Key("rn-preview")).Fill().MinHeight(0).TrackScroll(&r.scroll).Children(func() {
@@ -638,13 +638,13 @@ func (r *renameUI) previewSection(c *ui.Context) {
 						rowEl := ui.Row(c.Key("rn-row-"+row.item.ID)).AlignItems(ui.Center).Gap(8).
 							MinHeight(30).Padding(0, 12).FillWidth()
 						rowEl.Children(func() {
-							ui.Text(c, row.oldName).SingleLine().FontSize(12).TextColor(setInk2)
-							ui.Text(c, "→").SingleLine().FontSize(12).TextColor(setInk3)
-							newColor := setInk
+							ui.Text(c, row.oldName).SingleLine().FontSize(12).TextColor(ink2)
+							ui.Text(c, "→").SingleLine().FontSize(12).TextColor(ink3)
+							newColor := ink
 							if row.warn != "" {
 								newColor = danger
 							} else if row.newName == row.oldName {
-								newColor = setInk3
+								newColor = ink3
 							}
 							ui.Text(c, row.newName).SingleLine().FontSize(12).FontWeight(600).TextColor(newColor)
 							ui.Box(c).Grow(1)
@@ -669,7 +669,7 @@ func (r *renameUI) previewSection(c *ui.Context) {
 		default:
 			foot = l.RenameWillChange(pl.changed)
 		}
-		ui.Text(c, foot).FontSize(11).TextColor(setInk3).Padding(4, 12, 0, 12)
+		ui.Text(c, foot).FontSize(11).TextColor(ink3).Padding(4, 12, 0, 12)
 	})
 }
 
@@ -695,8 +695,8 @@ func (r *renameUI) buttons(c *ui.Context, apply func()) {
 func (r *renameUI) doneView(c *ui.Context) {
 	l := loc(c)
 	ui.Column(c.Key("done")).Fill().Center().Gap(14).Children(func() {
-		ui.Text(c, l.RenameDoneCount(len(r.done.ops))).FontSize(15).FontWeight(600).TextColor(setInk)
-		ui.Text(c, l.RenameDoneSynced()).FontSize(11).TextColor(setInk3)
+		ui.Text(c, l.RenameDoneCount(len(r.done.ops))).FontSize(15).FontWeight(600).TextColor(ink)
+		ui.Text(c, l.RenameDoneSynced()).FontSize(11).TextColor(ink3)
 		if r.err != "" {
 			ui.Text(c, r.err).FontSize(11).TextColor(danger).Padding(0, 24, 0, 24)
 		}

@@ -43,18 +43,18 @@ var (
 // 42×23 switches, 9pt segment tracks and 12.5pt labels.
 var settingsTheme = func() *ui.Theme {
 	t := ui.DarkTheme()
-	t.Background = ui.Hex("#000000")
-	t.Accent = setAccent
+	t.Background = surface
+	t.Accent = accent
 	t.AccentHover = t.Accent.Mix(ui.RGB(255, 255, 255), 0.18)
 	t.AccentPressed = t.Accent.Mix(ui.RGB(0, 0, 0), 0.16)
 	t.Surface = setCtl
-	t.SurfaceHover = ui.Hex("#2A2C31")
-	t.SurfacePressed = ui.Hex("#34363C")
-	t.Border = ui.RGBA(255, 255, 255, 0.04)
-	t.Text = setInk
-	t.TextMuted = setInk2
-	t.Danger = setRed
-	t.Success = setGreen
+	t.SurfaceHover = setCtlHover
+	t.SurfacePressed = setCtlActive
+	t.Border = setCardEdge
+	t.Text = ink
+	t.TextMuted = ink2
+	t.Danger = danger
+	t.Success = success
 	t.Focus = ui.RGBA(10, 132, 255, 0.55)
 	t.Scrollbar = ui.RGBA(255, 255, 255, 0.18)
 	t.ScrollbarWidth = 3
@@ -66,30 +66,9 @@ var settingsTheme = func() *ui.Theme {
 	return t
 }()
 
-// The design's palette: white-alpha inks on pure black, one panel and one
-// card tone, and the system colors for state. setInk3 is white 48% — the
-// contrast HIG asks of text under 17pt on black (white 34% reaches only
-// 2.9:1).
-var (
-	setInk  = ui.Hex("#F5F6F8")
-	setInk2 = ui.RGBA(255, 255, 255, 0.62)
-	setInk3 = ui.RGBA(255, 255, 255, 0.48)
-	setInk4 = ui.RGBA(255, 255, 255, 0.40)
-
-	setPanel    = ui.Hex("#0E0F11")
-	setCard     = ui.Hex("#18191C")
-	setCardEdge = ui.RGBA(255, 255, 255, 0.035)
-	setSep      = ui.RGBA(255, 255, 255, 0.06)
-	setSelect   = ui.Hex("#1D1F23")
-	setCtl      = ui.Hex("#1F2024")
-	setCtlHover = ui.Hex("#2A2C31")
-	setStatus   = ui.Hex("#141518")
-
-	setAccent = ui.Hex("#0A84FF")
-	setGreen  = ui.Hex("#30D158")
-	setOrange = ui.Hex("#FF9F0A")
-	setRed    = ui.Hex("#FF453A")
-)
+// The window's colours are theme.go's tokens: the inks and the state
+// colours are the panel's, and the settings-only surfaces sit in its
+// Settings window group.
 
 // settingsPageID is one destination of the sidebar.
 type settingsPageID int
@@ -299,7 +278,7 @@ func (a *shelf) setSettingsPage(page settingsPageID) {
 // rewritten.
 func (a *shelf) settingsView(c *ui.Context) {
 	c.SetTheme(settingsTheme)
-	c.Root().Background(ui.Hex("#000000"))
+	c.Root().Background(surface)
 	recording := a.settingsRecording != shortcutNone
 	if a.settingsWin != nil {
 		w := a.settingsWin
@@ -334,7 +313,7 @@ func (a *shelf) settingsView(c *ui.Context) {
 // at the bottom.
 func (a *shelf) settingsSidebar(c *ui.Context) {
 	l := loc(c)
-	ui.Column(c.Key("side")).Width(settingsSidebarWidth).FillHeight().Background(ui.Hex("#000000")).
+	ui.Column(c.Key("side")).Width(settingsSidebarWidth).FillHeight().Background(surface).
 		Padding(0, 12, 12, 12).Children(func() {
 		// The traffic lights are AppKit's, over this row; the row drags
 		// the window, as a title bar would.
@@ -343,13 +322,13 @@ func (a *shelf) settingsSidebar(c *ui.Context) {
 		brand := ui.ButtonBase(c.Key("brand")).Height(44).FillWidth().Radius(9).
 			Padding(0, 8, 0, 8).AlignItems(ui.Center).Justify(ui.Start).Gap(8).Label(appName)
 		if brand.Hovered() {
-			brand.Background(ui.RGBA(255, 255, 255, 0.05))
+			brand.Background(fill1)
 		}
 		brand.Children(func() {
 			if b := otterImage("neutral"); b != nil {
 				ui.Image(c.Key("otter"), b).Size(30, 30).Fit(ui.Contain)
 			}
-			ui.Text(c, appName).SingleLine().FontSize(17).FontWeight(700).TextColor(setInk)
+			ui.Text(c, appName).SingleLine().FontSize(17).FontWeight(700).TextColor(ink)
 		})
 		if brand.Clicked() {
 			a.setSettingsPage(settingsPageAbout)
@@ -377,23 +356,23 @@ func (a *shelf) settingsSidebar(c *ui.Context) {
 // white 40%.
 func settingsNavGroup(c *ui.Context, title string) {
 	ui.Text(c, title).SingleLine().FontSize(10.5).FontWeight(700).LetterSpacing(1.2).
-		TextColor(setInk4).Padding(10, 10, 4, 10)
+		TextColor(setLabel).Padding(10, 10, 4, 10)
 }
 
 // settingsNavItem is one destination: 32pt tall, 9pt corners, the selected
 // one on #1D1F23 in white, the others white 62%.
 func (a *shelf) settingsNavItem(c *ui.Context, page settingsPageID, icon *ui.SVG, label string) {
 	on := a.settingsPage == page
-	color := setInk2
+	color := ink2
 	if on {
-		color = setInk
+		color = ink
 	}
 	item := ui.ButtonBase(c.Key(fmt.Sprintf("nav-%d", page))).Height(32).FillWidth().Radius(9).
 		Padding(0, 10, 0, 10).AlignItems(ui.Center).Justify(ui.Start).Gap(10).Label(label)
 	if on {
 		item.Background(setSelect)
 	} else if item.Hovered() {
-		item.Background(ui.RGBA(255, 255, 255, 0.05))
+		item.Background(fill1)
 	}
 	item.Children(func() {
 		ui.Icon(c.Key("i"), icon).Size(16, 16).TextColor(color)
@@ -410,9 +389,9 @@ func (a *shelf) settingsNavItem(c *ui.Context, page settingsPageID, icon *ui.SVG
 func (a *shelf) settingsPermissionStatus(c *ui.Context) {
 	l := loc(c)
 	missing := len(missingSystemPermissions())
-	dot := setGreen
+	dot := success
 	if missing > 0 {
-		dot = setOrange
+		dot = warning
 	}
 	text := l.SettingsPermStatusOn()
 	if missing > 0 {
@@ -421,11 +400,11 @@ func (a *shelf) settingsPermissionStatus(c *ui.Context) {
 	row := ui.ButtonBase(c.Key("perm-status")).Height(30).FillWidth().Radius(9).
 		Padding(0, 10, 0, 10).Background(setStatus).AlignItems(ui.Center).Gap(7).Label(text)
 	if row.Hovered() {
-		row.Background(ui.RGBA(255, 255, 255, 0.06))
+		row.Background(fill1)
 	}
 	row.Children(func() {
 		ui.Box(c.Key("dot")).Size(7, 7).Radius(4).Background(dot)
-		ui.Text(c, text).SingleLine().FontSize(12).TextColor(setInk2).Grow(1).MinWidth(0)
+		ui.Text(c, text).SingleLine().FontSize(12).TextColor(ink2).Grow(1).MinWidth(0)
 	})
 	if row.Clicked() {
 		a.setSettingsPage(settingsPagePermissions)
@@ -437,10 +416,10 @@ func (a *shelf) settingsPermissionStatus(c *ui.Context) {
 func settingsBrokenBanner(c *ui.Context) {
 	l := loc(c)
 	ui.Column(c.Key("broken")).Padding(10, 12).Gap(4).Radius(12).
-		Background(ui.RGBA(255, 69, 58, 0.12)).
-		Border(0.5, ui.RGBA(255, 69, 58, 0.35)).Children(func() {
-		ui.Text(c, l.SettingsBrokenTitle()).FontSize(12).FontWeight(600).TextColor(setRed)
-		ui.Text(c, l.SettingsBrokenBody()).FontSize(11).TextColor(setInk3)
+		Background(danger.Alpha(0.12)).
+		Border(0.5, danger.Alpha(0.35)).Children(func() {
+		ui.Text(c, l.SettingsBrokenTitle()).FontSize(12).FontWeight(600).TextColor(danger)
+		ui.Text(c, l.SettingsBrokenBody()).FontSize(11).TextColor(ink3)
 	})
 }
 
@@ -498,9 +477,9 @@ func settingsHero(c *ui.Context, key, title, subtitle, mood string, from, to, gl
 	})
 	box.Children(func() {
 		ui.Text(c, title).SingleLine().Absolute().Left(22).Top(24).
-			FontSize(26).FontWeight(700).TextColor(setInk)
+			FontSize(26).FontWeight(700).TextColor(ink)
 		ui.Text(c, subtitle).Absolute().Left(22).Top(64).MaxWidth(330).
-			FontSize(12.5).TextColor(setInk2)
+			FontSize(12.5).TextColor(ink2)
 		if b := otterImage(mood); b != nil {
 			w, h := b.Size()
 			height := float32(96)
@@ -516,11 +495,11 @@ func settingsHero(c *ui.Context, key, title, subtitle, mood string, from, to, gl
 func settingsGroup(c *ui.Context, key, title, foot string, fn func()) {
 	ui.Column(c.Key("grp-" + key)).FillWidth().Gap(8).Children(func() {
 		ui.Text(c, title).SingleLine().FontSize(10.5).FontWeight(700).LetterSpacing(1.2).
-			TextColor(setInk4).Padding(0, 4, 0, 4)
+			TextColor(setLabel).Padding(0, 4, 0, 4)
 		ui.Column(c.Key("card-"+key)).Radius(14).Background(setCard).
 			Border(1, setCardEdge).FillWidth().Children(fn)
 		if foot != "" {
-			ui.Text(c, foot).FontSize(11.5).TextColor(setInk3).Padding(0, 6, 0, 6).MaxWidth(520)
+			ui.Text(c, foot).FontSize(11.5).TextColor(ink3).Padding(0, 6, 0, 6).MaxWidth(520)
 		}
 	})
 }
@@ -544,9 +523,9 @@ func settingsRowLine(c *ui.Context, key string) ui.Element {
 // the optional caption at 11.5pt white 48%.
 func settingsRowText(c *ui.Context, label, caption string) {
 	ui.Column(c.Key("text")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-		settingsLabel(c, label, 13.5, 600).TextColor(setInk)
+		settingsLabel(c, label, 13.5, 600).TextColor(ink)
 		if caption != "" {
-			ui.Text(c, caption).FontSize(11.5).TextColor(setInk3)
+			ui.Text(c, caption).FontSize(11.5).TextColor(ink3)
 		}
 	})
 }
@@ -583,7 +562,7 @@ func settingsLabel(c *ui.Context, text string, size float32, weight int) ui.Elem
 // mirrors the same value, so the two bindings can never fight. apply
 // receives the new state only when the user actually changed it.
 func settingsToggleRow(c *ui.Context, key, label, caption string, on bool, apply func(bool)) {
-	settingsToggleRowCap(c, key, label, caption, setInk3, on, apply)
+	settingsToggleRowCap(c, key, label, caption, ink3, on, apply)
 }
 
 // settingsToggleRowCap is settingsToggleRow with a caption color of its own:
@@ -594,7 +573,7 @@ func settingsToggleRowCap(c *ui.Context, key, label, caption string, captionColo
 	var sw ui.Element
 	row.Children(func() {
 		ui.Column(c.Key("text")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-			settingsLabel(c, label, 13.5, 600).TextColor(setInk)
+			settingsLabel(c, label, 13.5, 600).TextColor(ink)
 			if caption != "" {
 				ui.Text(c, caption).FontSize(11.5).TextColor(captionColor)
 			}
@@ -635,9 +614,9 @@ func settingsGroupRows(c *ui.Context, key, title, foot string, disabled bool, fn
 func settingsButton(c *ui.Context, key, label string, primary bool, fn func()) ui.Element {
 	b := ui.ButtonBase(c.Key("btn-"+key)).Height(28).Radius(8).Padding(0, 12, 0, 12).
 		AlignItems(ui.Center).Label(label)
-	fg := setInk
+	fg := ink
 	if primary {
-		b.Background(setInk)
+		b.Background(ink)
 		fg = ui.RGB(0, 0, 0)
 	} else {
 		b.Background(setCtl)
@@ -741,7 +720,7 @@ func (a *shelf) applyOpenAtLogin(on bool) {
 
 // settingsFootnote is the muted note under a page's last card.
 func settingsFootnote(c *ui.Context, key, text string) {
-	ui.Text(c, text).FontSize(11.5).TextColor(setInk3).Padding(0, 6, 0, 6).MaxWidth(520)
+	ui.Text(c, text).FontSize(11.5).TextColor(ink3).Padding(0, 6, 0, 6).MaxWidth(520)
 }
 
 // appVersion is the bundle version (mygo.json's version → Info.plist) when

@@ -510,8 +510,8 @@ func (a *shelf) settingsPermissionSwitch(c *ui.Context, permissions, missing []s
 // permissionRowLabel is the switch row's left column.
 func permissionRowLabel(c *ui.Context, title, caption string) {
 	ui.Column(c.Key("perm-k")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-		settingsLabel(c, title, 13, 0).TextColor(setInk)
-		ui.Text(c, caption).FontSize(11).TextColor(setInk3)
+		settingsLabel(c, title, 13, 0).TextColor(ink)
+		ui.Text(c, caption).FontSize(11).TextColor(ink3)
 	})
 }
 
@@ -558,7 +558,7 @@ func settingsQuietButton(c *ui.Context, key, label string, fn func()) {
 		b.Background(ui.RGBA(255, 255, 255, 0.16))
 	}
 	b.Children(func() {
-		ui.Text(c, label).SingleLine().FontSize(12).FontWeight(600).TextColor(setInk)
+		ui.Text(c, label).SingleLine().FontSize(12).FontWeight(600).TextColor(ink)
 	})
 	if b.Clicked() {
 		fn()

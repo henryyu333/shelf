@@ -63,9 +63,9 @@ func (a *shelf) settingsGeneralPage(c *ui.Context) {
 		heroGeneralFrom, heroGeneralTo, heroGeneralGlow)
 
 	settingsGroup(c, "startup", l.SettingsStartupGroup(), "", func() {
-		loginCap, capColor := "", setInk3
+		loginCap, capColor := "", ink3
 		if a.loginErr != "" {
-			loginCap, capColor = a.loginErr, setRed
+			loginCap, capColor = a.loginErr, danger
 		}
 		settingsToggleRowCap(c, "login", l.SettingsLoginRow(), loginCap, capColor, a.loginOn, a.applyOpenAtLogin)
 		settingsSep(c, "login")
@@ -223,11 +223,11 @@ func (a *shelf) settingsClipboardPage(c *ui.Context) {
 				if icon := settingsAppIcon(bundleID); icon != nil {
 					ui.Image(c.Key("ic"), icon).Size(20, 20).Radius(5)
 				} else {
-					ui.Icon(c.Key("ic"), appGlyph).Size(20, 20).TextColor(setInk3)
+					ui.Icon(c.Key("ic"), appGlyph).Size(20, 20).TextColor(ink3)
 				}
 				ui.Column(c.Key("id")).Gap(1).Grow(1).MinWidth(0).Children(func() {
-					settingsLabel(c, a.appName(bundleID), 13.5, 600).TextColor(setInk)
-					ui.Text(c, bundleID).SingleLine().FontSize(11.5).TextColor(setInk3)
+					settingsLabel(c, a.appName(bundleID), 13.5, 600).TextColor(ink)
+					ui.Text(c, bundleID).SingleLine().FontSize(11.5).TextColor(ink3)
 				})
 				settingsButton(c, "rm-"+bundleID, l.SettingsClipboardRemove(), false, func() {
 					a.removeExcludedApp(bundleID)
@@ -289,7 +289,7 @@ func aiUsageTable(c *ui.Context, a *shelf, l locales.Messages) {
 	check := func(key, label string, on bool, apply func(*settings.Settings, bool)) {
 		b := ui.CheckboxBase(c.Key("ck-"+key), &on).Size(18, 18).Radius(5).Label(label)
 		if on {
-			b.Background(setAccent)
+			b.Background(accent)
 		} else {
 			b.Border(1.5, ui.RGBA(255, 255, 255, 0.30))
 		}
@@ -311,11 +311,11 @@ func aiUsageTable(c *ui.Context, a *shelf, l locales.Messages) {
 		ui.Row(c.Key("row-"+key)).AlignItems(ui.Center).Gap(10).MinHeight(44).
 			Padding(0, settingsRowPadX).FillWidth().Children(func() {
 			ui.Box(c.Key("name")).Grow(1).MinWidth(0).Children(func() {
-				settingsLabel(c, name, 13.5, 600).TextColor(setInk)
+				settingsLabel(c, name, 13.5, 600).TextColor(ink)
 			})
 			col("quota-"+key, func() {
 				if qApply == nil {
-					ui.Text(c, "—").SingleLine().FontSize(12.5).TextColor(setInk3)
+					ui.Text(c, "—").SingleLine().FontSize(12.5).TextColor(ink3)
 					return
 				}
 				check("q-"+key, l.SettingsAIQuotaCheck(name), quota, qApply)
@@ -330,11 +330,11 @@ func aiUsageTable(c *ui.Context, a *shelf, l locales.Messages) {
 		ui.Box(c.Key("hd-pad")).Grow(1)
 		col("hd-quota", func() {
 			ui.Text(c, l.SettingsAIQuotaColumn()).SingleLine().FontSize(10.5).FontWeight(700).
-				LetterSpacing(0.8).TextColor(setInk4)
+				LetterSpacing(0.8).TextColor(setLabel)
 		})
 		col("hd-local", func() {
 			ui.Text(c, l.SettingsAILocalColumn()).SingleLine().FontSize(10.5).FontWeight(700).
-				LetterSpacing(0.8).TextColor(setInk4)
+				LetterSpacing(0.8).TextColor(setLabel)
 		})
 	})
 	settingsSep(c, "aiusage-head")
@@ -383,9 +383,9 @@ func (a *shelf) settingsShortcutsPage(c *ui.Context) {
 // place of its caption.
 func (a *shelf) settingsShortcutRow(c *ui.Context, kind shortcutKind, label, caption string) {
 	l := loc(c)
-	rowCaption, captionColor := caption, setInk3
+	rowCaption, captionColor := caption, ink3
 	if a.shortcutBusy[kind] {
-		rowCaption, captionColor = l.SettingsShortcutBusy(), setRed
+		rowCaption, captionColor = l.SettingsShortcutBusy(), danger
 	}
 	recording := a.settingsRecording == kind
 	row := ui.ButtonBase(c.Key(fmt.Sprintf("sc-%d", kind))).FillWidth().Radius(0).
@@ -397,7 +397,7 @@ func (a *shelf) settingsShortcutRow(c *ui.Context, kind shortcutKind, label, cap
 	}
 	row.Children(func() {
 		ui.Column(c.Key("text")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-			settingsLabel(c, label, 13.5, 600).TextColor(setInk)
+			settingsLabel(c, label, 13.5, 600).TextColor(ink)
 			if rowCaption != "" {
 				ui.Text(c, rowCaption).FontSize(11.5).TextColor(captionColor)
 			}
@@ -405,8 +405,8 @@ func (a *shelf) settingsShortcutRow(c *ui.Context, kind shortcutKind, label, cap
 		ui.Row(c.Key("keys")).AlignItems(ui.Center).Gap(4).Children(func() {
 			if recording {
 				ui.Box(c.Key("rec")).Height(26).Radius(7).Padding(0, 8, 0, 8).
-					Border(1.5, setAccent).Center().Children(func() {
-					ui.Text(c, l.SettingsShortcutRecording()).SingleLine().FontSize(11.5).TextColor(setAccent)
+					Border(1.5, accent).Center().Children(func() {
+					ui.Text(c, l.SettingsShortcutRecording()).SingleLine().FontSize(11.5).TextColor(accent)
 				})
 				return
 			}
@@ -418,7 +418,7 @@ func (a *shelf) settingsShortcutRow(c *ui.Context, kind shortcutKind, label, cap
 			}
 			ui.Box(c.Key("none")).Height(26).Radius(7).Padding(0, 8, 0, 8).
 				Border(1, ui.RGBA(255, 255, 255, 0.12)).Center().Children(func() {
-				ui.Text(c, l.SettingsShortcutNoShortcut()).SingleLine().FontSize(11.5).TextColor(setInk3)
+				ui.Text(c, l.SettingsShortcutNoShortcut()).SingleLine().FontSize(11.5).TextColor(ink3)
 			})
 		})
 	})
@@ -442,16 +442,16 @@ func settingsReadonlyShortcutRow(c *ui.Context, key, label, caption string, toke
 
 // settingsKeycap is one 26pt key: #1F2024, 7pt corners, a hairline of light
 // along the bottom, 12.5pt semibold label.
-func settingsKeycap(c *ui.Context, key, label string, accent bool) {
+func settingsKeycap(c *ui.Context, key, label string, on bool) {
 	box := ui.Box(c.Key("cap-"+key)).Height(26).MinWidth(26).Radius(7).
 		Padding(0, 7, 0, 7).Center().Background(setCtl)
-	if accent {
-		box.Border(1.5, setAccent)
+	if on {
+		box.Border(1.5, accent)
 	} else {
 		box.InsetShadow(0, -1, 0, 0, ui.RGBA(255, 255, 255, 0.06))
 	}
 	box.Children(func() {
-		ui.Text(c, label).SingleLine().FontSize(12.5).FontWeight(600).TextColor(setInk)
+		ui.Text(c, label).SingleLine().FontSize(12.5).FontWeight(600).TextColor(ink)
 	})
 }
 
@@ -475,13 +475,13 @@ func (a *shelf) settingsPermissionsPage(c *ui.Context) {
 			row.Children(func() {
 				settingsRowText(c, p.short, p.detail)
 				ui.Row(c.Key("state")).AlignItems(ui.Center).Gap(6).Children(func() {
-					dot := setGreen
+					dot := success
 					text := l.SettingsPermOn()
 					if !granted {
-						dot, text = setOrange, l.SettingsPermOff()
+						dot, text = warning, l.SettingsPermOff()
 					}
 					ui.Box(c.Key("dot")).Size(7, 7).Radius(4).Background(dot)
-					ui.Text(c, text).SingleLine().FontSize(12).TextColor(setInk2)
+					ui.Text(c, text).SingleLine().FontSize(12).TextColor(ink2)
 				})
 			})
 		}
@@ -506,14 +506,14 @@ func (a *shelf) settingsAboutPage(c *ui.Context) {
 			ui.Image(c.Key("otter"), b).Size(width, height).Fit(ui.Contain)
 		}
 		ui.Column(c.Key("about-text")).Gap(2).Grow(1).MinWidth(0).Children(func() {
-			ui.Text(c, appName).SingleLine().FontSize(24).FontWeight(700).TextColor(setInk)
+			ui.Text(c, appName).SingleLine().FontSize(24).FontWeight(700).TextColor(ink)
 			ui.Text(c, l.SettingsAboutVersion(appVersion(), runtime.GOARCH)).SingleLine().
-				FontSize(12).TextColor(setInk3).Padding(2, 0, 0, 0)
-			ui.Text(c, l.SettingsAboutTagline()).FontSize(13).TextColor(setInk2).Padding(8, 0, 0, 0)
+				FontSize(12).TextColor(ink3).Padding(2, 0, 0, 0)
+			ui.Text(c, l.SettingsAboutTagline()).FontSize(13).TextColor(ink2).Padding(8, 0, 0, 0)
 			ui.Row(c.Key("about-actions")).AlignItems(ui.Center).Gap(8).Padding(14, 0, 0, 0).Children(func() {
 				settingsButton(c, "update", l.SettingsUpdateCheckNow(), false, func() { a.checkUpdates(true) }).
 					Disabled(a.updateChecking || a.updateInstalling)
-				settingsButton(c, "whatsnew", l.SettingsAboutWhatsNew(), false, func() { showWhatsNew(a) })
+				settingsButton(c, "whatsnew", l.SettingsAboutWhatsNew(), false, func() { a.ShowWhatsNew() })
 				settingsButton(c, "data", l.SettingsOpenDataFolder(), false, func() {
 					if err := openPath(a.dataDir); err != nil {
 						a.report(err)
@@ -539,12 +539,6 @@ func (a *shelf) settingsAboutPage(c *ui.Context) {
 // sourceURL is the project's public repository, the one the 关于 page links
 // to.
 const sourceURL = "https://github.com/henryyu333/shelfu"
-
-// showWhatsNew is the 新功能介绍 button's entry: the panel shows the release's
-// new-feature card again. The panel owns that card, so the shelf wires its
-// own entry here once it exists; until then the button calls a no-op rather
-// than claim something it cannot show.
-var showWhatsNew = func(a *shelf) {}
 
 // updateCaption is the 检查更新 row's second line: the last check's time and
 // outcome, or what is happening now.

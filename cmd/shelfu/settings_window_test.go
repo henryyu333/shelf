@@ -458,7 +458,7 @@ func TestSettingsViewOpenDataFolder(t *testing.T) {
 }
 
 // 关于's source row opens the public repository, and its 新功能介绍 button
-// calls the panel's entry (a no-op until the panel provides one).
+// replays the panel's new-feature card.
 func TestSettingsViewAboutActions(t *testing.T) {
 	var opened []string
 	stubSettingsSeams(t, false, nil, nil)
@@ -467,20 +467,17 @@ func TestSettingsViewAboutActions(t *testing.T) {
 		opened = append(opened, url)
 		return nil
 	}
-	origWhatsNew := showWhatsNew
-	var called int
-	showWhatsNew = func(*shelf) { called++ }
-	t.Cleanup(func() { openExternal = origExternal; showWhatsNew = origWhatsNew })
+	t.Cleanup(func() { openExternal = origExternal })
 
-	_, view := newSettingsShelf(t)
+	a, view := newSettingsShelf(t)
 	openSettingsPage(t, view, "关于")
 	clickVisible(t, view, "打开")
 	if len(opened) != 1 || opened[0] != sourceURL {
 		t.Fatalf("source link opened %v, want %q", opened, sourceURL)
 	}
 	clickVisible(t, view, "新功能介绍")
-	if called != 1 {
-		t.Fatalf("新功能介绍 called the entry %d times", called)
+	if !a.whatsNewUp || a.tab != pageOverview {
+		t.Fatalf("新功能介绍 did not show the card: up=%v tab=%v", a.whatsNewUp, a.tab)
 	}
 }
 

@@ -41,14 +41,27 @@ var (
 	knockout     = ui.Hex("#000000") // 彩色圆点上的字
 )
 
-// Legacy names the settings window and older pages still use.
+// The Settings window's own surfaces. Its sidebar is pure black like the
+// shell; its page panel and the cards inside sit a step above it, and its
+// controls have tints the panel's black-on-black cards never needed. Pages
+// take every other colour (inks, accent, state colours) from the palette
+// above.
 var (
-	textPrimary  = ink
-	textMuted    = ink2
-	cardSurface  = fill1
-	cardHover    = fill2
-	cardSelected = accent24
-	hairline     = fill2
+	setPanel     = ui.Hex("#0E0F11")             // 右侧页面板
+	setCard      = ui.Hex("#18191C")             // 页内卡片
+	setCardEdge  = ui.RGBA(255, 255, 255, 0.035) // 卡片描边
+	setSep       = ui.RGBA(255, 255, 255, 0.06)  // 行分隔线
+	setSelect    = ui.Hex("#1D1F23")             // 选中的侧栏项
+	setCtl       = ui.Hex("#1F2024")             // 按钮、分段轨道、键帽
+	setCtlHover  = ui.Hex("#2A2C31")             // 悬停
+	setCtlActive = ui.Hex("#34363C")             // 分段选中
+	setStatus    = ui.Hex("#141518")             // 侧栏底部的权限状态
+	setLabel     = ui.RGBA(255, 255, 255, 0.40)  // 分组小标、表头
+)
+
+// The older pages' names for the inks.
+var (
+	hairline = fill2
 )
 
 // Corner radii, in points.
