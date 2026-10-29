@@ -122,6 +122,44 @@ func TestOverviewContextPriority(t *testing.T) {
 	}
 }
 
+// TestOverviewTrackRowHasTransport: the track line carries the whole
+// transport — previous, play/pause, next — and a press on one of them
+// sends only its command, never the row's open-the-playing-page.
+func TestOverviewTrackRowHasTransport(t *testing.T) {
+	s := newStubNowPlaying(t, true)
+	s.feed(t, `{"ok":true,"isPlaying":true,"appState":1,"title":"夜曲","artist":"周杰伦","duration":100,"elapsed":5}`)
+	a, view := overviewShelf(t)
+	a.settings.IslandNowPlaying = true
+	a.np = s.mod
+	a.tab = pageOverview
+	view.Frame()
+	if _, ok := view.Find("上一首"); !ok {
+		t.Fatalf("the track line has no previous button; texts %v", view.Texts())
+	}
+	for _, label := range []string{"上一首", "暂停", "下一首"} {
+		prev, ok := view.Find(label)
+		if !ok {
+			t.Fatalf("%s is missing", label)
+		}
+		if r, ok := view.Find("夜曲"); ok && prev.X < r.X+r.W {
+			t.Fatalf("%s at %+v overlaps the title at %+v", label, prev, r)
+		}
+	}
+	prev, _ := view.Find("上一首")
+	play, _ := view.Find("暂停")
+	next, _ := view.Find("下一首")
+	if !(prev.X < play.X && play.X < next.X) {
+		t.Fatalf("transport order = %.0f, %.0f, %.0f; want previous, toggle, next", prev.X, play.X, next.X)
+	}
+	if err := view.Click("上一首"); err != nil {
+		t.Fatal(err)
+	}
+	s.expectCommand(t, "prev")
+	if a.tab == pagePlaying {
+		t.Fatal("the previous button opened the playing page instead of sending its command")
+	}
+}
+
 // TestOverviewUpdateLineRestarts: an update waiting for a restart gets the
 // line and its own restart button.
 func TestOverviewUpdateLineRestarts(t *testing.T) {

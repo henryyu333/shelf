@@ -368,6 +368,14 @@ func (a *shelf) overviewContext(c *ui.Context) {
 				ui.Text(c, meta).SingleLine().FontSize(typeCallout).TextColor(ink3).MaxWidth(110)
 			}
 			ui.Box(c).Grow(1)
+			prev := ui.ButtonBase(c.Key("ov-ctx-prev")).Size(22, 22).Radius(11).Center().Label(l.MusicPrevious())
+			if prev.Hovered() {
+				prev.Background(fill2)
+			}
+			prev.Children(func() { ui.Icon(c, prevFill).Size(13, 13).TextColor(ink) })
+			if prev.Clicked() {
+				a.np.send(mac.NPPrevious)
+			}
 			a.np.chipToggle(c, "ov-ctx-toggle", st.Playing, 22, 13)
 			next := ui.ButtonBase(c.Key("ov-ctx-next")).Size(22, 22).Radius(11).Center().Label(l.MusicNext())
 			if next.Hovered() {
