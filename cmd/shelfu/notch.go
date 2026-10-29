@@ -440,6 +440,14 @@ func (a *shelf) mouseDown(inside bool, button int, p mygo.Point) {
 	if a.quitting {
 		return
 	}
+	// A left press on our own window is the user's gesture, not an
+	// incoming drag: park the notch corridor for as long as the button is
+	// held (released in monitorDrag), so a small wobble on a band icon
+	// under the corridor cannot be pushed off the target.
+	if button == 0 && inside {
+		a.ownPress = true
+		a.syncDragGuard()
+	}
 	// A press on another screen's idle capsule moves the resident window
 	// there first — every screen's island opens its own panel. It arms the
 	// drag the same way, so an idle capsule anywhere can be moved.

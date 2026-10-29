@@ -53,7 +53,7 @@ func (a *shelf) itemTile(c *ui.Context, item store.Item) {
 	if !item.Missing {
 		tile.DragDataFrom(func() transfer.Data {
 			// 本应用发起的拖出会话：拖拽监视据此抑制摇晃召唤与篮子。
-			a.ownDrag = true
+			a.beginOwnDrag()
 			a.takeServiceOwnership()
 			if a.win != nil {
 				a.win.Invalidate() // 下一帧撤掉自身的放入目标
@@ -179,7 +179,7 @@ func (a *shelf) clipRow(c *ui.Context, item store.Item) {
 	}
 	if !item.Missing {
 		row.DragDataFrom(func() transfer.Data {
-			a.ownDrag = true
+			a.beginOwnDrag()
 			a.takeServiceOwnership()
 			if a.win != nil {
 				a.win.Invalidate() // 下一帧撤掉自身的放入目标

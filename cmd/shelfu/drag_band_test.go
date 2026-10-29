@@ -329,3 +329,67 @@ func TestEdgeLeaveWaitsForToolsPress(t *testing.T) {
 		t.Fatal("the panel did not resume passive hiding after the press ended")
 	}
 }
+
+// A press delivered to our own window is the user's gesture, not an
+// incoming drag: the notch corridor must stay parked for as long as the
+// button is held. Otherwise a 1–3pt wobble on a band icon that lies under
+// the corridor (the AI usage icon is the only one that does) gets the
+// pointer warped onto the corridor's landing row and the press is lost.
+func TestOwnWindowPressParksTheNotchCorridor(t *testing.T) {
+	var parks []bool
+	oldPark := parkNotchFilter
+	parkNotchFilter = func(parked bool) { parks = append(parks, parked) }
+	t.Cleanup(func() { parkNotchFilter = oldPark })
+	parkedNow := func() bool { return len(parks) > 0 && parks[len(parks)-1] }
+
+	oldCursor, oldState, oldTypes, oldDown := cursorPoint, dragState, dragTypes, dragLeftDown
+	t.Cleanup(func() { cursorPoint, dragState, dragTypes, dragLeftDown = oldCursor, oldState, oldTypes, oldDown })
+	a := dragShelf()
+	a.dragging = false
+	icon := mygo.Point{X: a.notchX - 25 + 7, Y: 12}
+	held := false
+	cursorPoint = func() mygo.Point { return icon }
+	dragState = func() (bool, int64) { return false, 7 }
+	dragTypes = func() []string { return nil }
+	dragLeftDown = func() bool { return held }
+
+	a.syncDragGuard()
+	if parkedNow() {
+		t.Fatal("an idle shelf parked the corridor")
+	}
+	// A press in another app is an incoming gesture: never parked.
+	a.mouseDown(false, 0, icon)
+	if parkedNow() {
+		t.Fatal("a press outside our window parked the corridor")
+	}
+	// Our own press parks it for the whole hold, even as the button
+	// travels the 2pt a real click wobbles.
+	a.mouseDown(true, 0, icon)
+	if !a.ownPress || !parkedNow() {
+		t.Fatalf("the press did not park the corridor: ownPress=%v parks=%v", a.ownPress, parks)
+	}
+	held = true
+	cursorPoint = func() mygo.Point { return mygo.Point{X: icon.X, Y: icon.Y + 2} }
+	a.monitorDrag(time.Now())
+	if !parkedNow() {
+		t.Fatal("the held press was unparked by a 2pt drag")
+	}
+	// The release brings normal protection back.
+	held = false
+	a.monitorDrag(time.Now())
+	if a.ownPress || parkedNow() {
+		t.Fatalf("the release left the corridor parked: ownPress=%v parks=%v", a.ownPress, parks)
+	}
+	// Dragging our own file out is a real drag: the corridor must protect
+	// the top edge again the moment it starts.
+	held = true
+	a.mouseDown(true, 0, icon)
+	if !parkedNow() {
+		t.Fatal("the second press did not park the corridor")
+	}
+	a.beginOwnDrag()
+	if parkedNow() {
+		t.Fatal("our own drag out left the corridor parked")
+	}
+	a.ownDrag = false
+}

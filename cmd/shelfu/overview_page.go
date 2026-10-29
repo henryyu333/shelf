@@ -223,7 +223,7 @@ func (a *shelf) overviewTile(c *ui.Context, item store.Item) {
 	}
 	if !item.Missing {
 		tile.DragDataFrom(func() transfer.Data {
-			a.ownDrag = true
+			a.beginOwnDrag()
 			a.takeServiceOwnership()
 			if a.win != nil {
 				a.win.Invalidate()

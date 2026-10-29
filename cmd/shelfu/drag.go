@@ -150,12 +150,15 @@ var parkNotchFilter = mac.ParkDragGuard
 // drags and window moves alike; the cursor pin needs no permission and runs
 // only while a file drag is in progress.
 func (a *shelf) syncDragGuard() {
-	// The user's own press on the island is not an incoming drag: the
-	// corridor clamps left-button drags onto its landing row, which would add
-	// vertical travel the user never made. The filter is parked for the whole
-	// gesture instead — no teardown, no re-arm — and normal file-drag
-	// protection comes back with the release.
-	parkNotchFilter(a.islandPress.active)
+	// The user's own press on the island is not an incoming drag, and
+	// neither is a press on any control in the panel: the corridor clamps
+	// left-button drags onto its landing row, which would add vertical
+	// travel the user never made — a 1–3pt wobble on a band icon under the
+	// corridor would push the pointer off the target and cancel the press.
+	// The filter is parked for the whole gesture instead — no teardown, no
+	// re-arm — and normal file-drag protection comes back with the release
+	// or as soon as the press becomes a drag of our own.
+	parkNotchFilter((a.islandPress.active || a.ownPress) && !a.dragging && !a.ownDrag)
 	// The guard exists to keep the Spaces edge gesture from firing at the
 	// screen's top edge, under the notch. An island the user moved away from
 	// that row is not there, so the corridor — which also pushes the cursor
@@ -181,6 +184,14 @@ func (a *shelf) syncDragGuard() {
 	if err != nil {
 		log.Printf("刘海拖拽保护未启用：%v", err)
 	}
+}
+
+// beginOwnDrag marks the drag now starting as ours (a file dragged out of
+// the shelf) and puts the notch corridor back at once: dragging our own
+// file to the screen's top edge must still be pushed onto the drop band.
+func (a *shelf) beginOwnDrag() {
+	a.ownDrag = true
+	a.syncDragGuard()
 }
 
 func (a *shelf) stopDragGuard() {
@@ -236,6 +247,13 @@ func (a *shelf) pointerDragged() {
 
 // monitorDrag updates placement, drag protection and interaction on the main thread.
 func (a *shelf) monitorDrag(now time.Time) {
+	// A press in our own window ends with the button: the corridor comes
+	// back for the next gesture (answered here because the app observes no
+	// global mouse-up).
+	if a.ownPress && !dragLeftDown() {
+		a.ownPress = false
+		a.syncDragGuard()
+	}
 	active, serial := dragState()
 	if serial != a.dragSerial {
 		a.dragSerial = serial

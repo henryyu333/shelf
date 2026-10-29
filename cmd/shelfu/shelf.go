@@ -123,6 +123,7 @@ type shelf struct {
 	islandDX, islandDY                                          int            // dragged island: offsets from the default axis and row
 	islandPress                                                 islandPress
 	islandDrag                                                  bool // the press on the closed island became a move
+	ownPress                                                    bool // a left press is held in our own window
 	dispID                                                      int64
 	idleIslands                                                 []*idleIslandWindow
 	peeking                                                     bool

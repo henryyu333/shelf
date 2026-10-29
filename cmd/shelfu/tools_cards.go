@@ -734,7 +734,7 @@ func (a *shelf) recentThumbAt(c *ui.Context, item store.Item, size float32) {
 			return ev.Button == 0 && ev.Kind >= ui.InputPointerDown && ev.Kind <= ui.InputPointerMove
 		})
 		thumb.DragDataFrom(func() transfer.Data {
-			a.ownDrag = true
+			a.beginOwnDrag()
 			a.takeServiceOwnership()
 			if a.win != nil {
 				a.win.Invalidate()

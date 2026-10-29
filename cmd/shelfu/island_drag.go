@@ -183,6 +183,9 @@ func (a *shelf) islandDragTick(p mygo.Point, down bool) bool {
 		// that carried it.
 		*press = islandPress{}
 		a.islandDrag = false
+		if !down {
+			a.ownPress = false
+		}
 		a.syncDragGuard()
 		a.syncMousePassThrough()
 		return true
@@ -208,6 +211,7 @@ func (a *shelf) islandDragTick(p mygo.Point, down bool) bool {
 	}
 	*press = islandPress{}
 	a.islandDrag = false
+	a.ownPress = false
 	if moved {
 		a.moveIslandTo(centre, top)
 		a.saveIslandSpot()
