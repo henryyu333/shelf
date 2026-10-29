@@ -23,6 +23,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/transfer"
@@ -188,6 +189,11 @@ const (
 func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, keySfx ...string) ui.Element {
 	def := toolCardDefFor(spec.ID)
 	title := spec.ID
+	if def != nil && def.id == "usage" {
+		// The 1 × 1 card carries no text, so its numbers live in the
+		// accessible name and the hover tip (the same string).
+		title = a.usageCardLabel(c)
+	}
 	key := "tc-" + spec.ID
 	if len(keySfx) > 0 {
 		key = "tc-" + keySfx[0] + "-" + spec.ID
@@ -197,6 +203,9 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 		// Unknown id in layout.json: keep an empty cell so the grid
 		// still shows where the card would be.
 		return card.Background(fill1)
+	}
+	if def.id == "usage" {
+		card.Tooltip(title)
 	}
 	// Dragged files hover: action cards that take this class are drop
 	// targets with the accent treatment; the rest dim to 38% (design §1)
@@ -303,7 +312,7 @@ func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, s
 	case "clip":
 		a.toolClipBody(c, card)
 	case "usage":
-		a.toolUsageBody(c, card)
+		a.toolUsageBody(c, card, span)
 	default:
 		card.Center().Gap(5).Children(func() {
 			ui.Icon(c, def.icon).Size(20, 20).TextColor(ink)
@@ -767,18 +776,30 @@ func (a *shelf) toolClipBody(c *ui.Context, card ui.Element) {
 	})
 }
 
-// toolUsageBody is the AI 用量 widget: the least-remaining tool's double
-// ring beside its name and remaining percent, like the page's quota
-// card. With no quota data yet it shows the bare rings (design §3).
-func (a *shelf) toolUsageBody(c *ui.Context, card ui.Element) {
+// toolUsageBody is the AI 用量 widget. The 1 × 1 card is only the
+// least-remaining tool's double ring — the page's quota ring at 64pt,
+// centred, no text at all. The 2 × 1 card keeps the ring beside the name
+// and the remaining percent, as it always has. With no quota data the
+// rings are bare and the mark is the gauge (design §3).
+func (a *shelf) toolUsageBody(c *ui.Context, card ui.Element, span int) {
 	var five, week *aiusage.Window
-	ok := false
+	var tool aiusage.Tool
+	stale, ok := false, false
 	if a.usage != nil {
-		five, week, ok = a.usage.leastWindow()
+		five, week, tool, ok = a.usage.leastWindow()
+		if ok {
+			_, stale = a.usage.quotaShown(tool)
+		}
+	}
+	if span < 2 {
+		card.Center().Children(func() {
+			a.toolUsageRing(c, toolUsageRingSize, tool, five, week, stale, ok)
+		})
+		return
 	}
 	card.Padding(0, 12, 0, 12).Justify(ui.Center).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Gap(10).FillWidth().Children(func() {
-			a.toolUsageRing(c, five, week)
+			a.toolUsageRing(c, toolUsageRingSizeWide, tool, five, week, false, false)
 			ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
 				panelLabel(c, nil, loc(c).AiUsage(), 12, 600).TextColor(ink)
 				sub := loc(c).NoData()
@@ -795,19 +816,70 @@ func (a *shelf) toolUsageBody(c *ui.Context, card ui.Element) {
 	})
 }
 
-// toolUsageRing is the card's 44pt double ring: weekly outside, 5-hour
-// inside, same colours and even-pace tick as the page's 64pt one.
-func (a *shelf) toolUsageRing(c *ui.Context, five, week *aiusage.Window) {
-	e := ui.Box(c.Key("tc-ring")).Size(44, 44).Center()
+// toolUsageRingSize is the 1 × 1 card's ring diameter: the page's 64pt
+// quota ring at k = 1, which leaves 10pt above and below in the 84pt cell.
+// The 2 × 1 card keeps its shipped 44pt ring, metrics rounded to halves.
+const (
+	toolUsageRingSize     = 64
+	toolUsageRingSizeWide = 44
+)
+
+// toolUsageRing draws the card's double ring at d, scaled from the page's
+// 64pt one (28 / 20pt radii, 5pt stroke, white even-pace tick): weekly
+// outside, 5-hour inside. mark puts the selected tool's own mark in the
+// middle; without it — and whenever there is no quota data — the gauge
+// does. A stale fetch dims the arcs as the quota card does.
+func (a *shelf) toolUsageRing(c *ui.Context, d float32, tool aiusage.Tool, five, week *aiusage.Window, stale, mark bool) {
+	k := d / 64
+	outer, inner, lw, gauge := 28*k, 20*k, 5*k, 20*k
+	if d != toolUsageRingSize {
+		outer, inner, lw, gauge = 19, 13.5, 3.5, 14 // the 2 × 1 card's ring, unchanged
+	}
+	e := ui.Box(c.Key("tc-ring")).Size(d, d).Center()
 	e.Draw(func(p *ui.Painter, r ui.Rect) {
-		if a.usage != nil {
-			a.usage.drawWindowRing(p, r, 19, 3.5, week, usageWeekly, false, true)
-			a.usage.drawWindowRing(p, r, 13.5, 3.5, five, usageFive, false, true)
+		cx, cy := r.X+r.W/2, r.Y+r.H/2
+		if a.usage == nil {
+			// No usage feature at all: the 1 × 1 card still shows its
+			// tracks under the gauge (design §3); the 2 × 1 kept none.
+			if d == toolUsageRingSize {
+				strokeRingTrack(p, cx, cy, outer, lw)
+				strokeRingTrack(p, cx, cy, inner, lw)
+			}
+			return
 		}
+		a.usage.drawWindowRing(p, r, outer, lw, week, usageWeekly, stale, true)
+		a.usage.drawWindowRing(p, r, inner, lw, five, usageFive, stale, true)
 	})
 	e.Children(func() {
-		ui.Icon(c, gaugeSymbol).Size(14, 14).TextColor(ink3)
+		if !mark {
+			ui.Icon(c, gaugeSymbol).Size(gauge, gauge).TextColor(ink3)
+			return
+		}
+		logo, col, box := toolLogo(tool)
+		ui.Icon(c, logo).Size(box*k, box*k).TextColor(col)
 	})
+}
+
+// usageCardLabel is the AI 用量 card's accessible name and hover tip: the
+// least-remaining tool, then each window's shown share — used, or left
+// when the setting asks — or 暂无数据 before any quota answer.
+func (a *shelf) usageCardLabel(c *ui.Context) string {
+	l := loc(c)
+	if a.usage == nil {
+		return l.AiUsage() + " · " + l.NoData()
+	}
+	five, week, tool, ok := a.usage.leastWindow()
+	if !ok {
+		return l.AiUsage() + " · " + l.NoData()
+	}
+	parts := []string{toolName(tool)}
+	if five != nil {
+		parts = append(parts, l.UsageWindowFive()+" "+a.usage.shownShort(l, *five))
+	}
+	if week != nil {
+		parts = append(parts, l.UsageWindowWeekly()+" "+a.usage.shownShort(l, *week))
+	}
+	return strings.Join(parts, " · ")
 }
 
 // toolPlayingTall is the music card in its 2 × 2 form: the full player —

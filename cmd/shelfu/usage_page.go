@@ -124,7 +124,7 @@ func (f *usageFeature) enabled() bool { return f.host.settings.AIUsage.Enabled }
 // gauge. The ear recolours ordinary icons for hover, but the rings keep
 // their own colours — the colours are the information.
 func (f *usageFeature) icon(c *ui.Context, _ bool) ui.Element {
-	if five, week, ok := f.leastWindow(); ok {
+	if five, week, _, ok := f.leastWindow(); ok {
 		e := ui.Box(c).Size(17, 17)
 		e.Draw(func(p *ui.Painter, r ui.Rect) {
 			lw := r.W * 2 / 17
@@ -137,10 +137,12 @@ func (f *usageFeature) icon(c *ui.Context, _ bool) ui.Element {
 }
 
 // leastWindow picks the tool with the least 5-hour remaining for the ear
-// icon; its weekly window rides along on the outer ring. A tool without a
-// 5-hour window never wins; with no 5-hour data at all, the least weekly
-// remaining shows alone.
-func (f *usageFeature) leastWindow() (five, week *aiusage.Window, ok bool) {
+// icon and the tools page's AI 用量 card; its weekly window rides along on
+// the outer ring. A tool without a 5-hour window never wins; with no
+// 5-hour data at all, the least weekly remaining shows alone. tool names
+// the card the windows belong to — the winner, or the weekly winner in
+// the fallback.
+func (f *usageFeature) leastWindow() (five, week *aiusage.Window, tool aiusage.Tool, ok bool) {
 	best := math.Inf(1)
 	for _, t := range quotaTools() {
 		if !f.quotaOn(t) {
@@ -152,11 +154,11 @@ func (f *usageFeature) leastWindow() (five, week *aiusage.Window, ok bool) {
 			if w.Length >= 6*24*time.Hour || w.LeftPct() >= best {
 				continue
 			}
-			best, five, week, ok = w.LeftPct(), w, weeklyWindow(q.Windows), true
+			best, five, week, tool, ok = w.LeftPct(), w, weeklyWindow(q.Windows), t, true
 		}
 	}
 	if ok {
-		return five, week, true
+		return five, week, tool, true
 	}
 	best = math.Inf(1)
 	for _, t := range quotaTools() {
@@ -165,10 +167,10 @@ func (f *usageFeature) leastWindow() (five, week *aiusage.Window, ok bool) {
 		}
 		q, _ := f.quotaShown(t)
 		if w := weeklyWindow(q.Windows); w != nil && w.LeftPct() < best {
-			best, week, ok = w.LeftPct(), w, true
+			best, week, tool, ok = w.LeftPct(), w, t, true
 		}
 	}
-	return nil, week, ok
+	return nil, week, tool, ok
 }
 
 // weeklyWindow picks the window the outer ring draws: the unscoped weekly
@@ -556,9 +558,7 @@ func ringWindows(ws []aiusage.Window) (five, week *aiusage.Window) {
 // nil window paints the bare track; dim fades the arc for stale data.
 func (f *usageFeature) drawWindowRing(p *ui.Painter, r ui.Rect, rad, lw float32, w *aiusage.Window, col ui.Color, dim, tick bool) {
 	cx, cy := r.X+r.W/2, r.Y+r.H/2
-	var track ui.Path
-	track.Circle(cx, cy, rad)
-	p.StrokePath(&track, lw, fill3)
+	strokeRingTrack(p, cx, cy, rad, lw)
 	if w == nil {
 		return
 	}
@@ -574,6 +574,14 @@ func (f *usageFeature) drawWindowRing(p *ui.Painter, r ui.Rect, rad, lw float32,
 			strokeRingTick(p, cx, cy, rad, lw, float32(f.paceTickFraction(pi)))
 		}
 	}
+}
+
+// strokeRingTrack paints a ring's bare fill3 track: what an arc rides on
+// before any window fills it.
+func strokeRingTrack(p *ui.Painter, cx, cy, rad, lw float32) {
+	var track ui.Path
+	track.Circle(cx, cy, rad)
+	p.StrokePath(&track, lw, fill3)
 }
 
 // paceTickFraction is where the even-pace tick sits on the 0–1 scale the

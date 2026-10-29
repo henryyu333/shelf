@@ -131,8 +131,10 @@ type pinLine struct {
 	min    float32
 }
 
-// pinLines lists what each widget's desktop card must show whole.
-func pinLines(a *shelf, id string) []pinLine {
+// pinLines lists what each widget's desktop card must show whole. The
+// 1 × 1 AI 用量 card is the ring alone, so the only string it carries is
+// its accessible name — which is also its hover tip.
+func pinLines(a *shelf, id string, span int) []pinLine {
 	switch id {
 	case "playing":
 		lines := []pinLine{{text: "座右铭", size: 12, weight: 600},
@@ -154,6 +156,9 @@ func pinLines(a *shelf, id string) []pinLine {
 	case "awake":
 		return []pinLine{{text: "保持唤醒", size: 12, weight: 600}, {text: "关", size: 10}}
 	case "usage":
+		if span < 2 {
+			return []pinLine{{text: "AI 用量 · 暂无数据", min: 1}}
+		}
 		return []pinLine{{text: "AI 用量", size: 12, weight: 600}, {text: "暂无数据", size: 10}}
 	}
 	return nil
@@ -178,7 +183,7 @@ func pinClipped(t *testing.T, a *shelf, id string, span int, w float32) []string
 		a.toolCard(c, layout.Card{ID: id, Span: span}, cardDesktop).Fill()
 	}, int(w), pinCardH)
 	var bad []string
-	for _, line := range pinLines(a, id) {
+	for _, line := range pinLines(a, id, span) {
 		r, ok := view.Find(line.text)
 		if !ok {
 			bad = append(bad, fmt.Sprintf("%q is not drawn", line.text))

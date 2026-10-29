@@ -4,6 +4,8 @@ package main
 
 import (
 	"bytes"
+	"image"
+	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,6 +16,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"shelf/internal/aiusage"
 	"shelf/internal/layout"
 	"shelf/internal/settings"
 	"shelf/internal/store"
@@ -582,6 +585,144 @@ func TestPinnedCardIgnoresPanelDrag(t *testing.T) {
 		}
 		if drag := tr.Image(); !bytes.Equal(clean.Pix, drag.Pix) {
 			t.Fatalf("the pinned %s card changed while files hovered the panel", id)
+		}
+	}
+}
+
+// usageCardFixture draws the 工具 page with the AI 用量 card fed fake
+// quota answers: the fixture is switched to the grid, so its own 1 × 1
+// card renders instead of the usage page.
+func usageCardFixture(t *testing.T, quotaLeft bool, codex, claude aiusage.Quota) *usageFixture {
+	t.Helper()
+	fx := newUsageFixture(t, true)
+	fx.a.settings.AIUsage.QuotaLeft = quotaLeft
+	fx.a.tab = pageTools
+	fx.f.quota[quotaIndex(aiusage.ToolCodex)] = usageQuotaState{latest: codex, good: codex}
+	fx.f.quota[quotaIndex(aiusage.ToolClaude)] = usageQuotaState{latest: claude, good: claude}
+	fx.view.Frame()
+	return fx
+}
+
+// usageCardBodyImage renders only the 1 × 1 card body over a dark card,
+// the way the grid draws it, and returns the frame.
+func usageCardBodyImage(t *testing.T, a *shelf) *image.RGBA {
+	t.Helper()
+	w, h := int(toolColW(1)), toolCellH
+	view := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Size(float32(w), float32(h)).Background(ui.RGB(10, 10, 12)).Children(func() {
+			card := ui.Column(c).Size(float32(w), float32(h))
+			a.toolUsageBody(c, card, 1)
+		})
+	}, w, h)
+	view.Frame()
+	return view.Image()
+}
+
+// usageCardMarks counts the pixels of the ring's centre hole that look
+// like a mark: rust for Claude Code's Spark, bright white for Codex's
+// Blossom. The gauge's ink3 and the ring tracks are dimmer than both.
+func usageCardMarks(img *image.RGBA) (rust, bright, dim int) {
+	b := img.Bounds()
+	cx, cy := float64(b.Dx())/2, float64(b.Dy())/2
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if math.Hypot(float64(x-b.Min.X)+0.5-cx, float64(y-b.Min.Y)+0.5-cy) > 9 {
+				continue
+			}
+			r, g, bl, a := img.At(x, y).RGBA()
+			r, g, bl = r>>8, g>>8, bl>>8
+			if a>>8 < 250 {
+				continue
+			}
+			switch {
+			case r > 180 && g >= 90 && g <= 140 && bl >= 55 && bl <= 115:
+				rust++
+			case r > 210 && g > 210 && bl > 210:
+				bright++
+			case r > 60 && r < 200 && g > 60 && g < 200 && bl > 60 && bl < 200:
+				dim++
+			}
+		}
+	}
+	return rust, bright, dim
+}
+
+// TestToolUsageCard1x1DrawsNoText: the AI 用量 card at 1 × 1 is the ring
+// alone — its numbers live in the accessible name and the hover tip.
+func TestToolUsageCard1x1DrawsNoText(t *testing.T) {
+	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.Local)
+	fx := usageCardFixture(t, false,
+		okQuota(aiusage.ToolCodex, "Plus", now), okQuota(aiusage.ToolClaude, "Pro", now))
+	view := ui.NewTester(func(c *ui.Context) {
+		card := ui.Column(c).Size(toolColW(1), float32(toolCellH))
+		fx.a.toolUsageBody(c, card, 1)
+	}, int(toolColW(1)), toolCellH)
+	if texts := view.Texts(); len(texts) > 0 {
+		t.Fatalf("the 1 × 1 AI 用量 card must draw no text; texts=%v", texts)
+	}
+}
+
+// TestToolUsageCardDrawsSelectedToolMark: the ring's centre is the
+// least-remaining tool's own mark, and the gauge only when there is no
+// quota data at all.
+func TestToolUsageCardDrawsSelectedToolMark(t *testing.T) {
+	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.Local)
+	// Claude Code's 5-hour window is the lowest: its Spark sits in the ring.
+	fx := usageCardFixture(t, false,
+		windowUsed(okQuota(aiusage.ToolCodex, "Plus", now), 0, 20),
+		windowUsed(okQuota(aiusage.ToolClaude, "Pro", now), 0, 60))
+	if rust, bright, _ := usageCardMarks(usageCardBodyImage(t, fx.a)); rust == 0 || bright != 0 {
+		t.Fatalf("Claude Code is the least-remaining tool: rust=%d bright=%d, want its Spark only", rust, bright)
+	}
+	// Codex's: the white Blossom, and no rust at all.
+	fx = usageCardFixture(t, false,
+		windowUsed(okQuota(aiusage.ToolCodex, "Plus", now), 0, 60),
+		windowUsed(okQuota(aiusage.ToolClaude, "Pro", now), 0, 20))
+	if rust, bright, _ := usageCardMarks(usageCardBodyImage(t, fx.a)); bright == 0 || rust != 0 {
+		t.Fatalf("Codex is the least-remaining tool: rust=%d bright=%d, want its Blossom only", rust, bright)
+	}
+	// No answer at all: the bare tracks and the gauge.
+	fx = usageCardFixture(t, false,
+		aiusage.Quota{Tool: aiusage.ToolCodex, Status: aiusage.QuotaNotLoggedIn, FetchedAt: now},
+		aiusage.Quota{Tool: aiusage.ToolClaude, Status: aiusage.QuotaNotLoggedIn, FetchedAt: now})
+	if rust, bright, dim := usageCardMarks(usageCardBodyImage(t, fx.a)); rust != 0 || bright != 0 || dim == 0 {
+		t.Fatalf("no quota data: rust=%d bright=%d dim=%d, want the gauge only", rust, bright, dim)
+	}
+}
+
+// TestToolUsageCardHintFollowsQuotaLeft: the accessible name and the hover
+// tip both state the selected tool and its two shares, in the mode the
+// QuotaLeft setting picks.
+func TestToolUsageCardHintFollowsQuotaLeft(t *testing.T) {
+	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.Local)
+	codex := windowUsed(okQuota(aiusage.ToolCodex, "Plus", now), 0, 20)
+	claude := windowUsed(okQuota(aiusage.ToolClaude, "Pro", now), 0, 60)
+	for _, tc := range []struct {
+		left bool
+		want string
+	}{
+		{false, "Claude Code · 5 小时 60% 已用 · 每周 30% 已用"},
+		{true, "Claude Code · 5 小时 40% 剩余 · 每周 70% 剩余"},
+	} {
+		fx := usageCardFixture(t, tc.left, codex, claude)
+		if !fx.view.HasText(tc.want) {
+			t.Fatalf("left=%v: the card's accessible name is not %q; texts=%v", tc.left, tc.want, fx.view.Texts())
+		}
+		r, ok := fx.view.Find(tc.want)
+		if !ok {
+			t.Fatalf("left=%v: the card has no box to hover", tc.left)
+		}
+		fx.view.Move(r.X+r.W/2, r.Y+r.H/2)
+		fx.view.Advance(700 * time.Millisecond)
+		tips := 0
+		for _, s := range fx.view.Texts() {
+			if s == tc.want {
+				tips++
+			}
+		}
+		if tips != 2 {
+			t.Fatalf("left=%v: %q appears %d times, want twice — the card's name and its hover tip; texts=%v",
+				tc.left, tc.want, tips, fx.view.Texts())
 		}
 	}
 }
