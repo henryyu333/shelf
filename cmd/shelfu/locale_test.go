@@ -879,3 +879,23 @@ func TestNumbersDoNotGroup(t *testing.T) {
 		t.Logf("%s: %d counting messages checked", lang, covered)
 	}
 }
+
+// The expanded panel's material is called 半透明 / Translucent: "glass"
+// promised a frosted look the option never drew, and the captions said it
+// too. The setting's identifiers keep their old names so saved choices
+// keep working.
+func TestPanelAppearanceIsCalledTranslucent(t *testing.T) {
+	zh, en := locales.In("zh-Hans"), locales.In("en")
+	if got := zh.PanelAppearanceGlass(); got != "半透明" {
+		t.Fatalf("zh option = %q, want 半透明", got)
+	}
+	if got := zh.PanelAppearanceCaption() + zh.SettingsNotchFoot(); strings.Contains(got, "毛玻璃") {
+		t.Fatalf("zh captions still say 毛玻璃: %q", got)
+	}
+	if got := en.PanelAppearanceGlass(); got != "Translucent" {
+		t.Fatalf("en option = %q, want Translucent", got)
+	}
+	if got := strings.ToLower(en.PanelAppearanceCaption() + en.SettingsNotchFoot()); !strings.Contains(got, "translucent") || strings.Contains(got, "glass") {
+		t.Fatalf("en captions = %q, want translucent and no glass", got)
+	}
+}

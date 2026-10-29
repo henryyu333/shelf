@@ -205,11 +205,11 @@ func (msgs Messages) PanelAppearanceRow() string {
 	return Catalog.Format(msgs.locale, "panelAppearanceRow", nil)
 }
 
-// PanelAppearanceCaption says "跟随系统时深色纯黑、浅色毛玻璃"
+// PanelAppearanceCaption says "跟随系统时深色纯黑、浅色半透明"
 // in the language the app shows.
 func PanelAppearanceCaption() string { return In(i18n.Locale()).PanelAppearanceCaption() }
 
-// PanelAppearanceCaption says "跟随系统时深色纯黑、浅色毛玻璃"
+// PanelAppearanceCaption says "跟随系统时深色纯黑、浅色半透明"
 // in the language of msgs.
 func (msgs Messages) PanelAppearanceCaption() string {
 	return Catalog.Format(msgs.locale, "panelAppearanceCaption", nil)
@@ -235,11 +235,11 @@ func (msgs Messages) PanelAppearanceBlack() string {
 	return Catalog.Format(msgs.locale, "panelAppearanceBlack", nil)
 }
 
-// PanelAppearanceGlass says "毛玻璃"
+// PanelAppearanceGlass says "半透明"
 // in the language the app shows.
 func PanelAppearanceGlass() string { return In(i18n.Locale()).PanelAppearanceGlass() }
 
-// PanelAppearanceGlass says "毛玻璃"
+// PanelAppearanceGlass says "半透明"
 // in the language of msgs.
 func (msgs Messages) PanelAppearanceGlass() string {
 	return Catalog.Format(msgs.locale, "panelAppearanceGlass", nil)
@@ -6127,11 +6127,11 @@ func (msgs Messages) SettingsShapeGroup() string {
 	return Catalog.Format(msgs.locale, "settingsShapeGroup", nil)
 }
 
-// SettingsNotchFoot says "减少透明度时毛玻璃也画成纯黑；灵动岛样式始终纯黑。"
+// SettingsNotchFoot says "减少透明度时半透明也画成纯黑；灵动岛样式始终纯黑。"
 // in the language the app shows.
 func SettingsNotchFoot() string { return In(i18n.Locale()).SettingsNotchFoot() }
 
-// SettingsNotchFoot says "减少透明度时毛玻璃也画成纯黑；灵动岛样式始终纯黑。"
+// SettingsNotchFoot says "减少透明度时半透明也画成纯黑；灵动岛样式始终纯黑。"
 // in the language of msgs.
 func (msgs Messages) SettingsNotchFoot() string {
 	return Catalog.Format(msgs.locale, "settingsNotchFoot", nil)

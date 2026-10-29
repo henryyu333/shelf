@@ -253,7 +253,7 @@ func TestSettingsViewPanelAppearance(t *testing.T) {
 		t.Fatalf("default appearance = %q, want follow", a.settings.PanelAppearance)
 	}
 	openSettingsPage(t, view, "外形与提示")
-	clickVisible(t, view, "毛玻璃")
+	clickVisible(t, view, "半透明")
 	if a.settings.PanelAppearance != settings.PanelAppearanceGlass {
 		t.Fatalf("glass not applied: %q", a.settings.PanelAppearance)
 	}
