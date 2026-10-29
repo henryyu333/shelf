@@ -540,31 +540,21 @@ func TestOpenTrayShortcutShowsTheTrayPage(t *testing.T) {
 	}
 }
 
-// The 检查更新 row's second line: no check yet, then the time and outcome.
-func TestUpdateCaption(t *testing.T) {
+// Relative update dates are calendar-day categories, checked against an
+// explicit clock rather than whichever date the native suite finishes on.
+func TestUpdateWhenClassifiesCalendarDays(t *testing.T) {
 	l := locales.In("zh-Hans")
 	a := &shelf{}
-	if got := a.updateCaption(l); got != l.SettingsUpdateNever() {
-		t.Fatalf("fresh caption = %q", got)
-	}
 	now := time.Date(2026, 10, 29, 15, 30, 0, 0, time.Local)
-	a.updateLastCheck = time.Date(2026, 10, 29, 9, 12, 0, 0, time.Local)
-	a.updateLastResult = updateResultLatest
-	want := l.SettingsUpdateLast(l.SettingsUpdateToday("09:12"), l.SettingsUpdateResultLatest())
-	if got := a.updateCaption(l); got != want {
-		t.Fatalf("caption = %q, want %q", got, want)
+	today := time.Date(2026, 10, 29, 9, 12, 0, 0, time.Local)
+	if got := a.updateWhen(l, today, now); got != l.SettingsUpdateToday("09:12") {
+		t.Fatalf("today = %q", got)
 	}
 	if got := a.updateWhen(l, time.Date(2026, 10, 28, 21, 5, 0, 0, time.Local), now); got != l.SettingsUpdateYesterday("21:05") {
 		t.Fatalf("yesterday = %q", got)
 	}
 	if got := a.updateWhen(l, time.Date(2026, 10, 20, 8, 0, 0, 0, time.Local), now); got != l.SettingsUpdateOn("2026-10-20 08:00") {
 		t.Fatalf("older = %q", got)
-	}
-	a.updateLastResult = updateResultAvailable
-	a.updateLastVersion = "1.12.0"
-	want = l.SettingsUpdateLast(l.SettingsUpdateToday("09:12"), l.SettingsUpdateResultAvailable("1.12.0"))
-	if got := a.updateCaption(l); got != want {
-		t.Fatalf("available caption = %q, want %q", got, want)
 	}
 }
 
