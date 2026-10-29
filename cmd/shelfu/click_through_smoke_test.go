@@ -35,7 +35,16 @@ func TestIdleOverlayLetsClicksThrough(t *testing.T) {
 	})
 	time.Sleep(400 * time.Millisecond)
 	check := func(wantShelf bool, state string) {
+		windows := screenWindows(t)
+		var foreign smokeWindow
+		var hasForeign bool
 		onMain(func() {
+			// Another copy of ShelfU's panel at the notch takes these
+			// points; the hit test could only report it, not ours.
+			if w, ok := foreignIn(windows, mygo.Point{X: a.stripCenter(), Y: a.dispBounds.Y + a.notchH/2}, mac.StatusWindowLevel); ok {
+				foreign, hasForeign = w, true
+				return
+			}
 			shelf := mac.WindowNumber(a.win.NativeHandle())
 			f := a.desiredFrame()
 			screenH := float64(a.dispBounds.Y + a.dispBounds.Height)
@@ -59,6 +68,10 @@ func TestIdleOverlayLetsClicksThrough(t *testing.T) {
 				}
 			}
 		})
+		if hasForeign {
+			t.Skipf("%s: window %d (pid %d) sits at the notch: another copy of ShelfU",
+				state, foreign.ID, foreign.Owner)
+		}
 	}
 	check(false, "idle")
 	onMain(func() {

@@ -162,6 +162,12 @@ func redesignShelf(t *testing.T) *shelf {
 		a.search, a.focusMode = "", false
 		a.settings.IslandNowPlaying = false
 		a.setTab(pageTray)
+		// Each shot starts from the closed panel; a previous test may have
+		// left it open, and redesignShelf is the shared reset.
+		a.visible, a.closeAt, a.progress, a.animationFrom = false, time.Time{}, 0, 0
+		a.animationStart = time.Time{}
+		a.peeking, a.peekProgress, a.peekFrom, a.peekAnimStart = false, 0, 0, time.Time{}
+		a.overviewDue = time.Time{}
 	})
 	return a
 }

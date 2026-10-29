@@ -1027,18 +1027,24 @@ func (a *shelf) escape() {
 
 // leaveFocusMode gives up the keyboard the clipboard search took: the
 // window drops back to the menu-bar level, the field stops being focused
-// and the panel holds Esc/Space again like any other open page.
+// and the panel holds Esc/Space again like any other open page. The
+// keyboard goes back to the app the user came from at the same moment —
+// the panel stays open, so a later close has nothing left to hand back and
+// must not lose the remembered app on the way out.
 func (a *shelf) leaveFocusMode() {
 	if !a.focusMode {
 		return
 	}
 	a.focusMode = false
+	prev := a.prevAppPID
+	a.prevAppPID = 0
 	a.syncWindowFrame()
 	if a.win != nil {
 		// Headless surfaces (tests) have no app to register keys with.
 		a.holdKeys()
 		a.win.Invalidate()
 	}
+	a.activatePreviousApp(prev)
 }
 
 // hide collapses the shelf. exit decides whether the remembered app gets
@@ -1058,6 +1064,7 @@ func (a *shelf) hide(exit hideExit) {
 	restore := a.shouldRestoreApp(exit)
 	prev := a.prevAppPID
 	a.visible, a.edgeOpened, a.peeking = false, false, false
+	a.overviewDue = time.Time{} // a closed panel keeps no deadline
 	// Any hide ends the arrangement panel's claim on the shell; its box
 	// stays drawn (snap.drawn) until the fold completes.
 	a.snap.panel = false
@@ -1097,6 +1104,7 @@ func (a *shelf) finishClose() {
 	a.warming = ""
 	a.level = 1
 	a.tab = pageOverview
+	a.overviewDue = time.Time{} // the retired view keeps no deadline
 	// 收起即放弃权限说明卡：面板再开时它要么还在等授权（重新触发再出），
 	// 要么授权已完成（预检通过直接框选），都不该回到一张旧卡。
 	a.ocrSheet = false

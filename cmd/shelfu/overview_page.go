@@ -72,10 +72,13 @@ func (a *shelf) overviewBody(c *ui.Context, _ bool) {
 	})
 }
 
-// overviewDeadlines asks for the frame that changes what the overview says:
-// a copy ages out after two minutes, the otter's happiness ends, the quiet
-// spell makes it sleepy, and a status holds only for its span. A resting
-// panel draws no frames of its own, so each of these has to be scheduled.
+// overviewDeadlines works out when the overview's own words change: a copy
+// ages out after two minutes, the otter's happiness ends, the quiet spell
+// makes it sleepy, and a status holds only for its span. The monitor tick
+// checks the deadline (tickOverviewDeadlines) instead of arming a frame
+// timer: a timer left behind would wake a closed panel for one hidden
+// frame, while the tick is already running and draws only while the
+// overview is actually on screen.
 func (a *shelf) overviewDeadlines(c *ui.Context) {
 	now := c.Now()
 	var at time.Time
@@ -97,10 +100,24 @@ func (a *shelf) overviewDeadlines(c *ui.Context) {
 	if a.status != "" && !a.statusUntil.IsZero() {
 		soon(a.statusUntil.Add(toastLife))
 	}
-	if at.IsZero() {
+	a.overviewDue = at
+}
+
+// tickOverviewDeadlines redraws the overview when one of its deadlines has
+// passed, and only while the overview is on screen: a closed panel keeps no
+// deadline and asks for no frames.
+func (a *shelf) tickOverviewDeadlines(now time.Time) {
+	if !a.visible || a.currentLevel() != 1 {
+		a.overviewDue = time.Time{}
 		return
 	}
-	c.After(at.Sub(now) + 20*time.Millisecond)
+	if a.overviewDue.IsZero() || now.Before(a.overviewDue) {
+		return
+	}
+	a.overviewDue = time.Time{}
+	if a.win != nil {
+		a.win.Invalidate()
+	}
 }
 
 // overviewMeta is the left column: the two status lines on top and the

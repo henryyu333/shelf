@@ -203,6 +203,7 @@ func TestIslandSmokeScreenshots(t *testing.T) {
 		t.Fatalf("smoke shelf island=%v hasNotch=%v, want the island below this screen's housing", a.island, a.hasNotch)
 	}
 	newIslandArena(t, islandArena(a))
+	skipIfForeignOverlayOver(t, islandArena(a))
 
 	// Idle: the 120 × 30 capsule floats 6pt below the notch.
 	idle := islandShot(t, a, "idle", 350*time.Millisecond)

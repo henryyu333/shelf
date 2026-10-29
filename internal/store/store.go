@@ -126,11 +126,17 @@ func (s *Store) Fresh() bool { return s.fresh }
 
 // hasUserData reports whether the data directory holds anything of the
 // user's besides the named entry: a first run creates nothing before the
-// store opens, so any other entry means an earlier use.
+// store opens, so any other entry means an earlier use. A directory that
+// does not exist yet is a first run — startup never creates it. Only an
+// error that could hide existing files (permissions, I/O) is read as "an
+// existing user", the conservative answer.
 func hasUserData(root, except string) bool {
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		return true // cannot tell: treat it as an existing user
+		if os.IsNotExist(err) {
+			return false
+		}
+		return true
 	}
 	for _, e := range entries {
 		if e.Name() != except {

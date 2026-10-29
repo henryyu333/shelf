@@ -456,12 +456,17 @@ func (a *shelf) view(c *ui.Context) {
 		} else {
 			openK = zone.AnimateTo("open", openTarget, openAnim)
 		}
-		if a.visible {
+		switch {
+		case a.visible:
 			// While the panel is opening, openK drives the shell alone:
 			// freeze peek at its last drawn value so a second spring
 			// cannot fight openK or reverse the shell on reopen.
 			peekK = zone.Jump("peek", a.fx.peekK)
-		} else {
+		case reduceMotion(c):
+			// Reduce Motion never springs the shell: the peek form is
+			// taken at once and only its content fades.
+			peekK = zone.Jump("peek", peekTarget)
+		default:
 			peekK = zone.AnimateTo("peek", peekTarget, peekAnim)
 		}
 		// The content follows its own channel, not openK: it springs in a
@@ -633,6 +638,12 @@ func (a *shelf) view(c *ui.Context) {
 				// morph — the "notch flashes" bug. The drag's shape
 				// never morphs, so snap the channels: the drawn shell
 				// may only shrink from here.
+				peekW = zone.Jump("peek-w", peekW)
+				peekH = zone.Jump("peek-h", peekH)
+			case reduceMotion(c):
+				// Reduce Motion: the hover shape takes its new size at
+				// once; only its content fades (peekView draws it by
+				// peekK, which is a jump in this mode).
 				peekW = zone.Jump("peek-w", peekW)
 				peekH = zone.Jump("peek-h", peekH)
 			default:

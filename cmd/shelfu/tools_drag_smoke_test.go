@@ -230,6 +230,13 @@ func TestToolsNativeDragOutStaysVisible(t *testing.T) {
 	// A hand moves and then presses; a machine posting both 30 ms apart
 	// presses inside the window where the pointer has not been observed
 	// yet, which is not a case a user can produce.
+	// Same status level as any other copy of ShelfU at the notch: raise
+	// ours so the press lands on the panel under test.
+	onMain(func() {
+		a.win.ShowInactive()
+		a.win.Invalidate()
+	})
+	time.Sleep(120 * time.Millisecond)
 	postMouse(t, float64(start.X), float64(start.Y), 5)
 	time.Sleep(150 * time.Millisecond)
 	postMouse(t, float64(start.X), float64(start.Y), 1)

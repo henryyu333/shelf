@@ -3,12 +3,45 @@
 package main
 
 import (
-	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/ui"
-	"shelf/internal/mac"
 	"testing"
 	"time"
+
+	"github.com/ebitengine/purego"
+	"github.com/ebitengine/purego/objc"
+	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
+
+	"shelf/internal/mac"
 )
+
+// windowOwnerPID is the process that owns a window number, so a skip or a
+// failure says whether a foreign app or our own test window took a point.
+func windowOwnerPID(t *testing.T, num int) int {
+	t.Helper()
+	lib, err := purego.Dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", purego.RTLD_LAZY)
+	if err != nil {
+		return 0
+	}
+	var copyList func(uint32, uint32) uintptr
+	purego.RegisterLibFunc(&copyList, lib, "CGWindowListCopyWindowInfo")
+	pid := 0
+	onMain(func() {
+		list := objc.ID(copyList(1, 0))
+		if list == 0 {
+			return
+		}
+		defer objcSend(list, "release")
+		for i, n := 0, int(objcSend(list, "count")); i < n; i++ {
+			d := objcSend(list, "objectAtIndex:", i)
+			owner := int(objcSend(objcSend(d, "objectForKey:", objcStr("kCGWindowOwnerPID")), "intValue"))
+			id := int(objcSend(objcSend(d, "objectForKey:", objcStr("kCGWindowNumber")), "intValue"))
+			if id == num {
+				pid = owner
+			}
+		}
+	})
+	return pid
+}
 
 func TestCollapsedMarginsReachUnderlyingWindow(t *testing.T) {
 	a := redesignShelf(t)
@@ -28,6 +61,13 @@ func TestCollapsedMarginsReachUnderlyingWindow(t *testing.T) {
 			a.win.Invalidate()
 		})
 		time.Sleep(650 * time.Millisecond)
+		// The pointer may sit at the notch from an earlier test; another
+		// copy of ShelfU (the installed one) opens its panel on hover and
+		// would be the window at the point. Park the pointer away, let any
+		// hover panel retract, then place the receiver.
+		d := mygo.Screen.PrimaryDisplay()
+		warpPointerTo(t, float64(d.WorkArea.X+d.WorkArea.Width/2), float64(d.WorkArea.Y+d.WorkArea.Height*3/4))
+		time.Sleep(450 * time.Millisecond)
 		var receiver *mygo.Window
 		var point mygo.Point
 		var receiverNum, hit, received int
@@ -61,6 +101,24 @@ func TestCollapsedMarginsReachUnderlyingWindow(t *testing.T) {
 			t.Fatalf("%s: margin ignores=%v native target=%d want receiver=%d", state, ignoring, hit, receiverNum)
 		}
 		if mac.AccessibilityTrusted() {
+			// Another copy of ShelfU (the installed one) opens its own
+			// notch panel on hover and can sit above the receiver between
+			// the check above and the click: this pass-through test can
+			// only mean something when the point belongs to our receiver.
+			// Park the pointer on the point first and let it settle: the
+			// window at a point is only meaningful once nothing is about
+			// to move there, and another copy of ShelfU (the installed
+			// one) may open its own panel at the notch. When the point is
+			// not our receiver's at click time the pass-through assertion
+			// cannot be exercised, and the guard is right to refuse.
+			warpPointerTo(t, float64(point.X), float64(point.Y))
+			time.Sleep(350 * time.Millisecond)
+			var now int
+			onMain(func() { now = mac.WindowAtPoint(float64(point.X), float64(point.Y), float64(a.dispBounds.Y+a.dispBounds.Height)) })
+			if now != receiverNum {
+				t.Skipf("%s: window %d (pid %d) took the point, not the test's receiver %d",
+					state, now, windowOwnerPID(t, now), receiverNum)
+			}
 			clickAt(t, float64(point.X), float64(point.Y))
 			var count int
 			onMain(func() { count = received })

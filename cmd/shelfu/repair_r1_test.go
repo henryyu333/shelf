@@ -21,6 +21,7 @@ import (
 	"github.com/egoist/mygo/transfer"
 
 	"shelf/internal/layout"
+	"shelf/internal/mac"
 	"shelf/internal/store"
 )
 
@@ -329,6 +330,71 @@ func TestMaterialTracksTheShellAndTheAppearance(t *testing.T) {
 	}
 }
 
+// TestFreshWhenTheDirectoryIsNew: the real first-launch path has no data
+// directory at all; creating it is the store's job, and the run is a first
+// one. An error that could hide files (permissions) still reads as an
+// existing user.
+func TestFreshWhenTheDirectoryIsNew(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "ShelfU") // never created
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("the fixture created %s", root)
+	}
+	s, err := store.Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if !s.Fresh() {
+		t.Fatal("a data directory that did not exist counts as an existing user")
+	}
+}
+
+// TestLeaveFocusModeHandsTheKeyboardBack: leaving the clipboard search's
+// keyboard mode goes back to the app the user came from at once, while the
+// panel stays open; the later close has nothing left to restore and must
+// not lose the remembered app on the way out.
+func TestLeaveFocusModeHandsTheKeyboardBack(t *testing.T) {
+	oldActive, oldActivate, oldResign := appIsActive, activateApp, resignSelf
+	var activated []int
+	resigned := 0
+	appIsActive = func() bool { return true }
+	activateApp = func(pid int) bool { activated = append(activated, pid); return true }
+	resignSelf = func() { resigned++ }
+	t.Cleanup(func() { appIsActive, activateApp, resignSelf = oldActive, oldActivate, oldResign })
+
+	a, view := overviewShelf(t)
+	// The ⌃⌥V state: the clipboard page, its search focused, the app the
+	// user came from remembered.
+	a.tab, a.tabFrom, a.level = pageClipboard, pageClipboard, 2
+	a.focusMode = true
+	a.prevAppPID = 4242
+	a.search = "x"
+	view.Frame()
+	view.Key(0, ui.KeyEscape) // clears nothing, leaves the search mode
+	view.Key(0, ui.KeyEscape) // backs out to the overview
+	if a.focusMode {
+		t.Fatal("Esc left the keyboard mode on")
+	}
+	if len(activated) != 1 || activated[0] != 4242 {
+		t.Fatalf("the app the user came from was not reactivated: %v", activated)
+	}
+	if a.prevAppPID != 0 {
+		t.Fatalf("the remembered app is still pending a restore: %d", a.prevAppPID)
+	}
+	if !a.visible || a.currentLevel() != 1 {
+		t.Fatalf("the panel did not stay open on the overview: visible=%v level=%d", a.visible, a.currentLevel())
+	}
+	// The final close has nothing to hand back and must not activate again.
+	a.hide(hideExplicit)
+	view.Frame()
+	if len(activated) != 1 {
+		t.Fatalf("the close restored the app a second time: %v", activated)
+	}
+	if resigned != 0 {
+		t.Fatalf("the panel resigned itself %d times", resigned)
+	}
+}
+
 // TestWelcomeFinishesTheVersionToo: finishing the welcome card records the
 // version as read, so the same build's new-version card never follows it.
 func TestWelcomeFinishesTheVersionToo(t *testing.T) {
@@ -399,6 +465,125 @@ func TestDropLandsBackOnTheOverview(t *testing.T) {
 	}
 	if a.currentLevel() != 1 || a.tab != pageOverview {
 		t.Fatalf("after the drop: level=%d tab=%s, want the overview", a.currentLevel(), a.tab)
+	}
+}
+
+// TestReduceMotionHoverShapeNeverSprings: with Reduce Motion on, the peek
+// shape takes its new width and height on the frame the state changes, and
+// the following frame does not move it again; with the preference off the
+// same change keeps springing. (mygo's AnimateTo also snaps under Reduce
+// Motion, so the shell's explicit jumps and the engine agree here: the
+// test pins the behaviour either way.)
+func TestReduceMotionHoverShapeNeverSprings(t *testing.T) {
+	for _, reduce := range []bool{true, false} {
+		name := "spring"
+		if reduce {
+			name = "reduce motion"
+		}
+		t.Run(name, func(t *testing.T) {
+			a := motionWindow()
+			a.settings.IslandNowPlaying = false
+			a.np = nil
+			a.visible, a.level = false, 1
+			view := ui.NewTester(a.view, sheetW, sheetH)
+			if reduce {
+				view.SetPreferences(ui.Preferences{ReduceMotion: true})
+			}
+			// The plain chevron bulge, settled.
+			a.peeking = true
+			for range 40 {
+				view.Frame()
+				view.Advance(16 * time.Millisecond)
+			}
+			// A track arrives: the wings replace the chevron's bulge, a
+			// much wider shape.
+			a.settings.IslandNowPlaying = true
+			a.np = &nowPlayingModule{host: a, have: true, last: mac.NowPlayingState{
+				Title: "夜曲", Playing: true, Duration: 200, Received: time.Now(),
+			}}
+			view.Frame() // the frame the state changes on
+			w0, h0 := a.fx.peekW, a.fx.peekH
+			view.Advance(16 * time.Millisecond)
+			view.Frame()
+			w1, h1 := a.fx.peekW, a.fx.peekH
+			if reduce {
+				if w1 != w0 || h1 != h0 {
+					t.Fatalf("reduce motion moved the shape after its first frame: %.1f×%.1f -> %.1f×%.1f",
+						w0, h0, w1, h1)
+				}
+				return
+			}
+			if w1 == w0 && h1 == h0 {
+				t.Fatalf("the spring never moved the shape (%.1f×%.1f): the fixture does not exercise it", w0, h0)
+			}
+		})
+	}
+}
+
+// TestOverviewDeadlinesNeverWakeAClosedPanel: the overview works out when
+// its words change and the monitor tick redraws it, but only while the
+// overview is on screen — no frame timer is left behind, so a closed panel
+// draws nothing when a copy ages out.
+func TestOverviewDeadlinesNeverWakeAClosedPanel(t *testing.T) {
+	draws := 0
+	a, _ := levelShelf(t)
+	a.visible, a.level = true, 1
+	if err := a.store.AddClipText("刚复制的文字", "com.example.App"); err != nil {
+		t.Fatal(err)
+	}
+	view := ui.NewTester(func(c *ui.Context) {
+		draws++
+		a.view(c)
+	}, sheetW, sheetH)
+	view.Frame()
+	if a.overviewDue.IsZero() {
+		t.Fatal("the overview did not work out a deadline")
+	}
+	// A frame timer would still be waiting after the panel closes; the
+	// tick-driven deadline arms nothing.
+	if view.FramePending() {
+		t.Fatal("drawing the overview left a frame timer armed")
+	}
+
+	// Closing forgets the deadline, and the tick draws nothing afterwards.
+	onHide := func() {
+		a.visible = false
+		a.closeAt = time.Now()
+		a.finishClose()
+	}
+	onHide()
+	if !a.overviewDue.IsZero() {
+		t.Fatalf("a closed panel kept the deadline %v", a.overviewDue)
+	}
+	base := draws
+	// Time passes with the panel closed: a frame timer left behind would
+	// fire here and draw a hidden frame; the tick draws nothing.
+	view.Advance(3 * time.Minute)
+	if draws != base {
+		t.Fatalf("a closed panel drew %d frames when its deadline passed", draws-base)
+	}
+	a.tickOverviewDeadlines(view.Now().Add(3 * time.Minute))
+	if draws != base {
+		t.Fatalf("the tick drew %d frames after the close", draws-base)
+	}
+
+	// Open again: the deadline is worked out anew and the tick redraws at
+	// the deadline itself. (The copy aged out during the advance, so a
+	// fresh happy span is what has a deadline now.)
+	a.happyUntil = view.Now().Add(2 * time.Second)
+	a.visible, a.level = true, 1
+	view.Frame()
+	if a.overviewDue.IsZero() {
+		t.Fatal("the reopened overview has no deadline")
+	}
+	due := a.overviewDue
+	a.tickOverviewDeadlines(due.Add(-time.Second))
+	if !a.overviewDue.Equal(due) {
+		t.Fatal("the tick fired before the deadline")
+	}
+	a.tickOverviewDeadlines(due.Add(time.Second))
+	if !a.overviewDue.IsZero() {
+		t.Fatal("the tick did not consume the passed deadline")
 	}
 }
 

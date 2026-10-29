@@ -67,6 +67,7 @@ type shelf struct {
 	welcomePending, welcomeUp                                   bool
 	whatsNewPending, whatsNewUp                                 bool
 	openedAt                                                    time.Time             // when this opening began, for the cards' delay
+	overviewDue                                                 time.Time             // when the overview's words next change (checked by the monitor tick)
 	tabAt                                                       time.Time             // when the tab last switched; drives the pages' crossfade
 	tabFrom                                                     pageID                // the page being left by the last switch, drawn fading out
 	tabOutK                                                     float32               // opacity the outgoing picture starts at (1, or where an interrupted switch left it)
@@ -190,6 +191,7 @@ func (a *shelf) startMonitoring() {
 						m.tick(now)
 					}
 					a.animate(now)
+					a.tickOverviewDeadlines(now)
 					a.refreshAppearance(now)
 					a.monitorDrag(now)
 					// 内容高度随项目数/正在播放卡片/搜索状态变化：

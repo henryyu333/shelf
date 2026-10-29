@@ -424,6 +424,16 @@ func TestSmokeUsageRefreshAnswers(t *testing.T) {
 	onMain(func() { a.status = "click-probe" })
 	// The refresh button ends the page's action row: 12pt margin + 22pt,
 	// measured inside the shell (the window adds its ear margins).
+	// The panel must be the window at that point: another copy of ShelfU
+	// (the installed one) opens its own notch panel on hover and can sit
+	// above ours, and the guard rightly refuses a click meant for it. A
+	// raise of our own window is enough: it is the same status level and
+	// the last ordered front wins.
+	onMain(func() {
+		a.win.ShowInactive()
+		a.win.Invalidate()
+	})
+	time.Sleep(120 * time.Millisecond)
 	clickAt(t, float64(b.X)+float64(b.Width-sheetW)/2+417, float64(b.Y)+45)
 	onMain(func() { status = a.status })
 	fix2Shot(t, a, "refresh-held-back")
