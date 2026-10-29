@@ -543,3 +543,45 @@ func TestPageIconsDiffer(t *testing.T) {
 		t.Fatal("the overview and tools icons draw the same glyph")
 	}
 }
+
+// TestToolCardDragPaintSurfaces: only the panel's tools page answers a file
+// drag. A pin floating on the desktop redraws whenever it is invalidated,
+// and the drag must leave it exactly as it is.
+func TestToolCardDragPaintSurfaces(t *testing.T) {
+	if !toolCardDragPaint(cardPanel, true) || !toolCardDragPaint(cardEdit, true) {
+		t.Fatal("the panel's cards stopped answering a live drag")
+	}
+	if toolCardDragPaint(cardDesktop, true) {
+		t.Fatal("a pinned card answers the panel's drag")
+	}
+	for _, surf := range []toolCardSurface{cardPanel, cardEdit, cardDesktop} {
+		if toolCardDragPaint(surf, false) {
+			t.Fatalf("surface %v paints a drag that is over", surf)
+		}
+	}
+}
+
+// TestPinnedCardIgnoresPanelDrag draws a pinned card while files hover the
+// panel: the card keeps its picture — no 38% fade on the actions it cannot
+// take, no 「N 个 PDF」 subtitle on the zip it could — because the drag has
+// nothing to do with the desktop.
+func TestPinnedCardIgnoresPanelDrag(t *testing.T) {
+	for _, id := range []string{"zip", "topdf"} {
+		a := &shelf{dataDir: t.TempDir(), settings: settings.Default()}
+		w := pinCardWidth(id, 1)
+		it := &pinItem{owner: a, cardID: id, span: 1, rows: 1, cardW: w, edge: pinFree, expanded: true,
+			frame: mygo.Rectangle{Width: w, Height: pinCardH}}
+		clean := ui.NewTester(it.view, w, pinCardH).Image()
+
+		a.dragging = true
+		a.drop = dropZoneState{files: []string{"/tmp/a.pdf"}, class: classPDFs, loaded: true}
+		tr := ui.NewTester(it.view, w, pinCardH)
+		tr.Frame()
+		if tr.HasText("1 个 PDF") || tr.HasText("1 项") {
+			t.Fatalf("the pinned %s card shows the panel drag's count", id)
+		}
+		if drag := tr.Image(); !bytes.Equal(clean.Pix, drag.Pix) {
+			t.Fatalf("the pinned %s card changed while files hovered the panel", id)
+		}
+	}
+}

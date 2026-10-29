@@ -267,10 +267,10 @@ const (
 var pageSwitchPhase func(a *shelf, now time.Time) float32
 
 // onPageBlock reports every page block a frame draws: the switch's
-// outgoing picture, its arriving page and the warm layer. Tests count them
-// to prove a page is never drawn by two layouts at once; production leaves
-// it nil.
-var onPageBlock func(a *shelf, id pageID, live bool)
+// outgoing picture and its arriving page, with the opacity and layout
+// offset the block is painted at. Tests count them and read the drawn
+// values; production leaves it nil.
+var onPageBlock func(a *shelf, id pageID, live bool, opacity, left float32)
 
 // onPageSwitch runs at the start of every pageBody build: a test groups the
 // blocks reported since the last call into the frame that drew them.
@@ -1000,6 +1000,12 @@ func (a *shelf) pageBody(c *ui.Context, over bool) {
 		dir = 0 // 减少动态效果：只淡入淡出，不位移
 	}
 	outK, inK := switchOpacities(t)
+	// A switch that interrupts another continues the picture on screen: the
+	// page being left starts at the opacity and the settle offset it had
+	// reached (startPageSwitch records them), not at full brightness in its
+	// final spot.
+	outAlpha := a.tabOutK * outK
+	outLeft := a.tabOutShift * (1 - min(t/tabOutShare, 1))
 	var out panelPage
 	if t < 1 && a.tabFrom != a.tab {
 		// The page being left is a picture: it takes no pointer and never
@@ -1013,10 +1019,10 @@ func (a *shelf) pageBody(c *ui.Context, over bool) {
 		if !(a.snap.panel || a.snap.drawn) {
 			a.warmPage(c)
 		}
-		if out != nil && outK > 0.001 {
-			old := ui.Column(c.Key("frame-out")).Absolute().Top(0).Left(0).
-				Width(contentW).Height(pageBodyH).PassThrough().Opacity(outK)
-			old.Children(func() { a.pageBlock(c, out, over, false) })
+		if out != nil && outAlpha > 0.001 {
+			old := ui.Column(c.Key("frame-out")).Absolute().Top(0).Left(outLeft).
+				Width(contentW).Height(pageBodyH).PassThrough().Opacity(outAlpha)
+			old.Children(func() { a.pageBlock(c, out, over, false, outAlpha, outLeft) })
 		}
 		// The arrival offset is a layout offset, not a paint transform: a
 		// transformed subtree marks every clip inside it as moving, and the
@@ -1040,7 +1046,7 @@ func (a *shelf) pageBody(c *ui.Context, over bool) {
 		}
 		frame := ui.Column(c.Key("frame")).Absolute().Top(0).Left(shift).
 			Width(contentW).Height(pageBodyH).Opacity(op)
-		frame.Children(func() { a.pageBlock(c, cur, over, true) })
+		frame.Children(func() { a.pageBlock(c, cur, over, true, op, shift) })
 		if t < tabInShare {
 			// Neither page is a target in a switch's first phase: the old
 			// one is only a picture and the new one is still invisible
@@ -1059,9 +1065,9 @@ func (a *shelf) pageBody(c *ui.Context, over bool) {
 // switch region: the overview's 416 × 106 body under the band's 6pt gap, or
 // a page's 22pt action row, 4pt gap and 416 × 174 content box. Each block
 // is laid out at its final size; the shell's height clips it.
-func (a *shelf) pageBlock(c *ui.Context, p panelPage, over, live bool) {
+func (a *shelf) pageBlock(c *ui.Context, p panelPage, over, live bool, opacity, left float32) {
 	if onPageBlock != nil {
-		onPageBlock(a, p.id(), live)
+		onPageBlock(a, p.id(), live, opacity, left)
 	}
 	if p.id() == pageOverview {
 		ui.Column(c.Key("ov-block")).Width(contentW).Height(overviewBodyH + contentGap).Children(func() {

@@ -207,6 +207,7 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 	// dim — they take no files and stay as they are.
 	class, n, live := a.toolCardDrag()
 	hovering := surf != cardDesktop && n > 0
+	dragPaint := toolCardDragPaint(surf, live)
 	if !hovering {
 		class = classMixed
 	}
@@ -231,14 +232,14 @@ func (a *shelf) toolCard(c *ui.Context, spec layout.Card, surf toolCardSurface, 
 	} else if hot {
 		card.Scale(1.03, 1.03).TransformOrigin(0.5, 0.5)
 	}
-	if live && toolCardDimmed(def, class) {
+	if dragPaint && toolCardDimmed(def, class) {
 		card.Disabled(true).Opacity(0.38)
 	}
 	if surf == cardEdit {
 		a.toolCardEditBody(c, card, def, spec)
 	} else {
 		sub := ""
-		if live && def.kind == cardAction {
+		if dragPaint && def.kind == cardAction {
 			sub = a.toolCardSub(loc(c), def, class)
 		}
 		a.toolCardBody(c, card, def, sub, spec, surf)
@@ -309,6 +310,15 @@ func (a *shelf) toolCardBody(c *ui.Context, card ui.Element, def *toolCardDef, s
 			panelLabel(c, nil, def.name(loc(c)), 12, 600).TextColor(ink)
 		})
 	}
+}
+
+// toolCardDragPaint reports whether a card is painted by the panel's file
+// drag at all: dimming and the count subtitle belong to the panel's tools
+// page, never to a card floating on the desktop. A pin redraws whenever it
+// is invalidated, and a drag over the panel must leave it exactly as it is
+// (its drop target registration is separate — see toolCard's accepts).
+func toolCardDragPaint(surf toolCardSurface, live bool) bool {
+	return live && surf != cardDesktop
 }
 
 // toolCardDimmed reports whether a card fades to 38% during a live drag:

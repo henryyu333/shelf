@@ -30,7 +30,7 @@ func pageDraws(t *testing.T, render func()) []map[pageID]int {
 	}
 	oldBlock, oldSwitch := onPageBlock, onPageSwitch
 	onPageSwitch = func(*shelf) { flush() }
-	onPageBlock = func(_ *shelf, id pageID, _ bool) { cur[id]++ }
+	onPageBlock = func(_ *shelf, id pageID, _ bool, _, _ float32) { cur[id]++ }
 	t.Cleanup(func() { onPageBlock, onPageSwitch = oldBlock, oldSwitch })
 	render()
 	flush()
@@ -181,5 +181,71 @@ func TestOverviewPrewarmsPages(t *testing.T) {
 		if !a.warmed[p.id()] {
 			t.Fatalf("%s was never warmed", p.id())
 		}
+	}
+}
+
+// TestRapidSwitchKeepsTheDrawnFade: a second switch that interrupts a
+// running one continues the picture on screen. The page being left keeps
+// the opacity it had reached — a page part-way through its fade must not
+// jump back to full brightness — and its settle offset carries on from
+// where it was instead of snapping to the final position.
+func TestRapidSwitchKeepsTheDrawnFade(t *testing.T) {
+	cases := []struct {
+		name string
+		// A (left) -> B (arriving) at phase, then a click on C.
+		from, page, next pageID
+		phase            float32
+		outK, outShift   float32
+		wantOut          pageID
+	}{
+		{"still fading out", pageTray, pageTools, pageClipboard, 0.2, 0.9, 3, pageTray},
+		{"already fading in", pageTray, pageClipboard, pageTools, 0.6, 1, 0, pageClipboard},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a, view := levelShelf(t)
+			a.visible, a.level = true, 2
+			view.Frame()
+			// Put the panel mid-switch A -> B.
+			a.tab, a.tabFrom = tc.page, tc.from
+			a.tabAt = time.Now().Add(-time.Duration(float32(tabAnimation) * tc.phase))
+			a.tabOutK, a.tabOutShift = tc.outK, tc.outShift
+
+			a.setTab(tc.next)
+			if a.tabOutK >= 1 {
+				t.Fatalf("the interrupted switch did not carry an opacity: %.3f", a.tabOutK)
+			}
+			wantOp, wantLeft := a.tabOutK, a.tabOutShift
+
+			var out *struct {
+				id       pageID
+				op, left float32
+			}
+			old := onPageBlock
+			onPageBlock = func(_ *shelf, id pageID, live bool, op, left float32) {
+				if !live && out == nil {
+					out = &struct {
+						id       pageID
+						op, left float32
+					}{id, op, left}
+				}
+			}
+			oldPhase := pageSwitchPhase
+			pageSwitchPhase = func(*shelf, time.Time) float32 { return 0 }
+			view.Frame()
+			onPageBlock, pageSwitchPhase = old, oldPhase
+			if out == nil {
+				t.Fatal("the switch drew no page to fade out")
+			}
+			if out.id != tc.wantOut {
+				t.Fatalf("the fading page is %s, want %s", out.id, tc.wantOut)
+			}
+			if d := out.op - wantOp; d > 0.01 || d < -0.01 {
+				t.Fatalf("the fading page is drawn at %.3f, not the %.3f it had reached", out.op, wantOp)
+			}
+			if d := out.left - wantLeft; d > 0.01 || d < -0.01 {
+				t.Fatalf("the fading page is drawn at x=%.2f, not the %.2f it had reached", out.left, wantLeft)
+			}
+		})
 	}
 }
