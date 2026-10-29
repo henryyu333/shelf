@@ -55,7 +55,30 @@ type Settings struct {
 	// display id. A display with no entry keeps the default position; the
 	// notch style ignores the whole map.
 	IslandPos map[string]IslandPos `json:"islandPos,omitempty"`
+	// Shortcuts are the global keyboard shortcuts. They are user-editable
+	// in the Settings window, and every one is an Electron-style
+	// accelerator ("Ctrl+Alt+Space").
+	Shortcuts ShortcutSettings `json:"shortcuts"`
 }
+
+// ShortcutSettings are the global keyboard shortcuts. A missing key keeps
+// its default (see Default); an explicit empty string turns that shortcut
+// off, which is what Delete in the Settings window saves.
+type ShortcutSettings struct {
+	Toggle    string `json:"toggle"`
+	Clipboard string `json:"clipboard"`
+	Capture   string `json:"capture"`
+	Tray      string `json:"tray"`
+}
+
+// The shortcut defaults: the tray toggle, clipboard search and text
+// capture ship set; opening the tray alone has none.
+const (
+	DefaultShortcutToggle    = "Ctrl+Alt+Space"
+	DefaultShortcutClipboard = "Ctrl+Alt+V"
+	DefaultShortcutCapture   = "Ctrl+Alt+O"
+	DefaultShortcutTray      = ""
+)
 
 // IslandPos is the floating island's place on one display: the shell's
 // centre X and its top Y, measured from the display's origin. Storing the
@@ -135,6 +158,12 @@ func Default() Settings {
 			LocalOmp:    true,
 			LocalClaude: true,
 			LocalCodex:  true,
+		},
+		Shortcuts: ShortcutSettings{
+			Toggle:    DefaultShortcutToggle,
+			Clipboard: DefaultShortcutClipboard,
+			Capture:   DefaultShortcutCapture,
+			Tray:      DefaultShortcutTray,
 		},
 	}
 }

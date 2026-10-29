@@ -261,3 +261,26 @@ func TestLanguageOf(t *testing.T) {
 		t.Fatalf("LanguageOf rewrote the broken file: %q, %v", got, err)
 	}
 }
+
+// The shortcuts are preferences: they round-trip, and a file from an older
+// version without them keeps every default.
+func TestShortcutSettingsLoad(t *testing.T) {
+	dir := t.TempDir()
+	prefs := Default()
+	prefs.Shortcuts.Toggle = "Super+Shift+K"
+	prefs.Shortcuts.Tray = ""
+	if err := Save(dir, prefs); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(dir)
+	if err != nil || loaded.Shortcuts != prefs.Shortcuts {
+		t.Fatalf("shortcuts did not round-trip: %+v, %v", loaded.Shortcuts, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(`{"language": ""}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = Load(dir)
+	if err != nil || loaded.Shortcuts != Default().Shortcuts {
+		t.Fatalf("missing shortcuts did not default: %+v, %v", loaded.Shortcuts, err)
+	}
+}
