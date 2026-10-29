@@ -261,6 +261,62 @@ func TestSettingsClosedRestoresSuspendedShortcuts(t *testing.T) {
 	}
 }
 
+// Leaving the window ends the recording: the suspended shortcuts are
+// claimed back instead of staying dead while the user works elsewhere.
+func TestSettingsRecordingEndsOnBlur(t *testing.T) {
+	a, view, f := shortcutShelf(t)
+	openSettingsPage(t, view, "快捷键")
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	if f.has("Ctrl+Alt+Space") {
+		t.Fatal("recording did not suspend the combination")
+	}
+	a.settingsBlur()
+	view.Frame()
+	if a.settingsRecording != shortcutNone {
+		t.Fatal("blur left the row recording")
+	}
+	if !f.has("Ctrl+Alt+Space") || !f.has("Ctrl+Alt+V") || !f.has("Ctrl+Alt+O") {
+		t.Fatalf("blur left shortcuts unregistered: %v", f.regs)
+	}
+	if a.settings.Shortcuts.Toggle != settings.DefaultShortcutToggle {
+		t.Fatalf("blur changed the shortcut: %q", a.settings.Shortcuts.Toggle)
+	}
+}
+
+// A later successful restore clears the busy note an earlier refusal left:
+// the row must not keep saying the combination is taken once it is the
+// app's again.
+func TestRestoreSuccessClearsBusy(t *testing.T) {
+	a, view, f := shortcutShelf(t)
+	f.fail["Ctrl+Alt+O"] = 1
+	openSettingsPage(t, view, "快捷键")
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	view.Key(ui.Ctrl|ui.Alt, ui.KeyK)
+	view.Frame()
+	if !a.shortcutBusy[shortcutCapture] {
+		t.Fatal("the refused restore was not reported")
+	}
+	// The next recording restores again, and this time the keys are free.
+	if err := view.Click("显示 / 收起"); err != nil {
+		t.Fatal(err)
+	}
+	view.Frame()
+	view.Key(0, ui.KeyEscape)
+	view.Frame()
+	if !f.has("Ctrl+Alt+O") {
+		t.Fatal("the retried restore did not claim the keys")
+	}
+	if a.shortcutBusy[shortcutCapture] {
+		t.Fatal("a successful restore left the row saying 已被占用")
+	}
+}
+
 // A refused combination keeps the previous shortcut and says so on the row;
 // the same combination as another row's counts as refused.
 func TestShortcutRecordingBusyKeepsPrevious(t *testing.T) {

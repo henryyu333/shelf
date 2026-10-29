@@ -187,7 +187,20 @@ func (a *shelf) restoreShortcuts() {
 			continue
 		}
 		a.heldShortcut(k, acc)
+		// The combination is the app's again: whatever kept it busy before
+		// — a refused launch registration, a failed restore — is over.
+		delete(a.shortcutBusy, k)
 	}
+}
+
+// settingsBlur ends a recording when the Settings window stops being key —
+// the user switched to another app or window: the suspended shortcuts go
+// back at once instead of staying dead while the user works elsewhere.
+func (a *shelf) settingsBlur() {
+	if a.quitting || a.settingsRecording == shortcutNone {
+		return
+	}
+	a.cancelShortcutRecording()
 }
 
 // startShortcutRecording puts one row in listening mode: the app's own

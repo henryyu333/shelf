@@ -166,6 +166,7 @@ func (a *shelf) openSettings() {
 	mac.SetWindowAppearance(w.NativeHandle(), true)
 	w.SetBounds(frame)
 	w.OnClosed(a.settingsClosed)
+	w.OnBlur(a.settingsBlur)
 	a.settingsWin = w
 	w.Show()
 	mac.ActivateSelf()

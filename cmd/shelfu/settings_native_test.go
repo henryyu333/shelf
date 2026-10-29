@@ -168,3 +168,54 @@ func TestSettingsClipboardAlwaysOnNative(t *testing.T) {
 	}
 	t.Log(path)
 }
+
+// TestSettingsWindowBlurEndsRecording proves the real window's blur hook:
+// when another window takes the keyboard while a shortcut records, the
+// suspended combinations come back instead of staying dead.
+func TestSettingsWindowBlurEndsRecording(t *testing.T) {
+	if os.Getenv("SHELF_BASKET_SMOKE") != "1" {
+		t.Skip("set SHELF_BASKET_SMOKE=1 to run the native window smoke test")
+	}
+	stubSettingsSeams(t, false, nil, nil)
+	f := installFakeKeys(t)
+	a := smokeShelf
+	a.dataDir = t.TempDir()
+	a.settings, _ = settings.Load(a.dataDir)
+	a.appNames = map[string]string{}
+	onMain(func() { a.openSettings() })
+	if a.settingsWin == nil {
+		t.Fatal("settings window was not created")
+	}
+	defer onMain(func() {
+		if a.settingsWin != nil {
+			a.settingsWin.Close()
+		}
+	})
+	time.Sleep(300 * time.Millisecond)
+	onMain(func() {
+		a.setSettingsPage(settingsPageShortcuts)
+		a.startShortcutRecording(shortcutToggle)
+	})
+	if f.has(settings.DefaultShortcutToggle) {
+		t.Fatal("recording did not suspend the combination")
+	}
+	onMain(func() {
+		a.newNotchWindow()
+		a.place(mygo.Screen.CursorScreenPoint())
+		a.win.ShowInactive()
+		a.win.Focus() // another window of the app takes the keyboard
+	})
+	time.Sleep(400 * time.Millisecond)
+	if a.settingsRecording != shortcutNone {
+		t.Fatal("losing the keyboard left the row recording")
+	}
+	for _, acc := range []string{"Ctrl+Alt+Space", "Ctrl+Alt+V", "Ctrl+Alt+O"} {
+		if !f.has(acc) {
+			t.Fatalf("losing the keyboard left %q unregistered", acc)
+		}
+	}
+	if a.win != nil {
+		onMain(a.win.Destroy)
+		a.win = nil
+	}
+}
