@@ -231,7 +231,11 @@ MyGo reads the application package from `mygo.json`; the build command above als
 
 ## License
 
-The code is MIT — see [LICENSE](LICENSE). The ShelfU name, app icon and menu-bar icon are not covered by the MIT License.
+ShelfU's source code is licensed under the MIT License (see [LICENSE](LICENSE)).
+
+The ShelfU name, app icon, menu-bar icon, sea otter mascot, and associated brand artwork, including character variants and original design files, are excluded from the MIT License.
+
+Users may install and use official ShelfU releases. Separate extraction, reproduction, modification, or redistribution of these brand assets requires authorization.
 
 ---
 
@@ -436,4 +440,8 @@ MyGo 从 `mygo.json` 读取应用入口；上面的构建命令也会生成正�
 
 ## 许可
 
-代码采用 MIT 许可，见 [LICENSE](LICENSE)。ShelfU 的名称、应用图标和菜单栏图标不在 MIT 许可范围内。
+ShelfU 的源代码采用 MIT 许可证，详见 [LICENSE](LICENSE)。
+
+ShelfU 的品牌名称、应用图标、菜单栏图标、海獭品牌角色及其相关视觉素材（包括不同表情、姿态和原始设计文件）不属于 MIT 许可证的授权范围。
+
+用户可以正常安装和使用官方发布的 ShelfU 应用，但未经授权，不得将上述品牌素材提取后用于其他产品或独立复制、修改和再分发。
