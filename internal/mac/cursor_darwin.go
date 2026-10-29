@@ -80,6 +80,9 @@ func installPanelCursor(window id) error {
 	if window == 0 {
 		return nil
 	}
+	if err := Init(); err != nil {
+		return err
+	}
 	view := send(window, "contentView")
 	if view == 0 {
 		return errors.New("mac: panel cursor: window has no content view")
@@ -87,17 +90,18 @@ func installPanelCursor(window id) error {
 	if getAssocObject(view, unsafe.Pointer(&assocCursorOwner)) != 0 {
 		return nil
 	}
-	if err := Init(); err != nil {
-		return err
-	}
 	cursorBridgeOnce.Do(func() {
 		purego.RegisterFunc(&msgInitTrackingArea, msgSendAddr)
 		purego.RegisterFunc(&msgAddTrackingArea, msgSendAddr)
 	})
 	owner := newCursorOwner()
 	if owner == 0 {
-		return cursorOwnerErr
+		if cursorOwnerErr != nil {
+			return cursorOwnerErr
+		}
+		return errors.New("mac: panel cursor: could not create the owner")
 	}
+	defer send(owner, "release")
 	area := msgInitTrackingArea(send(class("NSTrackingArea"), "alloc"),
 		sel("initWithRect:options:owner:userInfo:"), NSRect{}, panelCursorOptions, owner, 0)
 	if area == 0 {

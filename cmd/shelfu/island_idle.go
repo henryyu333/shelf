@@ -102,7 +102,7 @@ func (a *shelf) openIdleIsland(pl idlePlacement) *idleIslandWindow {
 	}
 	w.SetVisibleOnAllWorkspaces(true)
 	h := w.NativeHandle()
-	mac.ConfigureNotchWindow(h)
+	mac.ConfigureOverlayWindow(h)
 	// The capsule is a picture: the resident window handles the pointer
 	// and the global mouse-down observer moves it here on a press.
 	mac.SetOverlayAcceptsMouse(h, false)

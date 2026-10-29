@@ -70,6 +70,9 @@ func TestNotchPanelDeclaresTheArrowCursor(t *testing.T) {
 			ConfigureNotchWindow(uintptr(panel))
 			// A second configure must not stack a second area.
 			ConfigureNotchWindow(uintptr(panel))
+			// The basket/passive-capsule configuration shares overlay
+			// behavior but must not claim the panel's pointer.
+			ConfigureOverlayWindow(uintptr(stock))
 		})
 		view := send(panel, "contentView")
 		if view == 0 {
@@ -89,6 +92,16 @@ func TestNotchPanelDeclaresTheArrowCursor(t *testing.T) {
 		if n, _ := cursorAreas(send(stock, "contentView")); n != 0 {
 			return fmt.Errorf("an unrelated panel got %d cursor areas", n)
 		}
+		withPool(func() {
+			text := send(class("NSCursor"), "IBeamCursor")
+			send(text, "set")
+			SetOverlayAcceptsMouse(uintptr(stock), false)
+			SetOverlayAcceptsMouse(uintptr(stock), true)
+			SetWindowLevel(uintptr(stock), nsStatusWindowLevel+1)
+			if send(class("NSCursor"), "currentCursor") != text {
+				t.Error("a sibling overlay replaced its own cursor with the panel's")
+			}
+		})
 		// The owner answers cursorUpdate: with the arrow, whatever the
 		// pointer carried a moment before.
 		owner := getAssocObject(view, unsafe.Pointer(&assocCursorOwner))

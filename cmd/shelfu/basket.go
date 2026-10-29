@@ -92,7 +92,7 @@ func (a *shelf) showBasket(p mygo.Point) {
 	})
 	a.basket.win = w
 	w.SetVisibleOnAllWorkspaces(true)
-	mac.ConfigureNotchWindow(w.NativeHandle())
+	mac.ConfigureOverlayWindow(w.NativeHandle())
 	mac.SetWindowFrame(w.NativeHandle(), a.basket.frame.X, a.basket.frame.Y, a.basket.frame.Width, a.basket.frame.Height)
 	w.OnClose(func(e *mygo.CloseEvent) {
 		// A system close (Space switch, Exposé tidy-up) dismisses the card.

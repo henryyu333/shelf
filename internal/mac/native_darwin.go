@@ -625,6 +625,21 @@ func CollectionBehavior(window uintptr) uint {
 // suck it into the Spaces UI), and returning constrainFrameRect unchanged
 // are what actually put a drop target on the top edge.
 func ConfigureNotchWindow(window uintptr) {
+	ConfigureOverlayWindow(window)
+	if window == 0 || Init() != nil {
+		return
+	}
+	withPool(func() {
+		if err := installPanelCursor(id(window)); err != nil {
+			log.Printf("面板指针: %v", err)
+		}
+	})
+}
+
+// ConfigureOverlayWindow applies the shared nonactivating overlay policy
+// without claiming the pointer. Baskets and passive display capsules use
+// it; only ConfigureNotchWindow installs the panel's cursor tracking area.
+func ConfigureOverlayWindow(window uintptr) {
 	if window == 0 {
 		return
 	}
@@ -668,12 +683,6 @@ func ConfigureNotchWindow(window uintptr) {
 		}
 		send(w, "setIgnoresMouseEvents:", 0)
 		registerOverlayDropTypes(w)
-		// The panel keeps the arrow while the pointer is on it even
-		// though it is never the active app: the window underneath must
-		// not leave its own I-beam or zoom cursor behind.
-		if err := installPanelCursor(w); err != nil {
-			log.Printf("面板指针: %v", err)
-		}
 	})
 }
 

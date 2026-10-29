@@ -307,7 +307,9 @@ func SetOverlayAcceptsMouse(window uintptr, accept bool) {
 			send(w, "orderFrontRegardless")
 			// The pointer is already standing still on the panel, so no
 			// cursorUpdate: will come: declare the arrow once here.
-			setArrowCursor()
+			if hasAssoc(send(w, "contentView"), &assocCursorOwner) {
+				setArrowCursor()
+			}
 		case !accept && !ignoring:
 			send(w, "setIgnoresMouseEvents:", 1)
 		}
@@ -425,7 +427,9 @@ func SetWindowLevel(window uintptr, level int) {
 		}
 		send(w, "setLevel:", uintptr(level))
 		send(w, "orderFrontRegardless")
-		setArrowCursor()
+		if hasAssoc(send(w, "contentView"), &assocCursorOwner) {
+			setArrowCursor()
+		}
 	})
 }
 
