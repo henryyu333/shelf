@@ -199,7 +199,6 @@ func (a *shelf) frameRoom(expW, expH float32) (w, h int) {
 type islandDisplay struct {
 	ID       int64
 	Bounds   mygo.Rectangle
-	Work     mygo.Rectangle // the visible frame the panel must fit in
 	HasNotch bool
 }
 
@@ -232,7 +231,7 @@ func idleIslandPlacements(displays []islandDisplay, current int64, style setting
 		if pos, ok := saved[islandSpotKey(d.ID)]; ok {
 			// The same clamp the resident island gets, so a capsule can
 			// never be restored off the screen it belongs to.
-			spot := clampIslandSpot(islandSpot{Centre: pos.X, Top: pos.Y}, d.Bounds, d.Work, islandTopGap)
+			spot := clampIslandSpot(islandSpot{Centre: pos.X, Top: pos.Y}, d.Bounds, islandTopGap)
 			frame.X = d.Bounds.X + spot.Centre - islandIdleW/2
 			frame.Y = d.Bounds.Y + spot.Top
 		}

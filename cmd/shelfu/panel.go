@@ -339,11 +339,19 @@ func (a *shelf) currentLevel() int {
 // the menu bar's height and keeps the sheet's 250 pt below that.
 func (a *shelf) sheetTop() int {
 	// The island floats below the screen's top edge; the hardware notch
-	// path starts at it. Clipboard search drops the whole shell below the
-	// menu bar, never above where the style already put it.
+	// path starts at it. A panel that grows upward moves the window's top
+	// above the island, so the anchor's local row gains that offset.
 	top := a.islandTop
+	if a.island {
+		top += a.y - a.frameTop()
+	}
 	if a.focusMode {
-		top = max(top, max(a.topInset, menuBarMinH)+headerTopGap)
+		focusTop := max(a.topInset, menuBarMinH) + headerTopGap
+		if a.island {
+			// The search drop is measured from the screen's top edge.
+			focusTop += a.y - a.frameTop()
+		}
+		top = max(top, focusTop)
 	}
 	return top
 }
@@ -707,13 +715,17 @@ func (a *shelf) view(c *ui.Context) {
 	// syncWindowFrame）：壳水平居中、顶端贴齐窗口顶边，探头才能从硬件
 	// 刘海里长出来，而不是浮在菜单栏下方。窗口宽度含两侧耳角（earR），
 	// 这里画出的耳角任何一帧都不会被裁。
-	top := float32(a.sheetTop())
+	// A panel that grows upward eases its bottom edge from the island's
+	// own onto the panel's placed one while the shell springs open, so the
+	// drawn box starts at the island and rises onto the panel's box.
+	top := a.shellTopLocal(shellH, openK)
 	corner := float32(overviewRadius) + float32(sheetRadius-overviewRadius)*levelK
 	if a.snap.panel || a.snap.drawn {
 		corner = snapGhostR * 2 // 24: the design's snap panel corners
 	}
+	shift := float32(a.shellCentreX(openK) - a.stripCenter())
 	zone.Draw(func(p *ui.Painter, r ui.Rect) {
-		x0 := (r.W - shellW) / 2
+		x0 := (r.W-shellW)/2 + shift
 		x1 := x0 + shellW
 		y0 := top
 		y1 := top + shellH
@@ -753,8 +765,20 @@ func (a *shelf) view(c *ui.Context) {
 		// never drawn twice. levelK only sizes the shell; the content of
 		// the overview and of a page share one transition timeline (see
 		// pageBody), clipped by the shell as it grows or shrinks.
+		// An upward panel is pinned to the shell's bottom edge instead: its
+		// content block is bottom-aligned there and as tall as the level's
+		// own box (the overview's 156, the sheet's 250), so the settled
+		// overview keeps its band under the shell's top edge instead of
+		// leaving it above the island, and the growing shell uncovers the
+		// block from the bottom edge upward. That edge is the island's
+		// while the panel has room below it, and the panel's clamped bottom
+		// when the work area lifts the panel off the island.
 		clip := ui.Column(c.Key("panel-clip")).Width(shellW).Height(shellH).Clip().
 			AlignItems(ui.Center).Margin(top, 0, 0, 0)
+		// A panel clamped away from the island's axis moves with its shell;
+		// the transform keeps the layout, the painting and the hit test in
+		// one place.
+		clip.Translate(shift, 0)
 		reduce := c.Preferences().ReduceMotion
 		reveal := contentK
 		if !a.visible && closeK > 0 {
@@ -764,18 +788,44 @@ func (a *shelf) view(c *ui.Context) {
 		if a.visible && !reduce {
 			scale = 0.96 + 0.04*contentK
 		}
+		up := a.shellUp()
+		contentH := float32(sheetH)
+		if up {
+			contentH = a.panelContentH(levelK)
+		}
 		clip.Children(func() {
-			outer := ui.Column(c.Key("panel-frame")).Absolute().Top(0).Left(0).Right(0).
-				Height(sheetH).AlignItems(ui.Center).Opacity(reveal)
+			outer := ui.Column(c.Key("panel-frame")).Absolute().Left(0).Right(0).
+				Height(contentH).AlignItems(ui.Center).Opacity(reveal)
+			if up {
+				// The block's bottom edge stays on the shell's; whatever
+				// the shell has not uncovered yet is cropped at its top.
+				outer = outer.Bottom(0)
+			} else {
+				outer = outer.Top(0)
+			}
 			outer.Children(func() {
 				inner := ui.Column(c.Key("panel")).Width(sheetW).Height(sheetH)
+				innerH := float32(sheetH)
 				if a.snap.panel || a.snap.drawn {
 					// The arrangement panel is its own box inside the same
 					// shell; it never draws the page frame.
 					inner = inner.Width(snapW).Height(snapH)
+					innerH = snapH
+				}
+				if up {
+					// The block keeps its own fixed layout inside the
+					// level's box: the shell crops it, so nothing inside
+					// shrinks to fit the shorter box.
+					inner = inner.Shrink(0)
 				}
 				if !reduce && scale != 1 {
-					inner.TransformOrigin(0.5, 0).Scale(scale, scale)
+					originY := float32(0)
+					if up {
+						// Unfold from the island edge: the block's bottom
+						// edge, contentH into the fixed layout.
+						originY = contentH / innerH
+					}
+					inner.TransformOrigin(0.5, originY).Scale(scale, scale)
 				}
 				inner.Children(func() {
 					if a.snap.panel || a.snap.drawn {

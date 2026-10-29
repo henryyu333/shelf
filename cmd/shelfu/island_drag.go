@@ -3,7 +3,6 @@
 package main
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/egoist/mygo"
@@ -18,9 +17,11 @@ import (
 // full of controls. The place is saved once, on the release.
 //
 // Every screen coordinate the shelf draws, hits or drops into comes from
-// two anchors — stripCenter() and the window's top edge a.y — so moving
-// those two moves the shell, the panel, the drop band, the snap hot zones,
-// the completion capsule and the live activities together.
+// two anchors — stripCenter() and the island's top edge (a.y plus the
+// style's row) — so moving those two moves the shell, the drop band, the
+// snap hot zones, the completion capsule and the live activities together.
+// The opened panel is placed from the same two anchors (panelSpot): below
+// the island when the screen has room, above it when it does not.
 
 const islandDragStart = 4 // a press that travels this far is a move, not a tap
 
@@ -39,33 +40,27 @@ type islandPress struct {
 	grabY  int // ...and down from the shell's top edge
 }
 
-// islandPanelRoom is the box the opened panel needs, the opening spring's
-// overshoot included: the island must leave that much room wherever it is
-// dropped, or the panel would open partly off screen.
-func islandPanelRoom() (w, h int) {
-	return sheetW + int(math.Ceil(sheetW*panelOpenOvershoot)),
-		sheetH + int(math.Ceil(sheetH*panelOpenOvershoot))
-}
+// islandHoverH is how tall the closed island can draw: the idle capsule
+// plus the hover row below it (the peek chevron). The island keeps that
+// much room below its top so a hover never hangs off the screen.
+const islandHoverH = islandIdleH + peekBody
 
-// clampIslandSpot holds a dragged island on its display: the shell's top
+// clampIslandSpot holds a dragged island inside its display's whole box:
+// the capsule and the hover row below it stay on the screen, and the top
 // never rises above defTop (the row the style rests on — below the camera
-// housing, or the 7pt gap under a bare screen's top edge), and the panel it
-// opens stays whole inside work, horizontally as well as down. bounds and
-// work are screen rectangles; s and the result are display-relative. Pure;
-// unit-tested.
-func clampIslandSpot(s islandSpot, bounds, work mygo.Rectangle, defTop int) islandSpot {
-	if work.Width <= 0 || work.Height <= 0 {
-		work = bounds
-	}
-	pw, ph := islandPanelRoom()
-	// The panel is centred on the shell and hangs from the shell's top.
-	minX := work.X - bounds.X + pw/2
-	maxX := work.X + work.Width - bounds.X - pw/2
+// housing, or the 7pt gap under a bare screen's top edge). Neither the
+// panel nor the visible frame bounds the island: the panel is what has to
+// fit the work area, and it lifts off the island when the Dock covers the
+// bottom rows. bounds is the display's screen rectangle; s and the result
+// are display-relative. Pure; unit-tested.
+func clampIslandSpot(s islandSpot, bounds mygo.Rectangle, defTop int) islandSpot {
+	minX := islandIdleW / 2
+	maxX := bounds.Width - islandIdleW/2
 	minY := defTop
-	maxY := work.Y + work.Height - bounds.Y - ph
+	maxY := bounds.Height - islandHoverH
 	if maxX < minX {
-		// A visible area narrower than the panel: one valid centre.
-		minX = work.X + work.Width/2 - bounds.X
+		// A screen narrower than the capsule: one valid centre.
+		minX = bounds.Width / 2
 		maxX = minX
 	}
 	if maxY < minY {
@@ -121,7 +116,7 @@ func (a *shelf) placeIslandAxis() {
 	if !ok {
 		return
 	}
-	spot := clampIslandSpot(islandSpot{Centre: pos.X, Top: pos.Y}, a.dispBounds, a.workArea(), a.islandTop)
+	spot := clampIslandSpot(islandSpot{Centre: pos.X, Top: pos.Y}, a.dispBounds, a.islandTop)
 	def := a.defaultIslandSpot()
 	a.islandDX, a.islandDY = spot.Centre-def.Centre, spot.Top-def.Top
 	a.y += a.islandDY
@@ -136,7 +131,7 @@ func (a *shelf) moveIslandTo(centre, top int) {
 		return
 	}
 	spot := clampIslandSpot(islandSpot{Centre: centre - a.dispBounds.X, Top: top - a.dispBounds.Y},
-		a.dispBounds, a.workArea(), a.islandTop)
+		a.dispBounds, a.islandTop)
 	def := a.defaultIslandSpot()
 	dx, dy := spot.Centre-def.Centre, spot.Top-def.Top
 	if dx == a.islandDX && dy == a.islandDY {
@@ -153,7 +148,7 @@ func (a *shelf) moveIslandTo(centre, top int) {
 // moves the shell without it jumping out from under the pointer.
 func (a *shelf) beginIslandPress(p mygo.Point) {
 	r := a.islandRect()
-	top := a.y + a.sheetTop()
+	top := a.frameTop() + a.sheetTop()
 	a.islandPress = islandPress{
 		active: true,
 		at:     p,

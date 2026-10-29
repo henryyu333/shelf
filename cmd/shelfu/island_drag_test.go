@@ -67,8 +67,6 @@ func dragIslandTick(t *testing.T, a *shelf, p mygo.Point, down bool) {
 
 func TestClampIslandSpot(t *testing.T) {
 	bounds := mygo.Rectangle{X: 100, Y: 50, Width: 1440, Height: 900}
-	work := mygo.Rectangle{X: 100, Y: 75, Width: 1440, Height: 850}
-	pw, ph := islandPanelRoom()
 	def := 38
 	for _, tt := range []struct {
 		name string
@@ -77,28 +75,37 @@ func TestClampIslandSpot(t *testing.T) {
 	}{
 		{"a spot with room stays", islandSpot{Centre: 700, Top: 300}, islandSpot{Centre: 700, Top: 300}},
 		{"the shell stops at its default row", islandSpot{Centre: 700, Top: -400}, islandSpot{Centre: 700, Top: def}},
-		{"the panel's bottom stops at the work area", islandSpot{Centre: 700, Top: 5000}, islandSpot{Centre: 700, Top: work.Y + work.Height - bounds.Y - ph}},
-		{"the panel's left edge stops at the work area", islandSpot{Centre: -1000, Top: 300}, islandSpot{Centre: work.X - bounds.X + pw/2, Top: 300}},
-		{"the panel's right edge stops at the work area", islandSpot{Centre: 9000, Top: 300}, islandSpot{Centre: work.X + work.Width - bounds.X - pw/2, Top: 300}},
+		{"the hover row stops at the screen's bottom", islandSpot{Centre: 700, Top: 5000},
+			islandSpot{Centre: 700, Top: bounds.Height - islandHoverH}},
+		{"the capsule's left edge stops at the screen", islandSpot{Centre: -1000, Top: 300},
+			islandSpot{Centre: islandIdleW / 2, Top: 300}},
+		{"the capsule's right edge stops at the screen", islandSpot{Centre: 9000, Top: 300},
+			islandSpot{Centre: bounds.Width - islandIdleW/2, Top: 300}},
 	} {
-		if got := clampIslandSpot(tt.in, bounds, work, def); got != tt.want {
+		if got := clampIslandSpot(tt.in, bounds, def); got != tt.want {
 			t.Errorf("%s: clamp = %+v, want %+v", tt.name, got, tt.want)
 		}
 	}
 	// The island may sit on its default row but never above it: the row is
 	// the menu bar / the housing's clearance.
-	if got := clampIslandSpot(islandSpot{Centre: 700, Top: def - 1}, bounds, work, def); got.Top != def {
+	if got := clampIslandSpot(islandSpot{Centre: 700, Top: def - 1}, bounds, def); got.Top != def {
 		t.Errorf("a spot above the default row clamped to top %d, want %d", got.Top, def)
 	}
-	// A visible area narrower than the panel has exactly one centre.
-	narrow := mygo.Rectangle{Width: 300, Height: 900}
-	if got := clampIslandSpot(islandSpot{Centre: 5, Top: 40}, narrow, narrow, 7); got.Centre != 150 || got.Top != 40 {
-		t.Errorf("a display narrower than the panel clamped to %+v, want centre 150 top 40", got)
+	// The Dock's rows belong to the island: only the screen bounds it, and
+	// the panel finds its own place in the work area.
+	bottom := islandSpot{Centre: 700, Top: bounds.Height - islandHoverH}
+	if got := clampIslandSpot(bottom, bounds, def); got != bottom {
+		t.Errorf("the bottom row was clamped away: %+v -> %+v", bottom, got)
 	}
-	// A visible area shorter than the panel keeps the shell's own row.
+	// A screen narrower than the capsule has exactly one centre.
+	narrow := mygo.Rectangle{Width: 80, Height: 900}
+	if got := clampIslandSpot(islandSpot{Centre: 5, Top: 40}, narrow, 7); got.Centre != 40 || got.Top != 40 {
+		t.Errorf("a display narrower than the capsule clamped to %+v, want centre 40 top 40", got)
+	}
+	// A screen shorter than the capsule still keeps its own row.
 	short := mygo.Rectangle{Width: 1440, Height: 100}
-	if got := clampIslandSpot(islandSpot{Centre: 700, Top: 500}, short, short, 7); got.Top != 7 {
-		t.Errorf("a display shorter than the panel clamped to top %d, want 7", got.Top)
+	if got := clampIslandSpot(islandSpot{Centre: 700, Top: 500}, short, 7); got.Top != 52 {
+		t.Errorf("a display shorter than the capsule clamped to top %d, want 52", got)
 	}
 }
 
@@ -153,8 +160,9 @@ func TestIslandDragMovesAndSaves(t *testing.T) {
 }
 
 // The drag stops at the display's edges: the shell's top never rises above
-// its default row and the panel it opens stays inside the visible frame,
-// even when the pointer is dragged far past the bottom-right corner.
+// its default row, the island reaches the whole screen, and the panel it
+// opens stays inside the visible frame, even when the pointer is dragged far
+// past the bottom-right corner.
 func TestIslandDragClampsAtTheDisplayEdges(t *testing.T) {
 	syntheticDisplays(t, false, false)
 	a := islandShelf(false, settings.ShellStyleNotch)
@@ -163,15 +171,29 @@ func TestIslandDragClampsAtTheDisplayEdges(t *testing.T) {
 	a.fx.w, a.fx.h = islandIdleW, islandIdleH
 	a.mouseDown(true, 0, mygo.Point{X: 735, Y: islandTopGap + 10})
 	dragIslandTick(t, a, mygo.Point{X: 5000, Y: 5000}, true)
-	pw, ph := islandPanelRoom()
 	spot := a.islandSpotNow()
-	if spot.Centre != a.dispWork.X+a.dispWork.Width-pw/2 || spot.Top != a.dispWork.Y+a.dispWork.Height-ph {
-		t.Fatalf("clamped spot = %+v, want the work area's bottom-right corner", spot)
+	wantCentre := a.dispBounds.Width - islandIdleW/2
+	wantTop := a.dispBounds.Height - islandHoverH
+	if spot.Centre != wantCentre || spot.Top != wantTop {
+		t.Fatalf("clamped spot = %+v, want centre %d top %d", spot, wantCentre, wantTop)
 	}
-	panel := a.panelDropRect()
-	if panel.X < a.dispWork.X || panel.X+panel.Width > a.dispWork.X+a.dispWork.Width ||
-		panel.Y+ph < a.dispWork.Y || panel.Y+ph > a.dispWork.Y+a.dispWork.Height {
-		t.Fatalf("the panel the island would open at %+v leaves the work area %+v", panel, a.dispWork)
+	// The whole capsule plus its hover row is on the screen.
+	r := a.islandRect()
+	if r.X < a.dispBounds.X || r.X+r.Width > a.dispBounds.X+a.dispBounds.Width ||
+		r.Y+r.Height+peekBody > a.dispBounds.Y+a.dispBounds.Height {
+		t.Fatalf("the island %+v leaves the screen %+v", r, a.dispBounds)
+	}
+	// Its panel now grows upward and still sits whole inside the work area.
+	place := a.panelPlacement()
+	if !place.Up {
+		t.Fatalf("a panel at the bottom row did not grow upward: %+v", place)
+	}
+	if place.X < a.dispWork.X || place.X+place.W > a.dispWork.X+a.dispWork.Width ||
+		place.Y < a.dispWork.Y || place.Y+place.H > a.dispWork.Y+a.dispWork.Height {
+		t.Fatalf("the panel %+v leaves the work area %+v", place, a.dispWork)
+	}
+	if place.Y+place.H != r.Y+r.Height {
+		t.Fatalf("the upward panel's bottom %d does not sit on the island's %d", place.Y+place.H, r.Y+r.Height)
 	}
 	dragIslandTick(t, a, mygo.Point{X: 5000, Y: -5000}, true)
 	if a.y+islandTopGap < a.dispBounds.Y+islandTopGap || a.islandSpotNow().Top != islandTopGap {
@@ -347,8 +369,8 @@ func TestIslandSurfacesFollowTheMove(t *testing.T) {
 		t.Fatal("a pin dropped on the moved island does not return")
 	}
 	panel := a.panelDropRect()
-	if panel.X != a.stripCenter()-sheetW/2 || panel.Y != a.y {
-		t.Fatalf("the panel box %+v did not follow the island", panel)
+	if panel.X != a.stripCenter()-sheetW/2 || panel.Y != r.Y {
+		t.Fatalf("the panel box %+v did not follow the island %+v", panel, r)
 	}
 	dragIslandTick(t, a, mygo.Point{X: 600, Y: 500}, false)
 }

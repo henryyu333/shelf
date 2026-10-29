@@ -301,21 +301,20 @@ func TestIdleIslandPlacements(t *testing.T) {
 	}
 	// A capsule the user dragged on another screen waits there, clamped like
 	// the resident island: the stored spot (display-relative) is replayed,
-	// and one that would hang the panel off the screen pulls back in.
+	// and one that would hang the capsule off the screen pulls back in.
 	saved := map[string]settings.IslandPos{
 		islandSpotKey(2): {X: 300, Y: 420},
 		islandSpotKey(3): {X: -500, Y: 0},
 	}
 	moved := idleIslandPlacements(displays, 1, settings.ShellStyleNotch, saved)
-	pw, _ := islandPanelRoom()
 	if len(moved) != 2 {
 		t.Fatalf("dragged placements = %+v, want two capsules", moved)
 	}
 	if f := moved[0].Frame; f.X != 1470+300-islandIdleW/2 || f.Y != 420 {
 		t.Fatalf("dragged capsule = %+v, want display 2 at (300, 420)", f)
 	}
-	if f := moved[1].Frame; f.X != pw/2-islandIdleW/2 || f.Y != 956+islandTopGap {
-		t.Fatalf("clamped capsule = %+v, want the panel's left edge and the default row", f)
+	if f := moved[1].Frame; f.X != 0 || f.Y != 956+islandTopGap {
+		t.Fatalf("clamped capsule = %+v, want the capsule's left edge on the screen and the default row", f)
 	}
 }
 

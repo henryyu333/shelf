@@ -80,18 +80,35 @@ func (a *shelf) desiredFrame() mygo.Rectangle {
 	if a.visible || closing {
 		if closing {
 			// Follow the drawn shell through its fold, with room for the
-			// corners and two points below the bottom curve.
-			w := int(math.Ceil(float64(a.fx.w))) + 2*ears
-			h := int(a.fx.h+0.5) + top + 2
-			if a.fb.up(time.Now()) {
-				// Folding into the capsule: the shell may grow wider or
-				// taller than the panel sliver it starts from. No glow
-				// reaches past it anymore, so the room is the shell plus
-				// its corners, shake and overshoot only.
+			// corners and two points below the bottom curve. The shell
+			// rides the animated axis (shellCentreX), so a panel clamped
+			// off the island's line folds back off-centre too: both sides
+			// hold its own offset until it reaches the island. An upward
+			// panel grows out of the island's bottom, so the frame reaches
+			// from the highest top it draws down to just under the island,
+			// even when the work area lifted the panel's own bottom off it.
+			w := max(int(math.Ceil(float64(a.fx.w)))+2*ears,
+				frameCoverX(a.stripCenter(), a.shellCentreX(a.fx.openK), a.fx.w, ears))
+			fold := a.fb.up(time.Now())
+			if fold {
+				// Folding into the capsule: the shell may grow wider than
+				// the panel sliver it starts from. No glow reaches past it
+				// anymore, so the room is the shell plus its corners, shake
+				// and overshoot only.
 				w = max(w, a.capsuleFrameW())
+			}
+			y := a.frameTop()
+			h := int(a.fx.h+0.5) + top + 2
+			if a.shellUp() {
+				// frameTop already reaches up for a capsule fold taller
+				// than the drawn shell; the frame ends under the island,
+				// whose rows the shell grew out of even when the Dock
+				// lifted the panel off them.
+				h = a.upShellFloor() - y
+			} else if fold {
 				h = max(h, top+a.capsuleBodyH()+2)
 			}
-			return mygo.Rectangle{X: a.stripCenter() - w/2, Y: a.y, Width: w, Height: h}
+			return mygo.Rectangle{X: a.stripCenter() - w/2, Y: y, Width: w, Height: h}
 		}
 		// The frame follows the level the panel is on, never the larger of
 		// the two: an island opening on the sheet's box laid a 451pt
@@ -104,15 +121,30 @@ func (a *shelf) desiredFrame() mygo.Rectangle {
 		// that has not moved, and the transparent columns beside the shell
 		// no longer take clicks anyway (overlayAcceptsMouse).
 		tw, th := a.panelBox()
+		place := a.panelPlacement()
 		w, roomH := a.frameRoom(tw, float32(th+float32(top)))
-		w = max(w, int(math.Ceil(float64(a.fx.w)))+2*ears)
+		// The frame is symmetric about the strip so the shell stays centred
+		// in its canvas; a panel clamped away from the island's axis widens
+		// both sides equally.
+		off := abs(place.X + place.W/2 - a.stripCenter())
+		w = max(w, 2*(off+place.W/2)+int(math.Ceil(float64(tw)*panelOpenOvershoot))+2*ears)
+		w = max(w, int(math.Ceil(float64(a.fx.w)))+2*ears,
+			frameCoverX(a.stripCenter(), a.shellCentreX(a.fx.openK), a.fx.w, ears))
 		// Once settled the height is the shell's exact box, so its
 		// transparent margin cannot swallow clicks below.
 		h := max(int(math.Ceil(float64(th)))+top, int(math.Ceil(float64(a.fx.h)))+top)
-		if a.fx.openMoving {
+		y := a.frameTop()
+		if a.shellUp() {
+			// The island's bottom is the shell's floor: frameTop already
+			// reaches up for a shell that overshoots its level or still
+			// shows the page while the overview folds back, and the frame
+			// ends two points under the island, which stays on screen even
+			// when the Dock lifted the panel's own bottom off it.
+			h = a.upShellFloor() - y
+		} else if a.fx.openMoving {
 			h = max(h, roomH)
 		}
-		return mygo.Rectangle{X: a.stripCenter() - w/2, Y: a.y, Width: w, Height: h}
+		return mygo.Rectangle{X: a.stripCenter() - w/2, Y: y, Width: w, Height: h}
 	}
 	// An incoming system drag shrinks the resident strip to the anchor's
 	// band: outside it ShelfU only shows a widened band-height hint, inside
@@ -252,8 +284,14 @@ func (a *shelf) syncMaterial() {
 		return
 	}
 	top := float64(a.sheetTop())
+	if a.shellUp() {
+		top = float64(a.shellTopLocal(a.fx.h, a.fx.openK))
+	}
+	// The frame is symmetric about the strip, so an upward panel clamped
+	// away from the island's axis shifts the material by the same delta.
+	dx := float64(a.shellCentreX(a.fx.openK) - a.stripCenter())
 	radius := materialCorner(a.fx.h, a.fx.levelK)
-	key := materialKey{win: a.winH, x: (fw - sw) / 2, y: fh - top - sh, w: sw, h: sh, r: radius, on: true}
+	key := materialKey{win: a.winH, x: (fw-sw)/2 + dx, y: fh - top - sh, w: sw, h: sh, r: radius, on: true}
 	if key == a.materialAt {
 		return
 	}
@@ -417,8 +455,16 @@ func (a *shelf) peekPillRect() mygo.Rectangle {
 	if (a.peeking || a.fb.drawn || a.fb.retracting || a.peekProgress > 0.01) && a.fx.w > 0 {
 		w, h = a.fx.w, a.fx.h
 	}
-	x := a.stripCenter() - int(w/2) + int(a.fx.shakeX)
-	return mygo.Rectangle{X: x, Y: a.y + a.sheetTop(), Width: int(w + 0.5), Height: int(h + 0.5)}
+	y, cx := a.frameTop()+a.sheetTop(), a.stripCenter()
+	if a.shellUp() {
+		// A peek or a completion capsule in flight on an upward panel is
+		// drawn at the animated shell, not at the island's anchor row: the
+		// pill's box follows the same top and axis the drawing uses.
+		y = a.frameTop() + int(math.Round(float64(a.shellTopLocal(h, a.fx.openK))))
+		cx = a.shellCentreX(a.fx.openK)
+	}
+	x := cx - int(w/2) + int(a.fx.shakeX)
+	return mygo.Rectangle{X: x, Y: y, Width: int(w + 0.5), Height: int(h + 0.5)}
 }
 
 func (a *shelf) overPeekPill(p mygo.Point) bool {
@@ -505,11 +551,15 @@ func (a *shelf) mouseDown(inside bool, button int, p mygo.Point) {
 	// drag; the arrangement panel follows it from here (snap.go).
 	a.snapPress(false, button, p)
 	menuBottom := a.notchY + max(36, a.notchH+4)
-	if a.island {
-		menuBottom = max(menuBottom, a.y+a.islandTop+islandIdleH)
-	}
 	inMenuBar := p.Y >= a.notchY && p.Y <= menuBottom
-	if a.visible && !a.dragging && !inMenuBar {
+	if a.island {
+		// The island may float far below the menu bar. Only the bar itself
+		// and the island's own capsule are the shell; the rows between them
+		// are the desktop's. A panel that grew upward sits above the
+		// island, so its box counts too.
+		inMenuBar = inMenuBar || insideRect(p, a.islandRect())
+	}
+	if a.visible && !a.dragging && !inMenuBar && !insideRect(p, a.panelDropRect()) {
 		a.hide(hidePassive)
 	}
 }
@@ -595,16 +645,17 @@ func (a *shelf) overlayAcceptsMouse() bool {
 	// still pointer produces no move event to re-ask with. So the shape the
 	// state settles at counts too: a press that lands where the shell is
 	// about to be must reach ShelfU, not the window underneath.
-	tw, th, tl := a.settledShell()
-	return a.overShellShape(p, tw, th, tl, a.fx.shakeX)
+	tw, th, tl, tk := a.settledShell()
+	return a.overShellShapeAt(p, tw, th, tl, a.fx.shakeX, tk)
 }
 
 // settledShell is the shell the current state is heading for: the level's
 // box while the panel is open, the peek shape (wings, drop pill, completion
 // capsule, chevron) while it is closed. levelK is the drawn corner's level
-// progress at rest, so the hit shape rounds exactly like the settled frame.
-func (a *shelf) settledShell() (w, h, levelK float32) {
-	var openK, peekK float32
+// progress at rest and openK the axis the shell settles on, so the hit shape
+// rounds and sits exactly like the settled frame.
+func (a *shelf) settledShell() (w, h, levelK, openK float32) {
+	var peekK float32
 	if a.visible {
 		openK = 1
 	}
@@ -616,7 +667,7 @@ func (a *shelf) settledShell() (w, h, levelK float32) {
 	}
 	pw, ph := a.peekSize()
 	w, h = a.shellSize(openK, levelK, peekK, pw, ph)
-	return w, h, levelK
+	return w, h, levelK, openK
 }
 
 // The pointer gate's sources are installed once per process and fan out to
@@ -736,21 +787,33 @@ func (a *shelf) syncPointerGate() {
 // top-left origin. The shell is centred on stripCenter and hangs from
 // a.y + sheetTop() in the window, exactly as view() draws it.
 func (a *shelf) overShell(p mygo.Point) bool {
-	return a.overShellShape(p, a.fx.w, a.fx.h, a.fx.levelK, a.fx.shakeX)
+	return a.overShellShapeAt(p, a.fx.w, a.fx.h, a.fx.levelK, a.fx.shakeX, a.fx.openK)
 }
 
-// overShellShape is overShell for an explicit shell: w×h, its bottom
-// corner rounded by the island/sheet radius at levelK, shifted by shakeX.
+// overShellShape is overShell for an explicit shell drawn at the current
+// open fraction.
 func (a *shelf) overShellShape(p mygo.Point, w, h, levelK, shakeX float32) bool {
+	return a.overShellShapeAt(p, w, h, levelK, shakeX, a.fx.openK)
+}
+
+// overShellShapeAt is overShell for an explicit shell: w×h, its bottom
+// corner rounded by the island/sheet radius at levelK, shifted by shakeX,
+// on the axis the shell has at openK. The drawn shell spreads from the
+// island's axis toward the panel's exactly as view() draws it, so a caller
+// holding the shape a state settles at passes its open fraction too.
+func (a *shelf) overShellShapeAt(p mygo.Point, w, h, levelK, shakeX, openK float32) bool {
 	if w <= 0 || h <= 0 {
 		return false
 	}
-	top := float64(a.y + a.sheetTop())
+	top := float64(a.frameTop() + a.sheetTop())
+	if a.shellUp() {
+		top = float64(a.frameTop()) + float64(a.shellTopLocal(h, openK))
+	}
 	y := float64(p.Y) - top
 	if y < 0 || y >= float64(h) {
 		return false
 	}
-	cx := float64(a.stripCenter()) + float64(shakeX)
+	cx := float64(a.shellCentreX(openK)) + float64(shakeX)
 	x0, x1 := cx-float64(w)/2, cx+float64(w)/2
 	corner := float64(overviewRadius) + float64(sheetRadius-overviewRadius)*float64(levelK)
 	if a.island {
@@ -830,6 +893,18 @@ func (a *shelf) panelBox() (w, h float32) {
 		return sheetW, sheetH
 	}
 	return overviewW, overviewH
+}
+
+// panelContentH is the height of the content block the panel draws at level
+// progress levelK: the overview's 156 at rest, the sheet's 250 at level 2,
+// the arrangement panel's fixed 150. The shell interpolates its own height
+// with the same levelK, so an upward block and its shell keep one top edge
+// through a level change and only the shell's bottom edge moves.
+func (a *shelf) panelContentH(levelK float32) float32 {
+	if a.snap.panel || a.snap.drawn {
+		return snapH
+	}
+	return float32(overviewH) + float32(sheetH-overviewH)*levelK
 }
 
 func (a *shelf) show(edge bool) {
@@ -1207,5 +1282,6 @@ func (a *shelf) stripCenter() int {
 // edge. A dragged island moves the panel, so these checks must not read the
 // window's default left edge.
 func (a *shelf) panelDropRect() mygo.Rectangle {
-	return mygo.Rectangle{X: a.stripCenter() - sheetW/2, Y: a.y, Width: sheetW, Height: a.panelH()}
+	p := a.panelPlacement()
+	return mygo.Rectangle{X: p.X, Y: p.Y, Width: p.W, Height: p.H}
 }

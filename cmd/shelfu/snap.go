@@ -366,7 +366,7 @@ func (a *shelf) snapTick(now time.Time, p mygo.Point, fileDrag bool) {
 				return
 			}
 			trigger := snapTriggerRect(a.snapAnchor())
-			panel := snapPanelRect(a.stripCenter(), a.y+a.sheetTop())
+			panel := a.snapPanelBox()
 			if !s.panel && insideRect(p, trigger) {
 				a.openSnapPanel()
 			}
@@ -393,7 +393,7 @@ func (a *shelf) snapHover(p mygo.Point) {
 	prev := s.hot
 	s.hot = -1
 	if s.trusted && s.win != nil && s.win.Valid() {
-		s.hot = snapHotSlot(snapPanelRect(a.stripCenter(), a.y+a.sheetTop()), p)
+		s.hot = snapHotSlot(a.snapPanelBox(), p)
 	}
 	if s.hot != prev {
 		// The hovered tile is the panel's only changing picture while the
@@ -424,7 +424,7 @@ func (a *shelf) snapRelease(p mygo.Point) {
 		if f, ok := s.win.Frame(); ok {
 			s.frame = f
 		}
-		target = snapHotSlot(snapPanelRect(a.stripCenter(), a.y+a.sheetTop()), p)
+		target = snapHotSlot(a.snapPanelBox(), p)
 	}
 	resizeErr, moveErr := false, false
 	resize := s.resize
@@ -800,4 +800,15 @@ func (a *shelf) snapPermissionRow(c *ui.Context) {
 			}
 		})
 	})
+}
+
+// snapPanelBox is the arrangement panel's on-screen box: centred on the
+// island's axis when it fits, clamped into the visible frame otherwise,
+// and growing upward when the island is too low for it.
+func (a *shelf) snapPanelBox() mygo.Rectangle {
+	if !a.island {
+		return snapPanelRect(a.stripCenter(), a.frameTop()+a.sheetTop())
+	}
+	p := panelSpot(a.stripCenter(), a.anchorScreenTop(), islandIdleH, a.workArea(), snapW, snapH)
+	return mygo.Rectangle{X: p.X, Y: p.Y, Width: p.W, Height: p.H}
 }
