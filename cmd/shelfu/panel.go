@@ -1218,9 +1218,16 @@ func (a *shelf) dropBar(c *ui.Context, name, count, hint string) {
 
 // liveActivities are the modules with something under way, in module
 // order, at most chipMax: the band's left ear has room for two chips.
+// While the playing page is on screen its own controls and artwork show
+// the track, so the now-playing chip would repeat it; the remaining
+// activities move up to fill the slot.
 func (a *shelf) liveActivities() []liveActivity {
 	var acts []liveActivity
+	onPlaying := a.tab == pagePlaying
 	for _, m := range a.modules {
+		if _, ok := m.(*nowPlayingModule); ok && onPlaying {
+			continue
+		}
 		if act, ok := m.(liveActivity); ok && act.live() {
 			acts = append(acts, act)
 			if len(acts) == chipMax {

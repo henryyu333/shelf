@@ -184,6 +184,38 @@ func TestNowPlayingChipDrawsTrackAndToggle(t *testing.T) {
 	}
 }
 
+// TestPlayingPageDropsThePlayerChip: on the playing page the artwork and
+// transport already show the track, so the band's right ear must not
+// repeat it with a chip. Other activities keep their place and move up;
+// leaving the page brings the chip back. A switch whose arrival page is
+// the playing page counts too.
+func TestPlayingPageDropsThePlayerChip(t *testing.T) {
+	s := newStubNowPlaying(t, true)
+	s.feed(t, `{"ok":true,"isPlaying":true,"appState":1,"title":"夜曲","artist":"周杰伦","duration":100,"elapsed":5}`)
+	job := &convertJob{target: toJPEG, started: time.Now().Add(-time.Second)}
+	a := &shelf{settings: settings.Settings{IslandNowPlaying: true}, level: 2, tab: pagePlaying}
+	a.modules = []module{s.mod, &converter{host: a, job: job}}
+	acts := a.liveActivities()
+	if len(acts) != 1 {
+		t.Fatalf("playing page activities = %d, want the conversion alone", len(acts))
+	}
+	if _, ok := acts[0].(*converter); !ok {
+		t.Fatalf("the first activity is %T, want the conversion", acts[0])
+	}
+	// Leaving the page restores the chip, in module order.
+	a.tab = pageTray
+	acts = a.liveActivities()
+	if len(acts) != 2 || acts[0] != liveActivity(s.mod) {
+		t.Fatalf("tray-page activities = %v, want the player first", acts)
+	}
+	// The arrival page decides during a switch, not the page fading out.
+	a.visible = true
+	a.startPageSwitch(pageTray, pagePlaying)
+	if acts := a.liveActivities(); len(acts) != 1 {
+		t.Fatalf("a switch to the playing page kept %d chips", len(acts))
+	}
+}
+
 func TestPeekGrowsIntoTheWingsForATrack(t *testing.T) {
 	a := &shelf{settings: settings.Settings{IslandNowPlaying: true}, notchW: 180, notchH: 32}
 	if w, h := a.peekSize(); w != 220 || h != 32+peekBody {
