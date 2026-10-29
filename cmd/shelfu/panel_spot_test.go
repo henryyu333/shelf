@@ -628,3 +628,18 @@ func TestDockReducedWorkAreaKeepsTheIslandOnScreen(t *testing.T) {
 		t.Fatalf("the panel for the island on the right screen's edge = %+v, want it inside the work area's right edge %d", side, right.X+right.Width)
 	}
 }
+
+// A centred fold retains the old odd-width native frame exactly. Extra
+// off-axis coverage must not round a default-position frame up by 1pt.
+func TestCenteredFoldKeepsExistingFrameWidth(t *testing.T) {
+	for _, tc := range []struct {
+		style settings.ShellStyle
+		width int
+	}{{settings.ShellStyleNotch, 249}, {settings.ShellStyleIsland, 225}} {
+		a := islandShelf(true, tc.style)
+		a.fx = shellMotion{w: 225, h: 100, openK: 0.5}
+		if frame := a.desiredFrame(); frame.Width != tc.width {
+			t.Errorf("%s centred fold width=%d, want legacy width %d", tc.style, frame.Width, tc.width)
+		}
+	}
+}

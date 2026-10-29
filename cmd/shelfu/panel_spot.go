@@ -71,6 +71,9 @@ func panelSpot(centre, anchorTop, anchorH int, work mygo.Rectangle, w, h int) pa
 // symmetric about the strip so the shell keeps its place in the canvas;
 // only the sides grow.
 func frameCoverX(centre, axis int, w float32, margin int) int {
+	if centre == axis {
+		return int(math.Ceil(float64(w))) + 2*margin
+	}
 	half := int(math.Ceil(float64(w)/2)) + margin
 	return 2 * (abs(axis-centre) + half)
 }
